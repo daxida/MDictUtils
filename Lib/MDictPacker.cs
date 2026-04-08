@@ -10,8 +10,58 @@ namespace Lib;
 // Reader, actually
 public static class MDictPacker
 {
+    // https://github.com/liuyug/mdict-utils/blob/64e15b99aca786dbf65e5a2274f85547f8029f2e/mdict_utils/writer.py#L509
+    public static D PackMddFile(string source)
+    {
+        D dictionary = [];
+        source = Path.GetFullPath(source);
+
+        if (File.Exists(source))
+        {
+            // Single file
+            long size = new FileInfo(source).Length;
+            string key = "\\" + Path.GetFileName(source);
+            if (Path.DirectorySeparatorChar != '\\')
+                key = key.Replace(Path.DirectorySeparatorChar, '\\');
+
+            dictionary.Add(new MDictEntry
+            {
+                Key = key,
+                Pos = 0,
+                Path = source,
+                Size = size
+            });
+        }
+        else if (Directory.Exists(source))
+        {
+            // Directory walk
+            string relpath = source;
+            foreach (var fpath in Directory.GetFiles(source, "*", SearchOption.AllDirectories))
+            {
+                long size = new FileInfo(fpath).Length;
+                string key = "\\" + Path.GetRelativePath(relpath, fpath);
+                if (Path.DirectorySeparatorChar != '\\')
+                    key = key.Replace(Path.DirectorySeparatorChar, '\\');
+
+                dictionary.Add(new MDictEntry
+                {
+                    Key = key,
+                    Pos = 0,
+                    Path = fpath,
+                    Size = size
+                });
+            }
+        }
+        else
+        {
+            throw new FileNotFoundException($"Path does not exist: {source}");
+        }
+
+        return dictionary;
+    }
+
     // https://github.com/liuyug/mdict-utils/blob/master/mdict_utils/writer.py#L425
-    public static D PackMdxTxt(string source, Encoding encoding = null, Action<int> callback = null, HashSet<string> keys = null)
+    public static D PackMdxTxt(string source, Encoding encoding = null)
     {
         encoding ??= Encoding.UTF8;
         D dictionary = [];
@@ -59,18 +109,14 @@ public static class MDictPacker
                         throw new Exception($"Error at line {lineNum}: {path}");
 
                     long size = offset - pos + nullLength;
-                    if (keys?.Contains(key) != false)
+                    dictionary.Add(new MDictEntry
                     {
-                        dictionary.Add(new MDictEntry
-                        {
-                            Key = key,
-                            Pos = pos,
-                            Path = path,
-                            Size = size
-                        });
-                    }
+                        Key = key,
+                        Pos = pos,
+                        Path = path,
+                        Size = size
+                    });
                     key = null;
-                    callback?.Invoke(1);
                 }
                 else if (key == null)
                 {

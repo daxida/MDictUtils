@@ -13,5 +13,7 @@ pip install mdict-utils
 - The skeleton of this repo was from [unit testing tutorial](https://docs.microsoft.com/dotnet/core/testing/unit-testing-with-dotnet-test)
 
 ### TODO
-- Support encoding mdd
-- Support basic reading operations for debug purposes
+- [x] Support encoding mdd
+- [ ] Support passing html as title/description
+- [ ] Remove all non-version-2.0 branches because noise
+- [ ] Support basic reading operations for debug purposes

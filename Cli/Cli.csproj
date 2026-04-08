@@ -9,4 +9,8 @@
     <ProjectReference Include="../Lib/Lib.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="System.CommandLine" Version="2.0.5" />
+  </ItemGroup>
+
 </Project>

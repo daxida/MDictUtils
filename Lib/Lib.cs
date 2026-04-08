@@ -82,6 +82,7 @@ internal class OffsetTableEntry
     public int KeyLen { get; set; }
     public long Offset { get; set; }
     public byte[] RecordNull { get; set; }
+    public bool IsMdd { get; set; }
 
     // This are sort of hidden in inheritance
     public long RecordSize { get; set; }
@@ -103,6 +104,7 @@ internal class OffsetTableEntry
                $"Offset={Offset}, " +
                $"RecordPos={RecordPos}, " +
                $"RecordSize={RecordSize}, " +
+               $"IsMdd='{IsMdd}', " +
                $"Key='{BytesToString(Key)}', " +
                $"KeyNull='{BytesToString(KeyNull)}', " +
                $"RecordNull='{BytesToString(RecordNull)}')";
@@ -265,17 +267,18 @@ internal class MdxRecordBlock(List<OffsetTableEntry> offsetTable, int compressio
         return [.. result];
     }
 
+    // rg: get_record_null
     // We overwrite "return entry.RecordNull"
     protected override byte[] GetBlockEntry(OffsetTableEntry entry, string version)
     {
         // Read record from the file and store it
-        byte[] record = ReadRecord(entry.FilePath, entry.RecordPos, (int)entry.RecordSize);
+        byte[] record = ReadRecord(entry.FilePath, entry.RecordPos, (int)entry.RecordSize, entry.IsMdd);
         entry.RecordNull = record;
         return record;
     }
 
     // Helper method: read from file and null-terminate
-    private static byte[] ReadRecord(string filePath, long pos, int size)
+    private static byte[] ReadRecord(string filePath, long pos, int size, bool isMdd)
     {
         if (size < 1) throw new ArgumentException("Size must be >= 1", nameof(size));
 
@@ -283,9 +286,26 @@ internal class MdxRecordBlock(List<OffsetTableEntry> offsetTable, int compressio
         using (var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read))
         {
             fs.Seek(pos, SeekOrigin.Begin);
-            int bytesRead = fs.Read(record, 0, size - 1); // read record content
-            record[bytesRead] = 0; // append null byte
+            if (isMdd)
+            {
+                // For MDD, just read the whole record
+                record = new byte[size];
+                int bytesRead = fs.Read(record, 0, size);
+                if (bytesRead < size)
+                {
+                    // Trim if fewer bytes were read
+                    Array.Resize(ref record, bytesRead);
+                }
+            }
+            else
+            {
+                // For MDX, read size-1 bytes and append null byte
+                record = new byte[size];
+                int bytesRead = fs.Read(record, 0, size - 1);
+                record[bytesRead] = 0; // null-terminate
+            }
         }
+        Console.WriteLine($"[ReadRecord] Record length: {record.Length}");
 
         return record;
     }
@@ -381,7 +401,10 @@ public class MDictWriter
     private readonly int _compressionType;
     private readonly string _version;
     private readonly Encoding _encoding;
+    // _python_encoding in the original
+    private readonly Encoding _innerEncoding;
     private readonly int _encodingLength;
+    private readonly bool _isMdd;
 
     private List<OffsetTableEntry> _offsetTable;
     private List<MdxKeyBlock> _keyBlocks;
@@ -400,7 +423,8 @@ public class MDictWriter
                       int blockSize = 65536,
                       string encoding = "utf8",
                       int compressionType = 2,
-                      string version = "2.0")
+                      string version = "2.0",
+                      bool isMdd = false)
     {
         _numEntries = dictionary.Count;
         _title = title;
@@ -408,23 +432,35 @@ public class MDictWriter
         _blockSize = blockSize;
         _compressionType = compressionType;
         _version = version;
+        _isMdd = isMdd;
 
         // Set encoding
         encoding = encoding.ToLower();
         Debug.Assert(encoding == "utf8");
-        if (encoding == "utf8" || encoding == "utf-8")
+        if (isMdd)
         {
-            _encoding = Encoding.UTF8;
-            _encodingLength = 1;
-        }
-        else if (encoding == "utf16" || encoding == "utf-16")
-        {
-            _encoding = Encoding.Unicode; // UTF-16 LE
+            _innerEncoding = Encoding.Unicode;
             _encodingLength = 2;
         }
         else
         {
-            throw new ArgumentException("Unknown encoding. Supported: utf8, utf16");
+
+            if (encoding == "utf8" || encoding == "utf-8")
+            {
+                _innerEncoding = Encoding.UTF8;
+                _encoding = Encoding.UTF8;
+                _encodingLength = 1;
+            }
+            else if (encoding == "utf16" || encoding == "utf-16")
+            {
+                _innerEncoding = Encoding.Unicode;
+                _encoding = Encoding.Unicode; // UTF-16 LE
+                _encodingLength = 2;
+            }
+            else
+            {
+                throw new ArgumentException("Unknown encoding. Supported: utf8, utf16");
+            }
         }
 
         if (version != "2.0" && version != "1.2")
@@ -465,38 +501,6 @@ public class MDictWriter
         Console.WriteLine("[Writer] Initialization complete.\n");
     }
 
-    // private void BuildOffsetTableBase(D dictionary)
-    // {
-    //     var items = dictionary.OrderBy(kvp => kvp.Key).ToList();
-    //
-    //     _offsetTable = new List<OffsetTableEntry>();
-    //     long offset = 0;
-    //
-    //     foreach (var item in items)
-    //     {
-    //         var keyEnc = _encoding.GetBytes(item.Key);
-    //         var keyNull = _encoding.GetBytes(item.Key + "\0");
-    //         var keyLen = keyEnc.Length / _encodingLength;
-    //
-    //         var recordNull = _encoding.GetBytes(item.Value + "\0");
-    //
-    //         _offsetTable.Add(new OffsetTableEntry
-    //         {
-    //             Key = keyEnc,
-    //             KeyNull = keyNull,
-    //             KeyLen = keyLen,
-    //             RecordNull = recordNull,
-    //             Offset = offset
-    //         });
-    //
-    //         offset += recordNull.Length;
-    //     }
-    //
-    //
-    //
-    //     _totalRecordLen = offset;
-    // }
-
     private void BuildOffsetTable(D dictionary)
     {
         // [!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~ ]+
@@ -506,8 +510,13 @@ public class MDictWriter
 
         items.Sort((a, b) =>
         {
-            string k1 = regexStrip.Replace(a.Key.ToLower(), "");
-            string k2 = regexStrip.Replace(b.Key.ToLower(), "");
+            string k1 = a.Key.ToLower();
+            string k2 = b.Key.ToLower();
+            if (!_isMdd)
+            {
+                k1 = regexStrip.Replace(k1, "");
+                k2 = regexStrip.Replace(k2, "");
+            }
 
             int cmp = string.Compare(k1, k2);
             if (cmp != 0) return cmp;
@@ -528,13 +537,12 @@ public class MDictWriter
 
         foreach (var item in items)
         {
-            Console.WriteLine($"dict item: {item}");
-            // _python_encoding = UTF8
-            var keyEnc = Encoding.UTF8.GetBytes(item.Key);
-            var keyNull = Encoding.UTF8.GetBytes(item.Key + "\0");
-            var keyLen = keyEnc.Length; // encoding_length = 1
+            // Console.WriteLine($"dict item: {item}");
+            var keyEnc = _innerEncoding.GetBytes(item.Key);
+            var keyNull = _innerEncoding.GetBytes(item.Key + "\0");
+            var keyLen = keyEnc.Length / _encodingLength;
 
-            var recordNull = Encoding.UTF8.GetBytes(item.Path);
+            var recordNull = _innerEncoding.GetBytes(item.Path);
 
             var tableEntry = new OffsetTableEntry
             {
@@ -545,7 +553,8 @@ public class MDictWriter
                 Offset = offset,
                 RecordSize = item.Size,
                 RecordPos = item.Pos,
-                FilePath = item.Path
+                FilePath = item.Path,
+                IsMdd = _isMdd,
             };
             _offsetTable.Add(tableEntry);
 
@@ -567,8 +576,7 @@ public class MDictWriter
         //             .Replace("\r", "")
         //             .Replace("\n", " ");
         //
-        //         if (valuePreview.Length > 40)
-        //             valuePreview = valuePreview.Substring(0, 40) + "...";
+        //         valuePreview = $"{valuePreview[..40]}...";
         //
         //         Console.WriteLine(
         //             $"[{index}] " +
@@ -645,12 +653,12 @@ public class MDictWriter
         return blocks;
     }
 
-    private void BuildKeyBlocks() => _keyBlocks = SplitBlocks<MdxKeyBlock>(
+    private void BuildKeyBlocks() => _keyBlocks = SplitBlocks(
             (entries, comp, ver) => new MdxKeyBlock(entries, comp, ver),
             (entry) => 8 + entry.KeyNull.Length
         );
 
-    private void BuildRecordBlocks() => _recordBlocks = SplitBlocks<MdxRecordBlock>(
+    private void BuildRecordBlocks() => _recordBlocks = SplitBlocks(
             (entries, comp, ver) => new MdxRecordBlock(entries, comp, ver),
             (entry) => entry.RecordSize
         );
@@ -693,36 +701,65 @@ public class MDictWriter
         const string encrypted = "No";
         const string registerByStr = "";
 
-        string headerString = string.Format(
-            "<Dictionary " +
-            "GeneratedByEngineVersion=\"{0}\" " +
-            "RequiredEngineVersion=\"{0}\" " +
-            "Encrypted=\"{1}\" " +
-            "Encoding=\"{2}\" " +
-            "Format=\"Html\" " +
-            "Stripkey=\"Yes\" " +
-            "CreationDate=\"{3}-{4}-{5}\" " +
-            "Compact=\"Yes\" " +
-            "Compat=\"Yes\" " +
-            "KeyCaseSensitive=\"No\" " +
-            "Description=\"{6}\" " +
-            "Title=\"{7}\" " +
-            "DataSourceFormat=\"106\" " +
-            "StyleSheet=\"\" " +
-            "Left2Right=\"Yes\" " +
-            "RegisterBy=\"{8}\" " +
-            "/>\r\n\0",
-            _version,
-            encrypted,
-            // _encoding,
-            "UTF-8",
-            DateTime.Today.Year,
-            DateTime.Today.Month,
-            DateTime.Today.Day,
-            HttpUtility.HtmlAttributeEncode(_description),
-            HttpUtility.HtmlAttributeEncode(_title),
-            registerByStr
-        );
+        string headerString;
+        if (_isMdd)
+        {
+            headerString = string.Format(
+                "<Library_Data " +
+                "GeneratedByEngineVersion=\"{0}\" " +
+                "RequiredEngineVersion=\"{0}\" " +
+                "Encrypted=\"{1}\" " +
+                "Encoding=\"\" " +
+                "Format=\"\" " +
+                "CreationDate=\"{2}-{3}-{4}\" " +
+                "KeyCaseSensitive=\"No\" " +
+                "Stripkey=\"No\" " +
+                "Description=\"{5}\" " +
+                "Title=\"{6}\" " +
+                "RegisterBy=\"{7}\" " +
+                "/>\r\n\0",
+                _version,
+                encrypted,
+                DateTime.Today.Year,
+                DateTime.Today.Month,
+                DateTime.Today.Day,
+                HttpUtility.HtmlAttributeEncode(_description),
+                HttpUtility.HtmlAttributeEncode(_title),
+                registerByStr
+            );
+        }
+        else
+        {
+            headerString = string.Format(
+                "<Dictionary " +
+                "GeneratedByEngineVersion=\"{0}\" " +
+                "RequiredEngineVersion=\"{0}\" " +
+                "Encrypted=\"{1}\" " +
+                "Encoding=\"{2}\" " +
+                "Format=\"Html\" " +
+                "Stripkey=\"Yes\" " +
+                "CreationDate=\"{3}-{4}-{5}\" " +
+                "Compact=\"Yes\" " +
+                "Compat=\"Yes\" " +
+                "KeyCaseSensitive=\"No\" " +
+                "Description=\"{6}\" " +
+                "Title=\"{7}\" " +
+                "DataSourceFormat=\"106\" " +
+                "StyleSheet=\"\" " +
+                "Left2Right=\"Yes\" " +
+                "RegisterBy=\"{8}\" " +
+                "/>\r\n\0",
+                _version,
+                encrypted,
+                "UTF-8",
+                DateTime.Today.Year,
+                DateTime.Today.Month,
+                DateTime.Today.Day,
+                HttpUtility.HtmlAttributeEncode(_description),
+                HttpUtility.HtmlAttributeEncode(_title),
+                registerByStr
+           );
+        }
         Console.WriteLine($"{headerString}");
         Console.WriteLine($"header str: {headerString.Length}");
 
