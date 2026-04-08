@@ -391,7 +391,6 @@ public class MDict
         int offset = 0;
         foreach (var (compSize, decompSize) in keyBlockInfoList)
         {
-            Console.WriteLine($"[DecodeKeyBlock] compSize {compSize} decompSize {decompSize}");
             byte[] block = new byte[compSize];
             // key_block_compressed[offset:offset+compSize]
             Array.Copy(keyBlockCompressed, offset, block, 0, compSize);
@@ -410,9 +409,8 @@ public class MDict
 
         uint info = BitConverter.ToUInt32(block, 0); // little-endian
         int compressionMethod = (int)(info & 0xF);
-        int encryptionMethod = (int)((info >> 4) & 0xF);
+        // int encryptionMethod = (int)((info >> 4) & 0xF);
         int encryptionSize = (int)((info >> 8) & 0xFF);
-        Console.WriteLine($"[DecodeBlock] {compressionMethod} {encryptionMethod} {encryptionSize}");
 
         // ---- adler32 (big-endian) ----
         byte[] adlerBytes = new byte[4];
@@ -463,7 +461,6 @@ public class MDict
             // Determine delimiter
             byte[] delimiter = _encoding == Encoding.Unicode ? [0x00, 0x00] : [0x00];
             int width = delimiter.Length;
-            Console.WriteLine($"[SplitKeyBlock] _encoding {_encoding} width {width}");
 
             // Find the end of the key text
             int i = keyStartIndex + _numberWidth;

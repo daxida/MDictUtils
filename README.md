@@ -24,6 +24,8 @@ Note that because the encoding/decoding depends on the current date, there will 
 - [x] Support file.mdx -x
   - [x] Write do-undo test into the testsuite
   - [x] Clean
+- [x] Support -m command
 - [ ] Support passing html as title/description
 - [ ] Remove all non-version-2.0 branches because noise
 - [ ] Support basic reading operations for debug purposes
+- [ ] Add LICENCE
