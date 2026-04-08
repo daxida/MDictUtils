@@ -12,55 +12,7 @@ using D = System.Collections.Generic.List<Lib.MDictEntry>;
 
 namespace Lib;
 
-// Some helper methods
-internal static class Common
-{
-    public static byte[] ToBigEndian(ulong value)
-    {
-        var bytes = BitConverter.GetBytes(value);
-        if (BitConverter.IsLittleEndian)
-            Array.Reverse(bytes);
-        return bytes;
-    }
-
-    public static byte[] ToBigEndian(uint value)
-    {
-        var bytes = BitConverter.GetBytes(value);
-        if (BitConverter.IsLittleEndian)
-            Array.Reverse(bytes);
-        return bytes;
-    }
-
-    public static byte[] ToBigEndian(ushort value)
-    {
-        var bytes = BitConverter.GetBytes(value);
-        if (BitConverter.IsLittleEndian)
-            Array.Reverse(bytes);
-        return bytes;
-    }
-
-    public static void PrintPythonStyle(byte[] data)
-    {
-        Console.WriteLine("        " + string.Join(" ", data.Select(b => b.ToString("X2"))));
-
-        string pythonStyle = "b'" + string.Concat(data.Select(b =>
-        {
-            if (b >= 0x20 && b <= 0x7E)
-            {
-                if (b == (byte)'\\' || b == (byte)'\'')
-                    return "\\" + (char)b;
-                else
-                    return ((char)b).ToString();
-            }
-            else
-            {
-                return "\\x" + b.ToString("x2");
-            }
-        })) + "'";
-
-        Console.WriteLine("        " + pythonStyle);
-    }
-}
+// Tbh this is the Writer part
 
 public class MDictEntry
 {
@@ -437,30 +389,21 @@ public class MDictWriter
         // Set encoding
         encoding = encoding.ToLower();
         Debug.Assert(encoding == "utf8");
-        if (isMdd)
+        if (isMdd || encoding == "utf16" || encoding == "utf-16")
         {
             _innerEncoding = Encoding.Unicode;
+            _encoding = Encoding.Unicode;
             _encodingLength = 2;
+        }
+        else if (encoding == "utf8" || encoding == "utf-8")
+        {
+            _innerEncoding = Encoding.UTF8;
+            _encoding = Encoding.UTF8;
+            _encodingLength = 1;
         }
         else
         {
-
-            if (encoding == "utf8" || encoding == "utf-8")
-            {
-                _innerEncoding = Encoding.UTF8;
-                _encoding = Encoding.UTF8;
-                _encodingLength = 1;
-            }
-            else if (encoding == "utf16" || encoding == "utf-16")
-            {
-                _innerEncoding = Encoding.Unicode;
-                _encoding = Encoding.Unicode; // UTF-16 LE
-                _encodingLength = 2;
-            }
-            else
-            {
-                throw new ArgumentException("Unknown encoding. Supported: utf8, utf16");
-            }
+            throw new ArgumentException("Unknown encoding. Supported: utf8, utf16");
         }
 
         if (version != "2.0" && version != "1.2")

@@ -1,3 +1,6 @@
+cli *args:
+  dotnet run --project Cli -- {{args}}
+
 run:
   dotnet run --project Cli -- assets/out2.mdx -a assets/stub.txt
   dotnet run --project Cli -- assets/out2.mdd -a assets/stub.txt
@@ -6,8 +9,16 @@ oracle:
   mdict assets/out1.mdx -a assets/stub.txt
   mdict assets/out1.mdd -a assets/stub.txt
 
-oracle-undo:
-  mdict -x assets/out1.mdx -d assets/undo
+do-undo:
+  dotnet run --project Cli -- assets/out1.mdd -a assets/stub.txt && \
+  dotnet run --project Cli -- assets/out1.mdd -x
+  diff --strip-trailing-cr stub.txt assets/stub.txt
+  rm stub.txt
+
+oracle-do-undo:
+  mdict assets/out1.mdx -a assets/stub.txt && \
+  mdict -x assets/out1.mdx
+  diff --strip-trailing-cr out1.mdx.txt assets/stub.txt
 
 test:
   dotnet test Lib.Tests/

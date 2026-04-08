@@ -18,19 +18,27 @@ static class Program
             Description = "Dictionary MDX/MDD file"
         };
 
-        // This is supposed to have >1 arity
+        // TODO: This is supposed to have >1 arity
+        // TODO: should be a subcommand
         Option<string> addPath = new("--add", "-a")
         {
             Description = "Resource file to add",
         };
+        // TODO: should conflict with -a tbh, in python they "get away" because of dispatch order
+        // TODO: should be a subcommand
+        Option<bool> extractPath = new("--extract", "-x")
+        {
+            Description = "Extract mdx/mdd file",
+        };
 
         rootCommand.Arguments.Add(mdictPath);
         rootCommand.Options.Add(addPath);
+        rootCommand.Options.Add(extractPath);
 
         rootCommand.SetAction(parseResult =>
         {
-            var parsedMdict = parseResult.GetValue(mdictPath);
-            string extension = Path.GetExtension(parsedMdict);
+            var parsedMdictPath = parseResult.GetValue(mdictPath);
+            string extension = Path.GetExtension(parsedMdictPath);
             bool isMdd;
             switch (extension)
             {
@@ -51,19 +59,22 @@ static class Program
 
             // TODO: if we are mdx, we should only accept txt as in --add
 
-            var parsedAddOption = parseResult.GetValue(addPath);
-            if (parsedAddOption == null)
+            var parsedAddPath = parseResult.GetValue(addPath);
+            var parsedExtractFlag = parseResult.GetValue(extractPath);
+
+            if (parsedAddPath == null && !parsedExtractFlag)
             {
-                Console.WriteLine("The -a/--add flag is mandatory for the moment!");
-                return 1;
-            }
-            if (!File.Exists(parsedAddOption) && !Directory.Exists(parsedAddOption))
-            {
-                Console.WriteLine($"Path does not exist: {parsedAddOption}");
+                Console.WriteLine("Specify at least one operation: --add <mdx/mdd> or --extract.");
                 return 1;
             }
 
-            Run(parsedMdict, parsedAddOption, isMdd);
+            if (parsedAddPath != null && !File.Exists(parsedAddPath) && !Directory.Exists(parsedAddPath))
+            {
+                Console.WriteLine($"Path does not exist: {parsedAddPath}");
+                return 1;
+            }
+
+            Run(parsedMdictPath, parsedAddPath, parsedExtractFlag, isMdd);
             return 0;
         });
 
@@ -71,27 +82,43 @@ static class Program
         return parseResult.Invoke();
     }
 
-    static void Run(string outputPath, string inputPath, bool isMdd)
+    static void Run(string mdictPath, string addPath, bool extractFlag, bool isMdd)
     {
-        Console.WriteLine($"Reading @ {inputPath}");
-        Console.WriteLine($"Writing @ {outputPath}");
+        Console.WriteLine($"mdictPath @ {mdictPath}");
+        Console.WriteLine($"addPath @ {addPath}");
+        Console.WriteLine($"extractFlag @ {extractFlag}");
         Console.WriteLine($"isMdd @ {isMdd}");
 
-        List<MDictEntry> packed = isMdd
-            ? MDictPacker.PackMddFile(inputPath)
-            : MDictPacker.PackMdxTxt(inputPath);
+        if (addPath != null)
+        {
+            List<MDictEntry> packed = isMdd
+                ? MDictPacker.PackMddFile(addPath)
+                : MDictPacker.PackMdxTxt(addPath);
 
-        // foreach (var entry in packed)
-        // {
-        //     Console.WriteLine($"Key: {entry.Key}");
-        //     Console.WriteLine($"Path: {entry.Path}");
-        //     Console.WriteLine($"Pos: {entry.Pos}");
-        //     Console.WriteLine($"Size: {entry.Size}");
-        //     Console.WriteLine("----------------------");
-        // }
+            // foreach (var entry in packed)
+            // {
+            //     Console.WriteLine($"Key: {entry.Key}");
+            //     Console.WriteLine($"Path: {entry.Path}");
+            //     Console.WriteLine($"Pos: {entry.Pos}");
+            //     Console.WriteLine($"Size: {entry.Size}");
+            //     Console.WriteLine("----------------------");
+            // }
 
-        var writer = new MDictWriter(packed, isMdd: isMdd);
-        using var outFile = File.Open(outputPath, FileMode.Create);
-        writer.Write(outFile);
+            var writer = new MDictWriter(packed, isMdd: isMdd);
+            using var outFile = File.Open(mdictPath, FileMode.Create);
+
+            writer.Write(outFile);
+        }
+        else if (extractFlag)
+        {
+            // TODO: maybe be able to pass it (the original uses --dir)
+            var target = Directory.GetCurrentDirectory();
+            target = Path.GetFullPath(target);
+            MDictPacker.Unpack(target, mdictPath, isMdd);
+        }
+        else
+        {
+            Console.WriteLine("Unreachable ^TM");
+        }
     }
 }

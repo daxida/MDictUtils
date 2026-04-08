@@ -6,6 +6,8 @@ Oracle testing requires mdict-utils installed. For instance, create a venv at th
 pip install mdict-utils
 ```
 
+Note that because the encoding/decoding depends on the current date, there will be some diff with the commited fixtures if you run this in the future (!). The only thing that matters is that `mdict` and this repo produce the same artifacts _on a given date_.
+
 ### Links
 - [file format doc](https://mdict4j.readthedocs.io/zh-cn/latest/reference/fileformat.html)
 - https://github.com/cia1099/mdict
@@ -14,6 +16,12 @@ pip install mdict-utils
 
 ### TODO
 - [x] Support encoding mdd
+  - [ ] Do folders work? Probably not
+- [x] Support basic reading operations for debug purposes
+  - [x] Support file.mdd -x (passes do-undo test)
+  - [x] Clean 1
+  - [x] Write do-undo test into the testsuite
+- [ ] Support file.mdx -x
 - [ ] Support passing html as title/description
 - [ ] Remove all non-version-2.0 branches because noise
 - [ ] Support basic reading operations for debug purposes

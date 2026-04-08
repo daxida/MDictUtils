@@ -2,14 +2,62 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using System.Diagnostics;
 
 using D = System.Collections.Generic.List<Lib.MDictEntry>;
 
 namespace Lib;
 
-// Reader, actually
+// Packer, does both writing (packing) and reading (unpacking)
 public static class MDictPacker
 {
+    public static void Unpack(string target, string source, bool isMdd)
+    {
+        if (isMdd)
+        {
+            UnpackMdd(target, source);
+        }
+        else
+        {
+            UnpackMdx(target, source);
+        }
+    }
+
+
+    public static void UnpackMdx(string target, string source)
+    {
+        throw new NotImplementedException();
+    }
+
+    public static void UnpackMdd(string target, string source)
+    {
+        if (!Directory.Exists(target))
+        {
+            Directory.CreateDirectory(target);
+        }
+
+        var mdd = new MDD(source, null);
+        int itemsCount = 0;
+
+        foreach ((string fname, byte[] v) in mdd.Items())
+        {
+            itemsCount++;
+            var fnameClean = fname.TrimStart('\\'); // BUG: This is definitely a bug
+            string fullPath = Path.Combine(target, fnameClean);
+            // Console.WriteLine($"UnpackMdd {fullPath} {fname} > clean > {fnameClean}");
+            string dir = Path.GetDirectoryName(fullPath);
+            if (!Directory.Exists(dir))
+            {
+                Directory.CreateDirectory(dir);
+            }
+            Console.WriteLine($"[UnpackMdd] Writing record @ {fullPath}");
+            File.WriteAllBytes(fullPath, v);
+        }
+        Debug.Assert(itemsCount == mdd.Count);
+
+        Console.WriteLine($"Extracted {mdd.Count} entries to {target}");
+    }
+
     // https://github.com/liuyug/mdict-utils/blob/64e15b99aca786dbf65e5a2274f85547f8029f2e/mdict_utils/writer.py#L509
     public static D PackMddFile(string source)
     {

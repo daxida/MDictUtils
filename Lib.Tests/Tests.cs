@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using System.Text;
 using Xunit;
 
@@ -110,5 +111,56 @@ public class Adler32Tests
         // Little-endian: b'\xbf\x04\xa3o'
         // Big-endian: b'o\xa3\x04\xbf'
         // 1872954559
+    }
+}
+
+// Pack and Unpack should be reversable
+public class DoUndoTests
+{
+    [Fact]
+    public void DoUndo_PackAndUnpackMdd_ProducesIdenticalFile()
+    {
+        const string testContent = @"apple
+A fruit that grows on trees.
+</>
+banana
+A long yellow fruit.
+</>";
+
+        string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(tempDir);
+        string originalStubPath = Path.Combine(tempDir, "stub.txt");
+        string outMddPath = Path.Combine(tempDir, "out1.mdd");
+        string extractedStubPath = Path.Combine(tempDir, "stub.txt");
+
+        try
+        {
+            // Create stub.txt
+            File.WriteAllText(originalStubPath, testContent);
+
+            // Pack stub.txt into out1.mdd
+            var packedEntries = MDictPacker.PackMddFile(originalStubPath);
+            var writer = new MDictWriter(packedEntries, isMdd: true);
+            using (var outFile = File.Open(outMddPath, FileMode.Create))
+            {
+                writer.Write(outFile);
+            }
+
+            File.Delete(originalStubPath);
+
+            // Unpack out1.mdd to tempDir and compare normalized
+            MDictPacker.Unpack(tempDir, outMddPath, isMdd: true);
+            Assert.True(File.Exists(extractedStubPath), "Extracted file should exist");
+            string extractedContent = File.ReadAllText(extractedStubPath);
+            string normalizedOriginal = testContent.Replace("\r\n", "\n").Replace("\r", "\n");
+            string normalizedExtracted = extractedContent.Replace("\r\n", "\n").Replace("\r", "\n");
+            Assert.Equal(normalizedOriginal, normalizedExtracted);
+        }
+        finally
+        {
+            // Cleanup
+            if (Directory.Exists(tempDir))
+                Directory.Delete(tempDir, recursive: true);
+        }
     }
 }
