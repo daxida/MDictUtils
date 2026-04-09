@@ -15,32 +15,30 @@ namespace Lib;
 
 public class MDictEntry
 {
-    public string Key { get; set; }
-    public long Pos { get; set; }
-    public string Path { get; set; }
-    public long Size { get; set; }
+    public required string Key { get; init; }
+    public required long Pos { get; init; }
+    public required string Path { get; init; }
+    public required long Size { get; init; }
 
     public override string ToString()
-    {
-        return $"Key=\"{Key}\", Pos={Pos}, Size={Size}";
-    }
+        => $"Key=\"{Key}\", Pos={Pos}, Size={Size}";
 }
 
 internal class OffsetTableEntry
 {
-    public byte[] Key { get; set; }
-    public byte[] KeyNull { get; set; }
-    public int KeyLen { get; set; }
-    public long Offset { get; set; }
-    public byte[] RecordNull { get; set; }
-    public bool IsMdd { get; set; }
+    public required byte[] Key { get; init; }
+    public required byte[] KeyNull { get; init; }
+    public required int KeyLen { get; init; }
+    public required long Offset { get; init; }
+    public required byte[] RecordNull { get; set; }
+    public required bool IsMdd { get; init; }
 
     // This are sort of hidden in inheritance
-    public long RecordSize { get; set; }
-    public long RecordPos { get; set; }
+    public required long RecordSize { get; init; }
+    public required long RecordPos { get; init; }
 
     // Weird stuff from get_record_null()
-    public string FilePath { get; set; }
+    public required string FilePath { get; init; }
 
     public override string ToString()
     {
@@ -347,13 +345,13 @@ public class MDictWriter
     private readonly int _encodingLength;
     private readonly bool _isMdd;
 
-    private List<OffsetTableEntry> _offsetTable;
-    private List<MdxKeyBlock> _keyBlocks;
-    private List<MdxRecordBlock> _recordBlocks;
-    private byte[] _keybIndex;
+    private List<OffsetTableEntry> _offsetTable = [];
+    private List<MdxKeyBlock> _keyBlocks = [];
+    private List<MdxRecordBlock> _recordBlocks = [];
+    private byte[] _keybIndex = [];
     private long _keybIndexCompSize;
     private long _keybIndexDecompSize;
-    private byte[] _recordbIndex;
+    private byte[] _recordbIndex = [];
     private long _recordbIndexSize;
     private long _totalRecordLen;
 
@@ -549,7 +547,9 @@ public class MDictWriter
 
         for (int ind = 0; ind <= _offsetTable.Count; ind++)
         {
-            OffsetTableEntry t = (ind != _offsetTable.Count) ? _offsetTable[ind] : null;
+            var offsetTableEntry = (ind == _offsetTable.Count)
+                ? null
+                : _offsetTable[ind];
 
             bool flush = false;
 
@@ -557,11 +557,11 @@ public class MDictWriter
             {
                 flush = false;
             }
-            else if (ind == _offsetTable.Count)
+            else if (offsetTableEntry == null)
             {
                 flush = true;
             }
-            else if (curSize + lenFunc(t) > _blockSize)
+            else if (curSize + lenFunc(offsetTableEntry) > _blockSize)
             {
                 flush = true;
             }
@@ -579,9 +579,9 @@ public class MDictWriter
                 thisBlockStart = ind;
             }
 
-            if (t != null)
+            if (offsetTableEntry != null)
             {
-                curSize += lenFunc(t);
+                curSize += lenFunc(offsetTableEntry);
             }
         }
 
@@ -607,7 +607,6 @@ public class MDictWriter
             var thing = string.Join(" ", block.GetIndexEntry().Select(b => b.ToString("X2")));
             Console.WriteLine($"entry {thing}");
             decompData.AddRange(block.GetIndexEntry());
-
         }
 
         var decompArray = decompData.ToArray();

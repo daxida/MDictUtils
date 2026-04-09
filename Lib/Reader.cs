@@ -13,10 +13,10 @@ public class MDict
 {
     protected string _fname;
     protected Encoding _encoding;
-    protected byte[] _encryptedKey;
+    // protected byte[] _encryptedKey;
     protected float _version;
     protected int _numberWidth;
-    protected string _numberFormat;
+    // protected string _numberFormat;
     protected int _encrypt;
     protected Dictionary<string, (string, string)> _stylesheet = [];
     protected List<(long keyId, string keyText)> _keyList;
@@ -27,7 +27,7 @@ public class MDict
     protected readonly Dictionary<string, string> _header;
 
     // Ignore passcode for now
-    public MDict(string fname, Encoding encoding = null)
+    public MDict(string fname, Encoding encoding)
     {
         _fname = fname;
         _encoding = encoding;

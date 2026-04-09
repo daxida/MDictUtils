@@ -40,7 +40,7 @@ public static class MDictPacker
 
         Dictionary<string, string> header = mdx.Header;
 
-        if (header.TryGetValue("Description", out string description) && description.Length > 0)
+        if (header.TryGetValue("Description", out var description) && description.Length > 0)
         {
             string descPath = Path.Combine(target, basename + ".description.html");
             // Console.WriteLine($"[UnpackMdx] Writing description to {descPath}...");
@@ -53,7 +53,7 @@ public static class MDictPacker
             }
         }
 
-        if (header.TryGetValue("Title", out string title) && title.Length > 0)
+        if (header.TryGetValue("Title", out var title) && title.Length > 0)
         {
             string titlePath = Path.Combine(target, basename + ".title.html");
             // Console.WriteLine($"[UnpackMdx] Writing title to {titlePath}...");
@@ -111,7 +111,7 @@ public static class MDictPacker
             // We trim at start, because Path.Combine will not combine if the second arg is a dir...
             var fnameClean = fname.TrimStart('\\').Replace('\\', Path.DirectorySeparatorChar);
             var dfname = Path.Combine(datafolder, fnameClean);
-            string dir = Path.GetDirectoryName(dfname);
+            string? dir = Path.GetDirectoryName(dfname);
             if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
             {
                 Directory.CreateDirectory(dir);
@@ -174,7 +174,7 @@ public static class MDictPacker
     }
 
     // https://github.com/liuyug/mdict-utils/blob/master/mdict_utils/writer.py#L425
-    public static D PackMdxTxt(string source, Encoding encoding = null)
+    public static D PackMdxTxt(string source, Encoding? encoding = null)
     {
         encoding ??= Encoding.UTF8;
         D dictionary = [];
@@ -190,7 +190,7 @@ public static class MDictPacker
         {
             byte[] fileBytes = File.ReadAllBytes(path);
             long pos = 0, offset = 0;
-            string key = null;
+            string? key = null;
             int lineNum = 0;
 
             long i = 0;
