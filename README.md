@@ -1,4 +1,4 @@
-Partial port of [mdict-utils](https://github.com/liuyug/mdict-utils)
+Partial port of [mdict-utils](https://github.com/liuyug/mdict-utils). Tested in Linux.
 
 Oracle testing requires mdict-utils installed. For instance, create a venv at the repo root and run:
 
@@ -30,6 +30,7 @@ pip install mdict-utils
 - [x] Support -m command
 - [x] Support passing html as title/description
 - [x] Add -d flag
+- [ ] Do -a work with multiple items -a i1 -a i2?
 - [ ] Add LICENCE
 - [ ] Remove all non-version-2.0 branches because noise
 - [ ] Release binaries (?)

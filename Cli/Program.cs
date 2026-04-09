@@ -188,6 +188,14 @@ static class Program
             }
 
             MDictWriter writer = new(packed, title, description, isMdd: args.IsMdd);
+
+            // creates intermediate directories if needed
+            // so that it works if MdictPath is a/b/thing.mdx
+            var directory = Path.GetDirectoryName(args.MdictPath);
+            if (!string.IsNullOrEmpty(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
             using var outFile = File.Open(args.MdictPath, FileMode.Create);
 
             writer.Write(outFile);

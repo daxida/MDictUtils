@@ -103,19 +103,21 @@ public static class MDictPacker
     public static void UnpackMdd(string target, string source)
     {
         MDD mdd = new(source);
+        var datafolder = Path.GetFullPath(target);
 
         foreach ((string fname, byte[] v) in mdd.Items())
         {
-            var fnameClean = fname.TrimStart('\\'); // bug? happens in the original too
-            string fullPath = Path.Combine(target, fnameClean);
-            // Console.WriteLine($"UnpackMdd {fullPath} {fname} > clean > {fnameClean}");
-            string dir = Path.GetDirectoryName(fullPath);
-            if (!Directory.Exists(dir))
+            // fname = key.decode('UTF-8').replace('\\', os.path.sep)
+            // We trim at start, because Path.Combine will not combine if the second arg is a dir...
+            var fnameClean = fname.TrimStart('\\').Replace('\\', Path.DirectorySeparatorChar);
+            var dfname = Path.Combine(datafolder, fnameClean);
+            string dir = Path.GetDirectoryName(dfname);
+            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
             {
                 Directory.CreateDirectory(dir);
             }
-            Console.WriteLine($"[UnpackMdd] Writing record @ {fullPath}");
-            File.WriteAllBytes(fullPath, v);
+            // Console.WriteLine($"[UnpackMdd] {datafolder} | {fnameClean} | {dfname}");
+            File.WriteAllBytes(dfname, v);
         }
 
         Console.WriteLine($"Extracted {mdd.Count} entries to {target}");
@@ -129,7 +131,7 @@ public static class MDictPacker
 
         if (File.Exists(source))
         {
-            // Single file
+            // Single file (wtf is happening with separators?)
             long size = new FileInfo(source).Length;
             string key = "\\" + Path.GetFileName(source);
             if (Path.DirectorySeparatorChar != '\\')
