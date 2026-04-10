@@ -35,7 +35,7 @@ internal static class Common
     public static int ReadUInt16BigEndian(ReadOnlySpan<byte> buffer, int offset)
     {
         Span<byte> slice = stackalloc byte[2];
-        buffer[offset..(offset + 2)].CopyTo(slice);
+        buffer.Slice(offset, 2).CopyTo(slice);
         return BitConverter.ToUInt16(ToBigEndian(slice));
     }
 
