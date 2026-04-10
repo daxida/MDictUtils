@@ -181,7 +181,6 @@ internal class MdxRecordBlock(List<OffsetTableEntry> offsetTable, int compressio
             if (isMdd)
             {
                 // For MDD, just read the whole record
-                record = new byte[size];
                 int bytesRead = fs.Read(record, 0, size);
                 if (bytesRead < size)
                 {
@@ -192,7 +191,6 @@ internal class MdxRecordBlock(List<OffsetTableEntry> offsetTable, int compressio
             else
             {
                 // For MDX, read size-1 bytes and append null byte
-                record = new byte[size];
                 int bytesRead = fs.Read(record, 0, size - 1);
                 record[bytesRead] = 0; // null-terminate
             }
