@@ -218,8 +218,8 @@ internal class MdxKeyBlock : MdxBlock
     public override string ToString()
     {
         var _encoding = Encoding.UTF8;
-        string firstKeyStr = _firstKey != null ? _encoding.GetString(_firstKey, 0, _firstKeyLen) : "";
-        string lastKeyStr = _lastKey != null ? _encoding.GetString(_lastKey, 0, _lastKeyLen) : "";
+        string firstKeyStr = _encoding.GetString(_firstKey, 0, _firstKeyLen);
+        string lastKeyStr = _encoding.GetString(_lastKey, 0, _lastKeyLen);
         return $"NumEntries={_numEntries}, FirstKey='{firstKeyStr}', LastKey='{lastKeyStr}'";
     }
 
