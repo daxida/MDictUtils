@@ -93,10 +93,7 @@ internal abstract class MdxBlock
         _version = version;
     }
 
-    public byte[] GetBlock()
-    {
-        return _compData;
-    }
+    public ReadOnlySpan<byte> BlockData => _compData;
 
     public abstract byte[] GetIndexEntry();
     protected abstract byte[] GetBlockEntry(OffsetTableEntry entry, string version);
@@ -736,7 +733,7 @@ public class MDictWriter
 
     private void WriteKeySection(Stream outfile)
     {
-        long keyblocksTotal = _keyBlocks.Sum(b => b.GetBlock().Length);
+        long keyblocksTotal = _keyBlocks.Sum(b => b.BlockData.Length);
 
         if (_version == "2.0")
         {
@@ -763,14 +760,13 @@ public class MDictWriter
 
         foreach (var block in _keyBlocks)
         {
-            var blockData = block.GetBlock();
-            outfile.Write(blockData, 0, blockData.Length);
+            outfile.Write(block.BlockData);
         }
     }
 
     private void WriteRecordSection(Stream outfile)
     {
-        long recordblocksTotal = _recordBlocks.Sum(b => b.GetBlock().Length);
+        long recordblocksTotal = _recordBlocks.Sum(b => b.BlockData.Length);
 
         var preamble = new List<byte>();
 
@@ -792,8 +788,7 @@ public class MDictWriter
 
         foreach (var block in _recordBlocks)
         {
-            var blockData = block.GetBlock();
-            outfile.Write(blockData, 0, blockData.Length);
+            outfile.Write(block.BlockData);
         }
     }
 }
