@@ -4,8 +4,6 @@ using System.IO;
 using System.Text;
 using Xunit;
 
-using D = System.Collections.Generic.List<Lib.MDictEntry>;
-
 namespace Lib.Tests;
 
 public class MDictWriterTests
@@ -13,18 +11,20 @@ public class MDictWriterTests
     [Fact]
     public void Constructor_WithEmptyDictionary_Succeeds()
     {
-        var dictionary = new D();
-        var writer = new MDictWriter(dictionary);
+        var entries = new List<MDictEntry>();
+        var writer = new MDictWriter(entries);
         Assert.NotNull(writer);
     }
 
     [Fact]
     public void Write_CreatesValidFile()
     {
-        var dictionary = new D();
-        var writer = new MDictWriter(dictionary,
-            title: "Test Dictionary",
-            description: "A test dictionary");
+        var entries = new List<MDictEntry>();
+        var options = new MDictWriterOptions(
+            Title: "Test Dictionary",
+            Description: "A test dictionary");
+
+        var writer = new MDictWriter(entries, options);
         var outputPath = Path.GetTempFileName();
 
         try
@@ -48,8 +48,8 @@ public class MDictWriterTests
     [Fact]
     public void Write_WithUTF8Encoding_CreatesFile()
     {
-        var dictionary = new D();
-        var writer = new MDictWriter(dictionary, encoding: "utf8");
+        var entries = new List<MDictEntry>();
+        var writer = new MDictWriter(entries, new(Encoding: "utf8"));
         var outputPath = Path.GetTempFileName();
 
         try
@@ -74,7 +74,14 @@ public class MDictSorterTests
     [Fact]
     public void TestMDictRegexStrip()
     {
-        Assert.Equal("cc100", MDictWriter._regexStrip.Replace("@cc-100", ""));
+        const string expected = "cc100";
+        char[] punctuationChars = [.. MDictKeyComparer.PunctuationChars, ' '];
+        foreach (var punctuation in punctuationChars)
+        {
+            var test = expected.Insert(3, punctuation.ToString());
+            var actual = MDictKeyComparer.RegexStrip.Replace(test, "");
+            Assert.Equal(expected, actual);
+        }
     }
 
     [Fact]
@@ -91,7 +98,7 @@ public class MDictSorterTests
         var expected = new List<(string Key, int ExpectedIndex)>(items);
         expected.Sort((a, b) => a.ExpectedIndex.CompareTo(b.ExpectedIndex));
 
-        items.Sort((a, b) => MDictWriter.CompareMDictKeys(a.Key, b.Key, isMdd: false));
+        items.Sort((a, b) => MDictKeyComparer.Compare(a.Key, b.Key, isMdd: false));
 
         for (int i = 0; i < items.Count; i++)
         {
@@ -122,7 +129,7 @@ public class Adler32Tests
         foreach (var part in parts)
         {
             byte[] data = Encoding.UTF8.GetBytes(part);
-            uint adlerValue = MdxBlock.Adler32(data);
+            uint adlerValue = Common.Adler32(data);
             Assert.Equal(expected[i], adlerValue);
             i++;
         }
@@ -134,10 +141,10 @@ public class Adler32Tests
             0x00,0x00,
             0x06, (byte)'b', (byte)'a', (byte)'n', (byte)'a', (byte)'n', (byte)'a',
             0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
-            0x21,  // <- THIS is the correct byte, 0x21 = '!' 
+            0x21,  // <- THIS is the correct byte, 0x21 = '!'
             0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x1d
         ];
-        uint adlerValue2 = MdxBlock.Adler32(data2); // Replace with your static method
+        uint adlerValue2 = Common.Adler32(data2); // Replace with your static method
         Assert.Equal((uint)1872954559, adlerValue2);
         // python -c "import zlib, struct; data = b'\x00\x00\x00\x00\x00\x00\x00\x02\x00\x05apple\x00\x00\x06banana\x00\x00\x00\x00\x00\x00\x00\x00!\x00\x00\x00\x00\x00\x00\x00\x1d'; checksum = zlib.adler32(data) & 0xffffffff; print('Little-endian:', struct.pack('<L', checksum)); print('Big-endian:', struct.pack('>L', checksum)); print(checksum)"
         //
@@ -150,12 +157,15 @@ public class Adler32Tests
 // Pack and Unpack should be reversable
 public class DoUndoTests
 {
-    const string testContent = @"apple
-A fruit that grows on trees.
-</>
-banana
-A long yellow fruit.
-</>";
+    const string testContent =
+        """
+        apple
+        A fruit that grows on trees.
+        </>
+        banana
+        A long yellow fruit.
+        </>
+        """;
 
     [Fact]
     public void DoUndo_PackAndUnpackMdx_ProducesIdenticalFile()
@@ -175,7 +185,7 @@ A long yellow fruit.
 
             // Pack stub.txt into out1.mdd
             var packedEntries = MDictPacker.PackMdxTxt(originalStubPath);
-            var writer = new MDictWriter(packedEntries, isMdd: isMdd);
+            var writer = new MDictWriter(packedEntries, new(IsMdd: isMdd));
             using (var outFile = File.Open(outMdxPath, FileMode.Create))
             {
                 writer.Write(outFile);
@@ -217,7 +227,7 @@ A long yellow fruit.
 
             // Pack stub.txt into out1.mdd
             var packedEntries = MDictPacker.PackMddFile(originalStubPath);
-            var writer = new MDictWriter(packedEntries, isMdd: isMdd);
+            var writer = new MDictWriter(packedEntries, new(IsMdd: isMdd));
             using (var outFile = File.Open(outMddPath, FileMode.Create))
             {
                 writer.Write(outFile);

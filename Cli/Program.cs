@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.CommandLine;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -10,30 +11,31 @@ namespace Cli;
 
 static class Program
 {
-    class Args
+    sealed record Args
+    (
+        string MdictPath,
+        string[] AddPaths,
+        string? TitlePath,
+        string? ExtractDirPath,
+        string? DescriptionPath,
+        bool ExtractFlag,
+        bool MetaFlag,
+        bool IsMdd
+    )
     {
-        public string MdictPath { get; set; }
-        public string[] AddPaths { get; set; }
-        public string TitlePath { get; set; }
-        public string ExtractDirPath { get; set; }
-        public string DescriptionPath { get; set; }
-        public bool ExtractFlag { get; set; }
-        public bool MetaFlag { get; set; }
-        public bool IsMdd { get; set; }
-
-        public override string ToString()
-        {
-            return $@"Args {{
-    MdictPath = {MdictPath},
-    AddPaths = {AddPaths},
-    TitlePath = {TitlePath},
-    DescriptionPath = {DescriptionPath},
-    ExtractDirPath = {ExtractDirPath},
-    ExtractFlag = {ExtractFlag},
-    MetaFlag = {MetaFlag},
-    IsMdd = {IsMdd}
-}}";
-        }
+        public override string ToString() =>
+            $$"""
+            Args {
+                MdictPath = {{MdictPath}},
+                AddPaths = {{AddPaths}},
+                TitlePath = {{TitlePath}},
+                DescriptionPath = {{DescriptionPath}},
+                ExtractDirPath = {{ExtractDirPath}},
+                ExtractFlag = {{ExtractFlag}},
+                MetaFlag = {{MetaFlag}},
+                IsMdd = {{IsMdd}}
+            }
+            """;
     }
 
     // https://learn.microsoft.com/en-us/dotnet/standard/commandline/
@@ -92,8 +94,8 @@ static class Program
 
         rootCommand.SetAction(parseResult =>
         {
-            var parsedMdictPath = parseResult.GetValue(mdictPath);
-            string extension = Path.GetExtension(parsedMdictPath);
+            var parsedMdictPath = parseResult.GetRequiredValue(mdictPath);
+            string? extension = Path.GetExtension(parsedMdictPath);
             bool isMdd;
             switch (extension)
             {
@@ -105,17 +107,17 @@ static class Program
                     break;
                 case "":
                     // WARN: We enter here with empty input, f.e. cli -f (since f is not a flag!)
-                    Console.WriteLine("Folders are not yet supported");
+                    Console.Error.WriteLine("Folders are not yet supported");
                     return 1;
                 default:
-                    Console.WriteLine(
+                    Console.Error.WriteLine(
                         $"Unsupported file type: '{extension}'. Only .mdx and .mdd are allowed.");
                     return 1;
             }
 
             // TODO: if we are mdx, we should only accept txt as in --add
 
-            var parsedAddPaths = parseResult.GetValue(addPaths);
+            var parsedAddPaths = parseResult.GetValue(addPaths) ?? [];
             var parsedTitlePath = parseResult.GetValue(titlePath);
             var parsedDescriptionPath = parseResult.GetValue(descriptionPath);
             var parsedExtractFlag = parseResult.GetValue(extractFlag);
@@ -131,26 +133,26 @@ static class Program
 
             if (!string.IsNullOrEmpty(parsedTitlePath) && Path.GetExtension(parsedTitlePath) != ".html")
             {
-                Console.WriteLine($"Path '{parsedTitlePath}' should point to html");
+                Console.Error.WriteLine($"Path '{parsedTitlePath}' should point to html");
                 return 1;
             }
             if (!string.IsNullOrEmpty(parsedDescriptionPath) && Path.GetExtension(parsedDescriptionPath) != ".html")
             {
-                Console.WriteLine($"Path '{parsedDescriptionPath}' should point to html");
+                Console.Error.WriteLine($"Path '{parsedDescriptionPath}' should point to html");
                 return 1;
             }
 
-            Args arguments = new()
-            {
-                MdictPath = parsedMdictPath,
-                AddPaths = parsedAddPaths,
-                TitlePath = parsedTitlePath,
-                ExtractDirPath = parsedExtractDirPath,
-                DescriptionPath = parsedDescriptionPath,
-                ExtractFlag = parsedExtractFlag,
-                MetaFlag = parsedMetaFlag,
-                IsMdd = isMdd
-            };
+            Args arguments = new
+            (
+                MdictPath: parsedMdictPath,
+                AddPaths: parsedAddPaths,
+                TitlePath: parsedTitlePath,
+                ExtractDirPath: parsedExtractDirPath,
+                DescriptionPath: parsedDescriptionPath,
+                ExtractFlag: parsedExtractFlag,
+                MetaFlag: parsedMetaFlag,
+                IsMdd: isMdd
+            );
 
             Run(arguments);
             return 0;
@@ -160,11 +162,11 @@ static class Program
         return parseResult.Invoke();
     }
 
-    static int CheckPath(string path)
+    static int CheckPath(string? path)
     {
         if (path != null && !File.Exists(path) && !Directory.Exists(path))
         {
-            Console.WriteLine($"Path does not exist: {path}");
+            Console.Error.WriteLine($"Path does not exist: {path}");
             return 1;
         }
         return 0;
@@ -197,7 +199,12 @@ static class Program
                 description = File.ReadAllText(args.DescriptionPath, Encoding.UTF8).Trim();
             }
 
-            MDictWriter writer = new(packed, title, description, isMdd: args.IsMdd);
+            var options = new MDictWriterOptions(
+                Title: title,
+                Description: description,
+                IsMdd: args.IsMdd);
+
+            MDictWriter writer = new(packed, options);
 
             // creates intermediate directories if needed
             // so that it works if MdictPath is a/b/thing.mdx
@@ -218,19 +225,22 @@ static class Program
         }
         else if (args.MetaFlag)
         {
-            MDict m = args.IsMdd ? new MDD(args.MdictPath) : new MDX(args.MdictPath);
-            Console.WriteLine("Version: \"2.0\""); // le hardcode
-            Console.WriteLine($"Record: \"{m.Count}\"");
-            foreach ((string key, string value) in m.Header)
+            MDict m = args.IsMdd
+                ? new MDD(args.MdictPath)
+                : new MDX(args.MdictPath);
+            Console.Error.WriteLine("Version: \"2.0\""); // le hardcode
+            Console.Error.WriteLine($"Record: \"{m.Count}\"");
+            foreach (var (key, value) in m.Header)
             {
                 // Not sure why this was done in the original, it seems worse to me...
                 var keyTitled = CultureInfo.CurrentCulture.TextInfo.ToTitleCase(key);
-                Console.WriteLine($"{keyTitled}: \"{value}\"");
+                Console.Error.WriteLine($"{keyTitled}: \"{value}\"");
             }
         }
         else
         {
-            Console.WriteLine("Unreachable ^TM");
+            Console.Error.WriteLine("Unreachable ^TM");
+            throw new UnreachableException();
         }
     }
 }

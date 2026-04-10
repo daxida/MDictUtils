@@ -4,30 +4,52 @@ using System.Linq;
 
 namespace Lib;
 
-// Some helper methods
+/// <summary>
+/// Some helper methods
+/// </summary>
 internal static class Common
 {
-    public static byte[] ToBigEndian(byte[] value)
+    public static ReadOnlySpan<byte> ToBigEndian(Span<byte> bytes)
     {
-        if (BitConverter.IsLittleEndian) Array.Reverse(value);
-        return value;
+        if (BitConverter.IsLittleEndian) bytes.Reverse();
+        return bytes;
     }
 
-    public static byte[] ToBigEndian(ulong value) => ToBigEndian(BitConverter.GetBytes(value));
-    public static byte[] ToBigEndian(uint value) => ToBigEndian(BitConverter.GetBytes(value));
-    public static byte[] ToBigEndian(ushort value) => ToBigEndian(BitConverter.GetBytes(value));
-
-    public static int ReadInt32BigEndian(byte[] bytes) => BitConverter.ToInt32(ToBigEndian(bytes), 0);
-    public static int ReadInt32BigEndian(BinaryReader br) => ReadInt32BigEndian(br.ReadBytes(4));
-
-    public static int ReadUInt16BigEndian(byte[] buffer, int offset)
+    public static ReadOnlySpan<byte> ToLittleEndian(Span<byte> bytes)
     {
-        byte[] slice = new byte[2];
-        Array.Copy(buffer, offset, slice, 0, 2);
-        return BitConverter.ToUInt16(ToBigEndian(slice), 0);
+        if (!BitConverter.IsLittleEndian) bytes.Reverse();
+        return bytes;
     }
 
-    public static uint ReadUInt32BigEndian(byte[] bytes) => BitConverter.ToUInt32(ToBigEndian(bytes), 0);
+    public static ReadOnlySpan<byte> ToBigEndian(ulong value) => ToBigEndian(BitConverter.GetBytes(value));
+    public static ReadOnlySpan<byte> ToBigEndian(uint value) => ToBigEndian(BitConverter.GetBytes(value));
+    public static ReadOnlySpan<byte> ToBigEndian(ushort value) => ToBigEndian(BitConverter.GetBytes(value));
+
+    public static ReadOnlySpan<byte> ToLittleEndian(ulong value) => ToLittleEndian(BitConverter.GetBytes(value));
+    public static ReadOnlySpan<byte> ToLittleEndian(uint value) => ToLittleEndian(BitConverter.GetBytes(value));
+    public static ReadOnlySpan<byte> ToLittleEndian(ushort value) => ToLittleEndian(BitConverter.GetBytes(value));
+
+    public static int ReadInt32BigEndian(BinaryReader br)
+        => BitConverter.ToInt32(ToBigEndian(br.ReadBytes(4)));
+
+    public static int ReadUInt16BigEndian(ReadOnlySpan<byte> buffer, int offset)
+    {
+        Span<byte> slice = stackalloc byte[2];
+        buffer.Slice(offset, 2).CopyTo(slice);
+        return BitConverter.ToUInt16(ToBigEndian(slice));
+    }
+
+    public static int ReadInt32BigEndian(Span<byte> bytes)
+        => BitConverter.ToInt32(ToBigEndian(bytes));
+
+    public static uint ReadUInt32BigEndian(Span<byte> bytes)
+        => BitConverter.ToUInt32(ToBigEndian(bytes));
+
+    public static long ReadInt64BigEndian(Span<byte> bytes)
+        => BitConverter.ToInt64(ToBigEndian(bytes));
+
+    public static ulong ReadUInt64BigEndian(Span<byte> bytes)
+        => BitConverter.ToUInt64(ToBigEndian(bytes));
 
     public static void PrintPythonStyle(byte[] data)
     {
@@ -51,7 +73,6 @@ internal static class Common
         Console.WriteLine("        " + pythonStyle);
     }
 
-
     // Check zlib implementation...
     //
     // https://github.com/madler/zlib/blob/f9dd6009be3ed32415edf1e89d1bc38380ecb95d/adler32.c#L128
@@ -62,10 +83,8 @@ internal static class Common
     private const uint BASE = 65521;
     private const int NMAX = 5552;
 
-    public static uint Adler32(byte[] buf)
+    public static uint Adler32(ReadOnlySpan<byte> buf)
     {
-        if (buf == null) return 1;
-
         uint adler = 1;
         uint sum2 = 0;
 
@@ -100,4 +119,3 @@ internal static class Common
         return (sum2 << 16) | adler;
     }
 }
-

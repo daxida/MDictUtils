@@ -7,48 +7,36 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.IO.Compression;
 
-using D = System.Collections.Generic.List<Lib.MDictEntry>;
-
 namespace Lib;
 
 // Tbh this is the Writer part
 
-public class MDictEntry
+public sealed record MDictEntry(string Key, long Pos, string Path, long Size)
 {
-    public string Key { get; set; }
-    public long Pos { get; set; }
-    public string Path { get; set; }
-    public long Size { get; set; }
-
     public override string ToString()
-    {
-        return $"Key=\"{Key}\", Pos={Pos}, Size={Size}";
-    }
+        => $"Key=\"{Key}\", Pos={Pos}, Size={Size}";
 }
 
 internal class OffsetTableEntry
 {
-    public byte[] Key { get; set; }
-    public byte[] KeyNull { get; set; }
-    public int KeyLen { get; set; }
-    public long Offset { get; set; }
-    public byte[] RecordNull { get; set; }
-    public bool IsMdd { get; set; }
+    public required byte[] Key { get; init; }
+    public required byte[] KeyNull { get; init; }
+    public required int KeyLen { get; init; }
+    public required long Offset { get; init; }
+    public required byte[] RecordNull { get; set; }
+    public required bool IsMdd { get; init; }
 
     // This are sort of hidden in inheritance
-    public long RecordSize { get; set; }
-    public long RecordPos { get; set; }
+    public required long RecordSize { get; init; }
+    public required long RecordPos { get; init; }
 
     // Weird stuff from get_record_null()
-    public string FilePath { get; set; }
+    public required string FilePath { get; init; }
 
     public override string ToString()
     {
-        static string BytesToString(byte[] arr)
-        {
-            if (arr == null || arr.Length == 0) return "null";
-            return Encoding.UTF8.GetString(arr);
-        }
+        static string BytesToString(ReadOnlySpan<byte> bytes)
+            => bytes.IsEmpty ? "null" : Encoding.UTF8.GetString(bytes);
 
         return "OffsetTableEntry(" +
                $"KeyLen={KeyLen}, " +
@@ -62,7 +50,9 @@ internal class OffsetTableEntry
     }
 }
 
-// # Abstract base class for MdxRecordBlock and MdxKeyBlock.
+/// <summary>
+/// Abstract base class for <see cref="MdxRecordBlock"/> and <see cref="MdxKeyBlock"/>.
+/// </summary>
 internal abstract class MdxBlock
 {
     protected long _decompSize;
@@ -102,31 +92,26 @@ internal abstract class MdxBlock
         _version = version;
     }
 
-    public byte[] GetBlock()
-    {
-        return _compData;
-    }
+    public ReadOnlySpan<byte> BlockData => _compData;
 
     public abstract byte[] GetIndexEntry();
     protected abstract byte[] GetBlockEntry(OffsetTableEntry entry, string version);
     public abstract int LenBlockEntry(OffsetTableEntry entry);
 
     // Called in MdxBlock init
-    public static byte[] MdxCompress(byte[] data, int compressionType)
+    public static byte[] MdxCompress(ReadOnlySpan<byte> data, int compressionType)
     {
         if (compressionType != 2)
             throw new NotSupportedException("Only compressionType=2 (Zlib) is supported in this version.");
 
         // Compression type (little-endian)
-        byte[] lend = BitConverter.GetBytes(compressionType); // <L in Python
-        if (!BitConverter.IsLittleEndian) Array.Reverse(lend);
-
-        uint adler = Adler32(data);
-        byte[] adlerBytes = BitConverter.GetBytes(adler);
-        if (BitConverter.IsLittleEndian) Array.Reverse(adlerBytes); // Python uses >L
+        var lend = Common.ToLittleEndian(BitConverter.GetBytes(compressionType)); // <L in Python
 
         // Adler32 checksum (big-endian)
-        byte[] header = [.. lend.Concat(adlerBytes)];
+        uint adler = Common.Adler32(data);
+        var adlerBytes = Common.ToBigEndian(adler); // Python uses >L
+
+        // byte[] header = [.. lend, .. adlerBytes];
 
         using var ms = new MemoryStream();
 
@@ -138,7 +123,7 @@ internal abstract class MdxBlock
         // There is no reliable way to get the same exact bytes, so live with that
         using (var z = new ZLibStream(ms, CompressionLevel.Optimal, leaveOpen: true))
         {
-            z.Write(data, 0, data.Length);
+            z.Write(data);
         }
         var res = ms.ToArray();
 
@@ -149,79 +134,28 @@ internal abstract class MdxBlock
         // Console.WriteLine($"header: {BitConverter.ToString(header)}");
         // Common.PrintPythonStyle(final);
 
-        return [.. header, .. res];
-    }
-
-    // Check zlib implementation...
-    //
-    // https://github.com/madler/zlib/blob/f9dd6009be3ed32415edf1e89d1bc38380ecb95d/adler32.c#L128
-    // https://gist.github.com/AristurtleDev/316358b3f87fd995923b79350be342f5
-    //
-    // header = (struct.pack(b"<L", compression_type) + 
-    //          struct.pack(b">L", zlib.adler32(data) & 0xffffffff)) #depending on python version, zlib.adler32 may return a signed number. 
-    private const uint BASE = 65521;
-    private const int NMAX = 5552;
-
-    public static uint Adler32(byte[] buf)
-    {
-        if (buf == null) return 1;
-
-        uint adler = 1;
-        uint sum2 = 0;
-
-        int len = buf.Length;
-        int index = 0;
-
-        while (len > 0)
-        {
-            int blockLen = len < NMAX ? len : NMAX;
-            len -= blockLen;
-
-            while (blockLen >= 16)
-            {
-                for (int i = 0; i < 16; i++)
-                {
-                    adler += buf[index++];
-                    sum2 += adler;
-                }
-                blockLen -= 16;
-            }
-
-            while (blockLen-- > 0)
-            {
-                adler += buf[index++];
-                sum2 += adler;
-            }
-
-            adler %= BASE;
-            sum2 %= BASE;
-        }
-
-        return (sum2 << 16) | adler;
+        return [.. lend, .. adlerBytes, .. res];
     }
 }
 
-internal class MdxRecordBlock(List<OffsetTableEntry> offsetTable, int compressionType, string version) : MdxBlock(offsetTable, compressionType, version)
+internal class MdxRecordBlock(List<OffsetTableEntry> offsetTable, int compressionType, string version)
+    : MdxBlock(offsetTable, compressionType, version)
 {
     public override byte[] GetIndexEntry()
     {
         // Console.WriteLine("Called GetIndexEntry on MDXRECORDBLOCK");
         // Console.WriteLine($"    compSize {_compSize}; decompsize {_decompSize}");
-
-        List<byte> result = [];
-
-        if (_version == "2.0")
-        {
-            // Big-endian 64-bit values
-            result.AddRange(Common.ToBigEndian((ulong)_compSize));
-            result.AddRange(Common.ToBigEndian((ulong)_decompSize));
-        }
-        else
+        if (_version != "2.0")
         {
             throw new NotImplementedException();
         }
 
-        return [.. result];
+        // Big-endian 64-bit values
+        return
+        [
+            .. Common.ToBigEndian((ulong)_compSize),
+            .. Common.ToBigEndian((ulong)_decompSize),
+        ];
     }
 
     // rg: get_record_null
@@ -233,34 +167,34 @@ internal class MdxRecordBlock(List<OffsetTableEntry> offsetTable, int compressio
         return record;
     }
 
-    // Helper method: read from file and null-terminate
+    /// <summary>
+    /// Helper method: read from file and null-terminate
+    /// </summary>
     private static byte[] ReadRecord(string filePath, long pos, int size, bool isMdd)
     {
         if (size < 1) throw new ArgumentException("Size must be >= 1", nameof(size));
 
         byte[] record = new byte[size];
-        using (var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read))
+        using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+
+        fs.Seek(pos, SeekOrigin.Begin);
+        if (isMdd)
         {
-            fs.Seek(pos, SeekOrigin.Begin);
-            if (isMdd)
+            // For MDD, just read the whole record
+            int bytesRead = fs.Read(record, 0, size);
+            if (bytesRead < size)
             {
-                // For MDD, just read the whole record
-                record = new byte[size];
-                int bytesRead = fs.Read(record, 0, size);
-                if (bytesRead < size)
-                {
-                    // Trim if fewer bytes were read
-                    Array.Resize(ref record, bytesRead);
-                }
-            }
-            else
-            {
-                // For MDX, read size-1 bytes and append null byte
-                record = new byte[size];
-                int bytesRead = fs.Read(record, 0, size - 1);
-                record[bytesRead] = 0; // null-terminate
+                // Trim if fewer bytes were read
+                Array.Resize(ref record, bytesRead);
             }
         }
+        else
+        {
+            // For MDX, read size-1 bytes and append null byte
+            int bytesRead = fs.Read(record, 0, size - 1);
+            record[bytesRead] = 0; // null-terminate
+        }
+
         // Console.WriteLine($"[ReadRecord] Record length: {record.Length}");
 
         return record;
@@ -284,8 +218,8 @@ internal class MdxKeyBlock : MdxBlock
     public override string ToString()
     {
         var _encoding = Encoding.UTF8;
-        string firstKeyStr = _firstKey != null ? _encoding.GetString(_firstKey, 0, _firstKeyLen) : "";
-        string lastKeyStr = _lastKey != null ? _encoding.GetString(_lastKey, 0, _lastKeyLen) : "";
+        string firstKeyStr = _encoding.GetString(_firstKey, 0, _firstKeyLen);
+        string lastKeyStr = _encoding.GetString(_lastKey, 0, _lastKeyLen);
         return $"NumEntries={_numEntries}, FirstKey='{firstKeyStr}', LastKey='{lastKeyStr}'";
     }
 
@@ -303,11 +237,12 @@ internal class MdxKeyBlock : MdxBlock
 
     protected override byte[] GetBlockEntry(OffsetTableEntry entry, string version)
     {
-        List<byte> result = [];
         Debug.Assert(version == "2.0");
-        result.AddRange(Common.ToBigEndian((ulong)entry.Offset));
-        result.AddRange(entry.KeyNull);
-        return [.. result];
+        return
+        [
+            .. Common.ToBigEndian((ulong)entry.Offset),
+            .. entry.KeyNull,
+        ];
     }
 
     // Approximate for version 2.0
@@ -318,22 +253,35 @@ internal class MdxKeyBlock : MdxBlock
 
     public override byte[] GetIndexEntry()
     {
-        List<byte> result = [];
         Debug.Assert(_version == "2.0");
-
-        result.AddRange(Common.ToBigEndian((ulong)_numEntries));
-        result.AddRange(Common.ToBigEndian((ushort)_firstKeyLen));
-        result.AddRange(_firstKey);
-        result.AddRange(Common.ToBigEndian((ushort)_lastKeyLen));
-        result.AddRange(_lastKey);
-        result.AddRange(Common.ToBigEndian((ulong)_compSize));
-        result.AddRange(Common.ToBigEndian((ulong)_decompSize));
-
-        return [.. result];
+        return
+        [
+            .. Common.ToBigEndian((ulong)_numEntries),
+            .. Common.ToBigEndian((ushort)_firstKeyLen),
+            .. _firstKey,
+            .. Common.ToBigEndian((ushort)_lastKeyLen),
+            .. _lastKey,
+            .. Common.ToBigEndian((ulong)_compSize),
+            .. Common.ToBigEndian((ulong)_decompSize),
+        ];
     }
 }
 
-public class MDictWriter
+#pragma warning disable format
+public sealed record MDictWriterOptions
+(
+    string Title           = "",
+    string Description     = "",
+    int    KeySize         = 32768,
+    int    BlockSize       = 65536,
+    string Encoding        = "utf8",
+    int    CompressionType = 2,
+    string Version         = "2.0",
+    bool   IsMdd           = false
+);
+#pragma warning restore format
+
+public sealed class MDictWriter
 {
     private readonly int _numEntries;
     private readonly string _title;
@@ -347,38 +295,32 @@ public class MDictWriter
     private readonly int _encodingLength;
     private readonly bool _isMdd;
 
-    private List<OffsetTableEntry> _offsetTable;
-    private List<MdxKeyBlock> _keyBlocks;
-    private List<MdxRecordBlock> _recordBlocks;
-    private byte[] _keybIndex;
+    private List<OffsetTableEntry> _offsetTable = [];
+    private List<MdxKeyBlock> _keyBlocks = [];
+    private List<MdxRecordBlock> _recordBlocks = [];
+    private byte[] _keybIndex = [];
     private long _keybIndexCompSize;
     private long _keybIndexDecompSize;
-    private byte[] _recordbIndex;
+    private byte[] _recordbIndex = [];
     private long _recordbIndexSize;
     private long _totalRecordLen;
 
-    public MDictWriter(D dictionary,
-                      string title = "",
-                      string description = "",
-                      int keySize = 32768,
-                      int blockSize = 65536,
-                      string encoding = "utf8",
-                      int compressionType = 2,
-                      string version = "2.0",
-                      bool isMdd = false)
+    public MDictWriter(List<MDictEntry> entries, MDictWriterOptions? opt = null)
     {
-        _numEntries = dictionary.Count;
-        _title = title;
-        _description = description;
-        _blockSize = blockSize;
-        _compressionType = compressionType;
-        _version = version;
-        _isMdd = isMdd;
+        opt ??= new();
+
+        _numEntries = entries.Count;
+        _title = opt.Title;
+        _description = opt.Description;
+        _blockSize = opt.BlockSize;
+        _compressionType = opt.CompressionType;
+        _version = opt.Version;
+        _isMdd = opt.IsMdd;
 
         // Set encoding
-        encoding = encoding.ToLower();
+        var encoding = opt.Encoding.ToLower();
         Debug.Assert(encoding == "utf8");
-        if (isMdd || encoding == "utf16" || encoding == "utf-16")
+        if (opt.IsMdd || encoding == "utf16" || encoding == "utf-16")
         {
             _innerEncoding = Encoding.Unicode;
             _encoding = Encoding.Unicode;
@@ -395,24 +337,24 @@ public class MDictWriter
             throw new ArgumentException("Unknown encoding. Supported: utf8, utf16");
         }
 
-        if (version != "2.0")
+        if (opt.Version != "2.0")
         {
             throw new ArgumentException("Unknown version. Supported: 2.0");
         }
 
-        BuildOffsetTable(dictionary);
+        BuildOffsetTable(entries);
         Console.WriteLine("[Writer] Offset table built.");
         Console.WriteLine($"[Writer] Total entries: {_offsetTable.Count}, record length {_totalRecordLen}");
         Console.WriteLine("=========================");
 
         Console.WriteLine("[Writer] Building KeyBlocks");
-        _blockSize = keySize;
+        _blockSize = opt.KeySize;
         BuildKeyBlocks();
         Console.WriteLine($"[Writer] Block size set to {_blockSize}");
         Console.WriteLine($"[Writer] Built {_keyBlocks.Count} key blocks.");
         foreach (var item in _keyBlocks) { Console.WriteLine($"* KeyBlock: {item}"); }
 
-        _blockSize = blockSize;
+        _blockSize = opt.BlockSize;
         Console.WriteLine($"[Writer] Block size reset to {_blockSize}");
         Console.WriteLine("=========================");
 
@@ -433,50 +375,14 @@ public class MDictWriter
         Console.WriteLine("[Writer] Initialization complete.\n");
     }
 
-    // We could merge this two at some point
-    // Also internal so we can test it
-    // [!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~ ]+
-    internal static readonly Regex _regexStrip = new(@"[!\""#$%&'()*+,\-./:;<=>?@\[\\\]^_`{|}~]+");
-    internal static readonly char[] _punctuationChars = [.. "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"];
-
-    // To be static, we pass isMdd (instead of reading _isMdd)
-    // Also internal so we can test it
-    internal static int CompareMDictKeys(string key1, string key2, bool isMdd)
+    private void BuildOffsetTable(List<MDictEntry> entries)
     {
-        string k1 = key1.ToLower();
-        string k2 = key2.ToLower();
-
-        if (!isMdd)
-        {
-            k1 = _regexStrip.Replace(k1, "");
-            k2 = _regexStrip.Replace(k2, "");
-        }
-
-        // key1 = locale.strxfrm(key1) ??
-        // this was locale dependent in py, but then we don't pass our tests,
-        // and it shouldn't matter anyway as long as the internal mapping works
-        int cmp = string.CompareOrdinal(k1, k2);
-        if (cmp != 0) return cmp;
-
-        // reverse length (longer first) - compare on current k1/k2
-        if (k1.Length != k2.Length)
-            return k2.Length.CompareTo(k1.Length);
-
-        // strip punctuation
-        k1 = k1.TrimEnd(_punctuationChars);
-        k2 = k2.TrimEnd(_punctuationChars);
-
-        return string.CompareOrdinal(k2, k1);
-    }
-
-    private void BuildOffsetTable(D dictionary)
-    {
-        dictionary.Sort((a, b) => CompareMDictKeys(a.Key, b.Key, _isMdd));
+        entries.Sort((a, b) => MDictKeyComparer.Compare(a.Key, b.Key, _isMdd));
 
         _offsetTable = [];
         long offset = 0;
 
-        foreach (var item in dictionary)
+        foreach (var item in entries)
         {
             // Console.WriteLine($"dict item: {item}");
             var keyEnc = _innerEncoding.GetBytes(item.Key);
@@ -549,7 +455,9 @@ public class MDictWriter
 
         for (int ind = 0; ind <= _offsetTable.Count; ind++)
         {
-            OffsetTableEntry t = (ind != _offsetTable.Count) ? _offsetTable[ind] : null;
+            var offsetTableEntry = (ind == _offsetTable.Count)
+                ? null
+                : _offsetTable[ind];
 
             bool flush = false;
 
@@ -557,11 +465,11 @@ public class MDictWriter
             {
                 flush = false;
             }
-            else if (ind == _offsetTable.Count)
+            else if (offsetTableEntry == null)
             {
                 flush = true;
             }
-            else if (curSize + lenFunc(t) > _blockSize)
+            else if (curSize + lenFunc(offsetTableEntry) > _blockSize)
             {
                 flush = true;
             }
@@ -579,23 +487,27 @@ public class MDictWriter
                 thisBlockStart = ind;
             }
 
-            if (t != null)
+            if (offsetTableEntry != null)
             {
-                curSize += lenFunc(t);
+                curSize += lenFunc(offsetTableEntry);
             }
         }
 
         return blocks;
     }
 
-    private void BuildKeyBlocks() => _keyBlocks = SplitBlocks(
-            (entries, comp, ver) => new MdxKeyBlock(entries, comp, ver),
-            (entry) => 8 + entry.KeyNull.Length
+    private void BuildKeyBlocks()
+        => _keyBlocks = SplitBlocks
+        (
+            static (entries, comp, ver) => new MdxKeyBlock(entries, comp, ver),
+            static (entry) => 8 + entry.KeyNull.Length
         );
 
-    private void BuildRecordBlocks() => _recordBlocks = SplitBlocks(
-            (entries, comp, ver) => new MdxRecordBlock(entries, comp, ver),
-            (entry) => entry.RecordSize
+    private void BuildRecordBlocks()
+        => _recordBlocks = SplitBlocks
+        (
+            static (entries, comp, ver) => new MdxRecordBlock(entries, comp, ver),
+            static (entry) => entry.RecordSize
         );
 
     private void BuildKeybIndex()
@@ -604,10 +516,10 @@ public class MDictWriter
         var decompData = new List<byte>();
         foreach (var block in _keyBlocks)
         {
-            var thing = string.Join(" ", block.GetIndexEntry().Select(b => b.ToString("X2")));
-            Console.WriteLine($"entry {thing}");
-            decompData.AddRange(block.GetIndexEntry());
-
+            var indexEntry = block.GetIndexEntry();
+            var displayBytes = string.Join(" ", indexEntry.Select(static b => b.ToString("X2")));
+            Console.WriteLine($"entry {displayBytes}");
+            decompData.AddRange(indexEntry);
         }
 
         var decompArray = decompData.ToArray();
@@ -619,7 +531,10 @@ public class MDictWriter
     private void BuildRecordbIndex()
     {
         List<byte> indexData = [];
-        foreach (var block in _recordBlocks) { indexData.AddRange(block.GetIndexEntry()); }
+        foreach (var block in _recordBlocks)
+        {
+            indexData.AddRange(block.GetIndexEntry());
+        }
         _recordbIndex = [.. indexData];
         _recordbIndexSize = _recordbIndex.Length;
     }
@@ -635,93 +550,69 @@ public class MDictWriter
     {
         const string encrypted = "No";
         const string registerByStr = "";
+        var now = DateTime.Today;
 
-        string headerString;
-        if (_isMdd)
-        {
-            headerString = string.Format(
-                "<Library_Data " +
-                "GeneratedByEngineVersion=\"{0}\" " +
-                "RequiredEngineVersion=\"{0}\" " +
-                "Encrypted=\"{1}\" " +
-                "Encoding=\"\" " +
-                "Format=\"\" " +
-                "CreationDate=\"{2}-{3}-{4}\" " +
-                "KeyCaseSensitive=\"No\" " +
-                "Stripkey=\"No\" " +
-                "Description=\"{5}\" " +
-                "Title=\"{6}\" " +
-                "RegisterBy=\"{7}\" " +
-                "/>\r\n\0",
-                _version,
-                encrypted,
-                DateTime.Today.Year,
-                DateTime.Today.Month,
-                DateTime.Today.Day,
-                EscapeHtml(_description),
-                EscapeHtml(_title),
-                registerByStr
-            );
-        }
-        else
-        {
-            headerString = string.Format(
-                "<Dictionary " +
-                "GeneratedByEngineVersion=\"{0}\" " +
-                "RequiredEngineVersion=\"{0}\" " +
-                "Encrypted=\"{1}\" " +
-                "Encoding=\"{2}\" " +
-                "Format=\"Html\" " +
-                "Stripkey=\"Yes\" " +
-                "CreationDate=\"{3}-{4}-{5}\" " +
-                "Compact=\"Yes\" " +
-                "Compat=\"Yes\" " +
-                "KeyCaseSensitive=\"No\" " +
-                "Description=\"{6}\" " +
-                "Title=\"{7}\" " +
-                "DataSourceFormat=\"106\" " +
-                "StyleSheet=\"\" " +
-                "Left2Right=\"Yes\" " +
-                "RegisterBy=\"{8}\" " +
-                "/>\r\n\0",
-                _version,
-                encrypted,
-                "UTF-8",
-                DateTime.Today.Year,
-                DateTime.Today.Month,
-                DateTime.Today.Day,
-                EscapeHtml(_description),
-                EscapeHtml(_title),
-                registerByStr
-           );
-        }
+        var header = _isMdd
+            ? // MDD header
+            $"""
+            <Library_Data
+            GeneratedByEngineVersion="{_version}"
+            RequiredEngineVersion="{_version}"
+            Encrypted="{encrypted}"
+            Encoding=""
+            Format=""
+            CreationDate="{now.Year}-{now.Month}-{now.Day}"
+            KeyCaseSensitive="No"
+            Stripkey="No"
+            Description="{EscapeHtml(_description)}"
+            Title="{EscapeHtml(_title)}"
+            RegisterBy="{registerByStr}"
+            />
+            """
+            : // MDX header
+            $"""
+            <Dictionary
+            GeneratedByEngineVersion="{_version}"
+            RequiredEngineVersion="{_version}"
+            Encrypted="{encrypted}"
+            Encoding="UTF-8"
+            Format="Html"
+            Stripkey="Yes"
+            CreationDate="{now.Year}-{now.Month}-{now.Day}"
+            Compact="Yes"
+            Compat="Yes"
+            KeyCaseSensitive="No"
+            Description="{EscapeHtml(_description)}"
+            Title="{EscapeHtml(_title)}"
+            DataSourceFormat="106"
+            StyleSheet=""
+            Left2Right="Yes"
+            RegisterBy="{registerByStr}"
+            />
+            """;
+
+        header = header.ReplaceLineEndings(" ") + "\r\n\0";
+
         // Console.WriteLine($"{headerString}");
         // Console.WriteLine($"header str: {headerString.Length}");
 
         // Encode to UTF-16 LE (must be identical to python .encode("utf_16_le")
-        byte[] headerBytes = Encoding.Unicode.GetBytes(headerString);
+        ReadOnlySpan<byte> headerBytes = Encoding.Unicode.GetBytes(header);
         // Console.WriteLine($"header bytes: {headerBytes.Length}");
         // Console.WriteLine("        " + string.Join(" ", headerBytes.Select(b => b.ToString("X2"))));
 
         // Write header length (big-endian)
-        byte[] lengthBytes = BitConverter.GetBytes((uint)headerBytes.Length);
-        if (BitConverter.IsLittleEndian)
-        {
-            Array.Reverse(lengthBytes);
-        }
-        stream.Write(lengthBytes, 0, lengthBytes.Length);
+        var lengthBytes = Common.ToBigEndian((uint)headerBytes.Length);
+        stream.Write(lengthBytes);
 
         // Write header string
-        stream.Write(headerBytes, 0, headerBytes.Length);
+        stream.Write(headerBytes);
 
         // Write Adler32 checksum (little-endian)
-        uint checksum = MdxBlock.Adler32(headerBytes);
-        byte[] checksumBytes = BitConverter.GetBytes(checksum);
-        if (!BitConverter.IsLittleEndian)
-        {
-            Array.Reverse(checksumBytes);
-        }
-        stream.Write(checksumBytes, 0, checksumBytes.Length);
+        uint checksum = Common.Adler32(headerBytes);
+        var checksumBytes = Common.ToLittleEndian(checksum);
+
+        stream.Write(checksumBytes);
     }
 
     // Same as python: escape(self._description, quote=True),
@@ -738,64 +629,100 @@ public class MDictWriter
 
     private void WriteKeySection(Stream outfile)
     {
-        long keyblocksTotal = _keyBlocks.Sum(b => b.GetBlock().Length);
-
-        if (_version == "2.0")
-        {
-            var preamble = new List<byte>();
-            preamble.AddRange(Common.ToBigEndian((ulong)_keyBlocks.Count));
-            preamble.AddRange(Common.ToBigEndian((ulong)_numEntries));
-            preamble.AddRange(Common.ToBigEndian((ulong)_keybIndexDecompSize));
-            preamble.AddRange(Common.ToBigEndian((ulong)_keybIndexCompSize));
-            preamble.AddRange(Common.ToBigEndian((ulong)keyblocksTotal));
-
-            var preambleArray = preamble.ToArray();
-            var preambleChecksum = MdxBlock.Adler32(preambleArray);
-            var checksumBytes = Common.ToBigEndian(preambleChecksum);
-
-            outfile.Write(preambleArray, 0, preambleArray.Length);
-            outfile.Write(checksumBytes, 0, checksumBytes.Length);
-        }
-        else
+        if (_version != "2.0")
         {
             throw new NotImplementedException();
         }
 
+        long keyblocksTotal = _keyBlocks.Sum(static b => b.BlockData.Length);
+
+        ReadOnlySpan<byte> preamble =
+        [
+            .. Common.ToBigEndian((ulong)_keyBlocks.Count),
+            .. Common.ToBigEndian((ulong)_numEntries),
+            .. Common.ToBigEndian((ulong)_keybIndexDecompSize),
+            .. Common.ToBigEndian((ulong)_keybIndexCompSize),
+            .. Common.ToBigEndian((ulong)keyblocksTotal),
+        ];
+
+        var preambleChecksum = Common.Adler32(preamble);
+        var checksumBytes = Common.ToBigEndian(preambleChecksum);
+
+        outfile.Write(preamble);
+        outfile.Write(checksumBytes);
         outfile.Write(_keybIndex, 0, _keybIndex.Length);
 
         foreach (var block in _keyBlocks)
         {
-            var blockData = block.GetBlock();
-            outfile.Write(blockData, 0, blockData.Length);
+            outfile.Write(block.BlockData);
         }
     }
 
     private void WriteRecordSection(Stream outfile)
     {
-        long recordblocksTotal = _recordBlocks.Sum(b => b.GetBlock().Length);
-
-        var preamble = new List<byte>();
-
-        if (_version == "2.0")
-        {
-            preamble.AddRange(Common.ToBigEndian((ulong)_recordBlocks.Count));
-            preamble.AddRange(Common.ToBigEndian((ulong)_numEntries));
-            preamble.AddRange(Common.ToBigEndian((ulong)_recordbIndexSize));
-            preamble.AddRange(Common.ToBigEndian((ulong)recordblocksTotal));
-        }
-        else
+        if (_version != "2.0")
         {
             throw new NotImplementedException();
         }
 
-        var preambleArray = preamble.ToArray();
-        outfile.Write(preambleArray, 0, preambleArray.Length);
+        long recordblocksTotal = _recordBlocks.Sum(static b => b.BlockData.Length);
+
+        ReadOnlySpan<byte> preamble =
+        [
+            .. Common.ToBigEndian((ulong)_recordBlocks.Count),
+            .. Common.ToBigEndian((ulong)_numEntries),
+            .. Common.ToBigEndian((ulong)_recordbIndexSize),
+            .. Common.ToBigEndian((ulong)recordblocksTotal),
+        ];
+
+        outfile.Write(preamble);
         outfile.Write(_recordbIndex, 0, _recordbIndex.Length);
 
         foreach (var block in _recordBlocks)
         {
-            var blockData = block.GetBlock();
-            outfile.Write(blockData, 0, blockData.Length);
+            outfile.Write(block.BlockData);
         }
+    }
+}
+
+internal partial class MDictKeyComparer
+{
+    /// <summary>
+    /// https://docs.python.org/3/library/string.html#string.punctuation
+    /// </summary>
+    public static readonly char[] PunctuationChars = [.. "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"];
+
+    /// <summary>
+    /// Regex to strip the python punctuation characters, and also the space character.
+    /// </summary>
+    [GeneratedRegex(@"[!\""#$%&'()*+,\-./:;<=>?@\[\\\]^_`{|}~ ]+")]
+    public static partial Regex RegexStrip { get; }
+
+    public static int Compare(string key1, string key2, bool isMdd)
+    {
+        string k1 = key1.ToLower();
+        string k2 = key2.ToLower();
+
+        if (!isMdd)
+        {
+            k1 = RegexStrip.Replace(k1, "");
+            k2 = RegexStrip.Replace(k2, "");
+        }
+
+        // key1 = locale.strxfrm(key1) ??
+        // this was locale dependent in py, but then we don't pass our tests,
+        // and it shouldn't matter anyway as long as the internal mapping works
+        int cmp = string.CompareOrdinal(k1, k2);
+        if (cmp != 0) return cmp;
+
+        // reverse length (longer first) - compare on current k1/k2
+        if (k1.Length != k2.Length)
+            return k2.Length.CompareTo(k1.Length);
+
+        // strip punctuation
+        k1 = k1.TrimEnd(PunctuationChars);
+        k2 = k2.TrimEnd(PunctuationChars);
+
+        return string.CompareOrdinal(k2, k1);
     }
 }

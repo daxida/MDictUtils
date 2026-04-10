@@ -9,14 +9,14 @@ using System.Linq;
 
 namespace Lib;
 
-public class MDict
+public partial class MDict
 {
     protected string _fname;
     protected Encoding _encoding;
-    protected byte[] _encryptedKey;
+    // protected byte[] _encryptedKey;
     protected float _version;
     protected int _numberWidth;
-    protected string _numberFormat;
+    // protected string _numberFormat;
     protected int _encrypt;
     protected Dictionary<string, (string, string)> _stylesheet = [];
     protected List<(long keyId, string keyText)> _keyList;
@@ -27,7 +27,7 @@ public class MDict
     protected readonly Dictionary<string, string> _header;
 
     // Ignore passcode for now
-    public MDict(string fname, Encoding encoding = null)
+    public MDict(string fname, Encoding encoding)
     {
         _fname = fname;
         _encoding = encoding;
@@ -137,7 +137,8 @@ public class MDict
             return (long)BitConverter.ToUInt64(bytes, 0);
     }
 
-    private static readonly Regex HeaderKeyValuesRegex = new(@"(\w+)=""(.*?)""", RegexOptions.Singleline);
+    [GeneratedRegex(@"(\w+)=""(.*?)""", RegexOptions.Singleline)]
+    private static partial Regex HeaderKeyValuesRegex { get; }
 
     protected Dictionary<string, string> ParseHeader(string headerText)
     {
@@ -259,8 +260,8 @@ public class MDict
 
         if (_version >= 2.0)
         {
-            byte[] adlerBytes = new byte[4];
-            _ = f.Read(adlerBytes, 0, 4);
+            Span<byte> adlerBytes = stackalloc byte[4];
+            _ = f.Read(adlerBytes);
             uint adler32 = Common.ReadUInt32BigEndian(adlerBytes);
             Debug.Assert(adler32 == Common.Adler32(block));
         }
@@ -284,24 +285,33 @@ public class MDict
     // _decode_key_block_info
     protected List<(long, long)> DecodeKeyBlockInfo(byte[] keyBlockInfoCompressed)
     {
-        byte[] keyBlockInfo;
+        ReadOnlySpan<byte> keyBlockInfo;
 
         if (_version >= 2)
         {
             // SAFETY: check header bytes
             if (keyBlockInfoCompressed.Length < 4)
             {
-                throw new InvalidDataException(
-                    $"Key block info is too short: expected at least 4 bytes, got {keyBlockInfoCompressed.Length} bytes.");
+                throw new InvalidDataException($"""
+                    Key block info is too short.
+                    Expected at least 4 bytes.
+                    Got {keyBlockInfoCompressed.Length} bytes.
+                    """);
             }
-            byte[] expectedHeader = [0x02, 0x00, 0x00, 0x00];
-            for (int idx = 0; idx < 4; idx++)
+
+            if (keyBlockInfoCompressed is not [0x02, 0x00, 0x00, 0x00, ..])
             {
-                if (keyBlockInfoCompressed[idx] != expectedHeader[idx])
-                {
-                    throw new InvalidDataException(
-                        $"Key block info header mismatch at byte {idx}: expected 0x{expectedHeader[idx]:X2}, got 0x{keyBlockInfoCompressed[idx]:X2}.");
-                }
+                var actual = string.Join(
+                    separator: ", ",
+                    values: keyBlockInfoCompressed
+                        .Take(4)
+                        .Select(static b => $"{b:X2}"));
+
+                throw new InvalidDataException($"""
+                    Key block info header mismatch.
+                    Expected: [0x02, 0x00, 0x00, 0x00, ..]
+                    Actual:   [{actual}, ..]"
+                    """);
             }
 
             if ((_encrypt & 0x02) != 0)
@@ -376,12 +386,14 @@ public class MDict
         return output.ToArray();
     }
 
-    static private long ReadNumber(byte[] buffer, int offset, int numberWidth)
+    static private long ReadNumber(ReadOnlySpan<byte> buffer, int offset, int numberWidth)
     {
-        byte[] slice = [.. buffer.Skip(offset).Take(numberWidth)];
-        if (BitConverter.IsLittleEndian)
-            Array.Reverse(slice);
-        return (numberWidth == 4) ? BitConverter.ToUInt32(slice, 0) : (long)BitConverter.ToUInt64(slice, 0);
+        // numberWidth should always be 4 or 8
+        Span<byte> slice = stackalloc byte[numberWidth];
+        buffer.Slice(offset, numberWidth).CopyTo(slice);
+        return (numberWidth == 4)
+            ? Common.ReadUInt32BigEndian(slice)
+            : (long)Common.ReadUInt64BigEndian(slice);
     }
 
     // _decode_key_block
@@ -403,63 +415,64 @@ public class MDict
 
     // decompressedSize is only used for compression_method = 1.
     // We only deal with 0, so don't pass it as an argument.
-    protected static byte[] DecodeBlock(byte[] block)
+    protected static byte[] DecodeBlock(ReadOnlySpan<byte> block)
     {
-        Debug.Assert(block?.Length >= 8, "Block too small");
+        Debug.Assert(block.Length >= 8, "Block too small");
 
-        uint info = BitConverter.ToUInt32(block, 0); // little-endian
+        uint info = BitConverter.ToUInt32(block); // little-endian
         int compressionMethod = (int)(info & 0xF);
         // int encryptionMethod = (int)((info >> 4) & 0xF);
         int encryptionSize = (int)((info >> 8) & 0xFF);
 
         // ---- adler32 (big-endian) ----
-        byte[] adlerBytes = new byte[4];
-        Array.Copy(block, 4, adlerBytes, 0, 4);
-        uint adler32 = BitConverter.ToUInt32(Common.ToBigEndian(adlerBytes), 0);
+        Span<byte> adlerBytes = stackalloc byte[4];
+        block[4..8].CopyTo(adlerBytes);
+        uint adler32 = BitConverter.ToUInt32(Common.ToBigEndian(adlerBytes));
 
         // ---- encryption key ---- (SKIP)
 
         byte[] data = new byte[block.Length - 8];
-        Array.Copy(block, 8, data, 0, data.Length);
+        block[8..].CopyTo(data);
 
         Debug.Assert(encryptionSize <= data.Length, "Invalid encryption size");
 
         // ---- decrypt ---- (assume no encryption)
         var decryptedBlock = data;
 
-        byte[] decompressedBlock;
         Debug.Assert(compressionMethod == 2);
-        decompressedBlock = DecompressZlib(decryptedBlock);
+        var decompressedBlock = DecompressZlib(decryptedBlock);
 
         Debug.Assert(adler32 == Common.Adler32(decompressedBlock), "Adler32 mismatch after decompression");
 
         return decompressedBlock;
     }
 
-    public List<(long, string)> SplitKeyBlock(byte[] keyBlock)
+    public List<(long, string)> SplitKeyBlock(ReadOnlySpan<byte> keyBlock)
     {
-        Debug.Assert(keyBlock != null, "Key block cannot be null");
         Debug.Assert(keyBlock.Length >= _numberWidth, "Key block is too short");
 
         List<(long, string)> keyList = [];
         int keyStartIndex = 0;
 
+        Span<byte> idBytesBuffer = stackalloc byte[8];
+
+        ReadOnlySpan<byte> unicodeDelimiter = [0x00, 0x00];
+        ReadOnlySpan<byte> otherDelimiter = [0x00];
+
         while (keyStartIndex < keyBlock.Length)
         {
             Debug.Assert(keyStartIndex + _numberWidth <= keyBlock.Length, "Unexpected end of key block while reading key ID");
 
-            byte[] idBytes = new byte[_numberWidth];
-            Array.Copy(keyBlock, keyStartIndex, idBytes, 0, _numberWidth);
-            if (BitConverter.IsLittleEndian) Array.Reverse(idBytes);
+            var idBytes = idBytesBuffer[.._numberWidth];
+            keyBlock.Slice(keyStartIndex, _numberWidth).CopyTo(idBytes);
 
-            long keyId;
-            if (_numberWidth == 4)
-                keyId = BitConverter.ToUInt32(idBytes, 0);
-            else // 8
-                keyId = BitConverter.ToInt64(idBytes, 0);
+            long keyId = (_numberWidth == 4)
+                ? Common.ReadInt32BigEndian(idBytes)
+                : Common.ReadInt64BigEndian(idBytes);
 
-            // Determine delimiter
-            byte[] delimiter = _encoding == Encoding.Unicode ? [0x00, 0x00] : [0x00];
+            var delimiter = _encoding == Encoding.Unicode
+                ? unicodeDelimiter
+                : otherDelimiter;
             int width = delimiter.Length;
 
             // Find the end of the key text
@@ -467,7 +480,7 @@ public class MDict
             int keyEndIndex = -1;
             while (i <= keyBlock.Length - width)
             {
-                if (keyBlock.AsSpan(i, width).SequenceEqual(delimiter))
+                if (keyBlock.Slice(i, width).SequenceEqual(delimiter))
                 {
                     keyEndIndex = i;
                     break;
@@ -477,13 +490,11 @@ public class MDict
             Debug.Assert(keyEndIndex != -1, "Delimiter not found in key block");
 
             // Extract key text
-            int textLength = keyEndIndex - (keyStartIndex + _numberWidth);
-            byte[] rawText = new byte[textLength];
-            Array.Copy(keyBlock, keyStartIndex + _numberWidth, rawText, 0, textLength);
+            var keyTextBytes = keyBlock[(keyStartIndex + _numberWidth)..keyEndIndex];
 
             // Decode to string (ignore errors like Python)
             // Similar to TreatRecordData in the trim?
-            string keyText = _encoding.GetString(rawText).Trim('\0').Trim();
+            string keyText = _encoding.GetString(keyTextBytes).Trim('\0').Trim();
             keyList.Add((keyId, keyText));
             keyStartIndex = keyEndIndex + width;
 

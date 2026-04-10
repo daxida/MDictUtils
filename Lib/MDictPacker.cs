@@ -1,13 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
-
-using D = System.Collections.Generic.List<Lib.MDictEntry>;
 
 namespace Lib;
 
-// Packer, does both writing (packing) and reading (unpacking)
+/// <summary>
+/// Class for both writing (packing) and reading (unpacking)
+/// </summary>
 public static class MDictPacker
 {
     // python does not include the BOM in the title/description
@@ -40,9 +41,9 @@ public static class MDictPacker
 
         Dictionary<string, string> header = mdx.Header;
 
-        if (header.TryGetValue("Description", out string description) && description.Length > 0)
+        if (header.TryGetValue("Description", out var description) && description.Length > 0)
         {
-            string descPath = Path.Combine(target, basename + ".description.html");
+            string descPath = Path.Combine(target, $"{basename}.description.html");
             // Console.WriteLine($"[UnpackMdx] Writing description to {descPath}...");
             using FileStream fs = new(descPath, FileMode.Create, FileAccess.Write);
             using StreamWriter swriter = new(fs, UTF8NoBOM);
@@ -53,51 +54,44 @@ public static class MDictPacker
             }
         }
 
-        if (header.TryGetValue("Title", out string title) && title.Length > 0)
+        if (header.TryGetValue("Title", out var title) && title.Length > 0)
         {
-            string titlePath = Path.Combine(target, basename + ".title.html");
+            string titlePath = Path.Combine(target, $"{basename}.title.html");
             // Console.WriteLine($"[UnpackMdx] Writing title to {titlePath}...");
             File.WriteAllText(titlePath, title, UTF8NoBOM);
         }
 
         // We only support split - None
         // Since split is None, we just write everything to a single file
-        string outPath = Path.Combine(target, basename + ".txt");
+        string outPath = Path.Combine(target, $"{basename}.txt");
 
         using FileStream tf = new(outPath, FileMode.Create, FileAccess.Write);
         using BinaryWriter writer = new(tf);
 
         int itemCount = 0;
 
-        foreach ((string key, byte[] value) in mdx.Items())
+        foreach (var (key, bytes) in mdx.Items())
         {
             // if not value.strip(): continue
-            if (value == null || value.Length == 0 || IsAllWhitespace(value)) continue;
+            if (bytes.Length == 0 || bytes.All(static b => char.IsWhiteSpace((char)b)))
+            {
+                continue;
+            }
 
             itemCount++;
 
             byte[] keyBytes = Encoding.UTF8.GetBytes(key);
             writer.Write(keyBytes);
-            writer.Write([.. "\r\n"u8]);
+            writer.Write("\r\n"u8);
 
-            writer.Write(value);
-            if (value.Length == 0 || value[^1] != (byte)'\n')
+            writer.Write(bytes);
+            if (bytes.Length == 0 || bytes[^1] != (byte)'\n')
             {
-                writer.Write([.. "\r\n"u8]);
+                writer.Write("\r\n"u8);
             }
 
-            writer.Write(Encoding.UTF8.GetBytes("</>\r\n"));
+            writer.Write("</>\r\n"u8);
         }
-    }
-
-    static bool IsAllWhitespace(byte[] data)
-    {
-        foreach (byte b in data)
-        {
-            if (!char.IsWhiteSpace((char)b))
-                return false;
-        }
-        return true;
     }
 
     public static void UnpackMdd(string target, string source)
@@ -105,28 +99,28 @@ public static class MDictPacker
         MDD mdd = new(source);
         var datafolder = Path.GetFullPath(target);
 
-        foreach ((string fname, byte[] v) in mdd.Items())
+        foreach (var (fname, bytes) in mdd.Items())
         {
             // fname = key.decode('UTF-8').replace('\\', os.path.sep)
             // We trim at start, because Path.Combine will not combine if the second arg is a dir...
             var fnameClean = fname.TrimStart('\\').Replace('\\', Path.DirectorySeparatorChar);
             var dfname = Path.Combine(datafolder, fnameClean);
-            string dir = Path.GetDirectoryName(dfname);
+            string? dir = Path.GetDirectoryName(dfname);
             if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
             {
                 Directory.CreateDirectory(dir);
             }
             // Console.WriteLine($"[UnpackMdd] {datafolder} | {fnameClean} | {dfname}");
-            File.WriteAllBytes(dfname, v);
+            File.WriteAllBytes(dfname, bytes);
         }
 
         Console.WriteLine($"Extracted {mdd.Count} entries to {target}");
     }
 
     // https://github.com/liuyug/mdict-utils/blob/64e15b99aca786dbf65e5a2274f85547f8029f2e/mdict_utils/writer.py#L509
-    public static D PackMddFile(string source)
+    public static List<MDictEntry> PackMddFile(string source)
     {
-        D dictionary = [];
+        List<MDictEntry> entries = [];
         source = Path.GetFullPath(source);
 
         if (File.Exists(source))
@@ -137,13 +131,7 @@ public static class MDictPacker
             if (Path.DirectorySeparatorChar != '\\')
                 key = key.Replace(Path.DirectorySeparatorChar, '\\');
 
-            dictionary.Add(new MDictEntry
-            {
-                Key = key,
-                Pos = 0,
-                Path = source,
-                Size = size
-            });
+            entries.Add(new(key, Pos: 0, Path: source, size));
         }
         else if (Directory.Exists(source))
         {
@@ -156,13 +144,7 @@ public static class MDictPacker
                 if (Path.DirectorySeparatorChar != '\\')
                     key = key.Replace(Path.DirectorySeparatorChar, '\\');
 
-                dictionary.Add(new MDictEntry
-                {
-                    Key = key,
-                    Pos = 0,
-                    Path = fpath,
-                    Size = size
-                });
+                entries.Add(new(key, Pos: 0, fpath, size));
             }
         }
         else
@@ -170,14 +152,14 @@ public static class MDictPacker
             throw new FileNotFoundException($"Path does not exist: {source}");
         }
 
-        return dictionary;
+        return entries;
     }
 
     // https://github.com/liuyug/mdict-utils/blob/master/mdict_utils/writer.py#L425
-    public static D PackMdxTxt(string source, Encoding encoding = null)
+    public static List<MDictEntry> PackMdxTxt(string source, Encoding? encoding = null)
     {
         encoding ??= Encoding.UTF8;
-        D dictionary = [];
+        List<MDictEntry> entries = [];
         List<string> sources = [];
         int nullLength = encoding.GetByteCount("\0");
 
@@ -190,7 +172,7 @@ public static class MDictPacker
         {
             byte[] fileBytes = File.ReadAllBytes(path);
             long pos = 0, offset = 0;
-            string key = null;
+            string? key = null;
             int lineNum = 0;
 
             long i = 0;
@@ -222,13 +204,7 @@ public static class MDictPacker
                         throw new Exception($"Error at line {lineNum}: {path}");
 
                     long size = offset - pos + nullLength;
-                    dictionary.Add(new MDictEntry
-                    {
-                        Key = key,
-                        Pos = pos,
-                        Path = path,
-                        Size = size
-                    });
+                    entries.Add(new MDictEntry(key, pos, path, size));
                     key = null;
                 }
                 else if (key == null)
@@ -244,7 +220,7 @@ public static class MDictPacker
             }
         }
 
-        return dictionary;
+        return entries;
     }
 }
 
