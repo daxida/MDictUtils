@@ -685,29 +685,27 @@ public class MDictWriter
 
     private void WriteKeySection(Stream outfile)
     {
-        long keyblocksTotal = _keyBlocks.Sum(b => b.BlockData.Length);
-
-        if (_version == "2.0")
-        {
-            var preamble = new List<byte>();
-            preamble.AddRange(Common.ToBigEndian((ulong)_keyBlocks.Count));
-            preamble.AddRange(Common.ToBigEndian((ulong)_numEntries));
-            preamble.AddRange(Common.ToBigEndian((ulong)_keybIndexDecompSize));
-            preamble.AddRange(Common.ToBigEndian((ulong)_keybIndexCompSize));
-            preamble.AddRange(Common.ToBigEndian((ulong)keyblocksTotal));
-
-            var preambleArray = preamble.ToArray();
-            var preambleChecksum = Common.Adler32(preambleArray);
-            var checksumBytes = Common.ToBigEndian(preambleChecksum);
-
-            outfile.Write(preambleArray);
-            outfile.Write(checksumBytes);
-        }
-        else
+        if (_version != "2.0")
         {
             throw new NotImplementedException();
         }
 
+        long keyblocksTotal = _keyBlocks.Sum(b => b.BlockData.Length);
+
+        ReadOnlySpan<byte> preamble =
+        [
+            .. Common.ToBigEndian((ulong)_keyBlocks.Count),
+            .. Common.ToBigEndian((ulong)_numEntries),
+            .. Common.ToBigEndian((ulong)_keybIndexDecompSize),
+            .. Common.ToBigEndian((ulong)_keybIndexCompSize),
+            .. Common.ToBigEndian((ulong)keyblocksTotal),
+        ];
+
+        var preambleChecksum = Common.Adler32(preamble);
+        var checksumBytes = Common.ToBigEndian(preambleChecksum);
+
+        outfile.Write(preamble);
+        outfile.Write(checksumBytes);
         outfile.Write(_keybIndex, 0, _keybIndex.Length);
 
         foreach (var block in _keyBlocks)
@@ -718,24 +716,22 @@ public class MDictWriter
 
     private void WriteRecordSection(Stream outfile)
     {
-        long recordblocksTotal = _recordBlocks.Sum(b => b.BlockData.Length);
-
-        var preamble = new List<byte>();
-
-        if (_version == "2.0")
-        {
-            preamble.AddRange(Common.ToBigEndian((ulong)_recordBlocks.Count));
-            preamble.AddRange(Common.ToBigEndian((ulong)_numEntries));
-            preamble.AddRange(Common.ToBigEndian((ulong)_recordbIndexSize));
-            preamble.AddRange(Common.ToBigEndian((ulong)recordblocksTotal));
-        }
-        else
+        if (_version != "2.0")
         {
             throw new NotImplementedException();
         }
 
-        var preambleArray = preamble.ToArray();
-        outfile.Write(preambleArray, 0, preambleArray.Length);
+        long recordblocksTotal = _recordBlocks.Sum(static b => b.BlockData.Length);
+
+        ReadOnlySpan<byte> preamble =
+        [
+            .. Common.ToBigEndian((ulong)_recordBlocks.Count),
+            .. Common.ToBigEndian((ulong)_numEntries),
+            .. Common.ToBigEndian((ulong)_recordbIndexSize),
+            .. Common.ToBigEndian((ulong)recordblocksTotal),
+        ];
+
+        outfile.Write(preamble);
         outfile.Write(_recordbIndex, 0, _recordbIndex.Length);
 
         foreach (var block in _recordBlocks)
