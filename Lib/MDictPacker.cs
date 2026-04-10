@@ -81,15 +81,15 @@ public static class MDictPacker
 
             byte[] keyBytes = Encoding.UTF8.GetBytes(key);
             writer.Write(keyBytes);
-            writer.Write([.. "\r\n"u8]);
+            writer.Write("\r\n"u8);
 
             writer.Write(bytes);
             if (bytes.Length == 0 || bytes[^1] != (byte)'\n')
             {
-                writer.Write([.. "\r\n"u8]);
+                writer.Write("\r\n"u8);
             }
 
-            writer.Write(Encoding.UTF8.GetBytes("</>\r\n"));
+            writer.Write("</>\r\n"u8);
         }
     }
 
