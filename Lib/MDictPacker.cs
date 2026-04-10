@@ -42,7 +42,7 @@ public static class MDictPacker
 
         if (header.TryGetValue("Description", out var description) && description.Length > 0)
         {
-            string descPath = Path.Combine(target, basename + ".description.html");
+            string descPath = Path.Combine(target, $"{basename}.description.html");
             // Console.WriteLine($"[UnpackMdx] Writing description to {descPath}...");
             using FileStream fs = new(descPath, FileMode.Create, FileAccess.Write);
             using StreamWriter swriter = new(fs, UTF8NoBOM);
@@ -55,14 +55,14 @@ public static class MDictPacker
 
         if (header.TryGetValue("Title", out var title) && title.Length > 0)
         {
-            string titlePath = Path.Combine(target, basename + ".title.html");
+            string titlePath = Path.Combine(target, $"{basename}.title.html");
             // Console.WriteLine($"[UnpackMdx] Writing title to {titlePath}...");
             File.WriteAllText(titlePath, title, UTF8NoBOM);
         }
 
         // We only support split - None
         // Since split is None, we just write everything to a single file
-        string outPath = Path.Combine(target, basename + ".txt");
+        string outPath = Path.Combine(target, $"{basename}.txt");
 
         using FileStream tf = new(outPath, FileMode.Create, FileAccess.Write);
         using BinaryWriter writer = new(tf);
