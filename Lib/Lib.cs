@@ -540,7 +540,7 @@ public sealed class MDictWriter
         WriteRecordSection(outfile);
     }
 
-    public void WriteHeader(Stream stream)
+    private void WriteHeader(Stream stream)
     {
         const string encrypted = "No";
         const string registerByStr = "";
