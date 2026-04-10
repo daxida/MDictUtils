@@ -12,7 +12,7 @@ public class MDictWriterTests
     public void Constructor_WithEmptyDictionary_Succeeds()
     {
         var entries = new List<MDictEntry>();
-        var writer = new MDictWriter(entries, new());
+        var writer = new MDictWriter(entries);
         Assert.NotNull(writer);
     }
 
@@ -20,11 +20,11 @@ public class MDictWriterTests
     public void Write_CreatesValidFile()
     {
         var entries = new List<MDictEntry>();
-        var writer = new MDictWriter
-        (
-            entries,
-            new(Title: "Test Dictionary", Description: "A test dictionary")
-        );
+        var options = new MDictWriterOptions(
+            Title: "Test Dictionary",
+            Description: "A test dictionary");
+
+        var writer = new MDictWriter(entries, options);
         var outputPath = Path.GetTempFileName();
 
         try

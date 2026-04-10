@@ -307,8 +307,10 @@ public sealed class MDictWriter
     private long _recordbIndexSize;
     private long _totalRecordLen;
 
-    public MDictWriter(List<MDictEntry> entries, MDictWriterOptions opt)
+    public MDictWriter(List<MDictEntry> entries, MDictWriterOptions? opt = null)
     {
+        opt ??= new();
+
         _numEntries = entries.Count;
         _title = opt.Title;
         _description = opt.Description;
