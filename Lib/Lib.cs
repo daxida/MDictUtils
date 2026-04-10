@@ -552,6 +552,7 @@ public sealed class MDictWriter
     {
         const string encrypted = "No";
         const string registerByStr = "";
+        var now = DateTime.Today;
 
         var header = _isMdd
             ? // MDD header
@@ -562,7 +563,7 @@ public sealed class MDictWriter
             Encrypted="{encrypted}"
             Encoding=""
             Format=""
-            CreationDate="{DateTime.Today.Year}-{DateTime.Today.Month}-{DateTime.Today.Day}"
+            CreationDate="{now.Year}-{now.Month}-{now.Day}"
             KeyCaseSensitive="No"
             Stripkey="No"
             Description="{EscapeHtml(_description)}"
@@ -579,7 +580,7 @@ public sealed class MDictWriter
             Encoding="UTF-8"
             Format="Html"
             Stripkey="Yes"
-            CreationDate="{DateTime.Today.Year}-{DateTime.Today.Month}-{DateTime.Today.Day}"
+            CreationDate="{now.Year}-{now.Month}-{now.Day}"
             Compact="Yes"
             Compat="Yes"
             KeyCaseSensitive="No"

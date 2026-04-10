@@ -392,7 +392,7 @@ public partial class MDict
             ? stackalloc byte[numberWidth]
             : new byte[numberWidth];
 
-        buffer[offset..(offset + numberWidth)].CopyTo(slice);
+        buffer.Slice(offset, numberWidth).CopyTo(slice);
 
         if (BitConverter.IsLittleEndian)
             slice.Reverse();
