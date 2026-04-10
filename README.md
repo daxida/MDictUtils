@@ -13,6 +13,7 @@ pip install mdict-utils
 
 ### Links
 - [file format doc](https://mdict4j.readthedocs.io/zh-cn/latest/reference/fileformat.html)
+- A precursor of mdict-utils: [mdict-analysis](https://github.com/csarron/mdict-analysis)
 - pyglossary has some files about [mdict](https://github.com/ilius/pyglossary/blob/master/pyglossary/plugin_lib/readmdict.py)
 - https://github.com/cia1099/mdict
 - https://github.com/terasum/js-mdict
@@ -31,9 +32,12 @@ pip install mdict-utils
 - [x] Support passing html as title/description
 - [x] Add -d flag
 - [x] Support -a work with multiple items -a i1 -a i2?
-- [ ] Add LICENCE
+- [x] Add LICENCE
 - [ ] Remove all non-version-2.0 branches because noise
 - [ ] Release binaries (?)
 - [ ] Explore how to use as a library (writing a glossary from memory instead of disk)
 
+### Others
 - [ ] How good is pyglossary for wty/Jitendex? Test in goldendict
+- [ ] Stardict from mdict artifacts for Jitendex?
+- [ ] How hard is it to write some code that takes a Yomitan structured content thingy and returns html at home
