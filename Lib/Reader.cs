@@ -377,12 +377,20 @@ public partial class MDict
         return output.ToArray();
     }
 
-    static private long ReadNumber(byte[] buffer, int offset, int numberWidth)
+    static private long ReadNumber(ReadOnlySpan<byte> buffer, int offset, int numberWidth)
     {
-        byte[] slice = [.. buffer.Skip(offset).Take(numberWidth)];
+        var slice = numberWidth < 100
+            ? stackalloc byte[numberWidth]
+            : new byte[numberWidth];
+
+        buffer[offset..(offset + numberWidth)].CopyTo(slice);
+
         if (BitConverter.IsLittleEndian)
-            Array.Reverse(slice);
-        return (numberWidth == 4) ? BitConverter.ToUInt32(slice, 0) : (long)BitConverter.ToUInt64(slice, 0);
+            slice.Reverse();
+
+        return (numberWidth == 4)
+            ? BitConverter.ToUInt32(slice)
+            : (long)BitConverter.ToUInt64(slice);
     }
 
     // _decode_key_block
@@ -404,33 +412,32 @@ public partial class MDict
 
     // decompressedSize is only used for compression_method = 1.
     // We only deal with 0, so don't pass it as an argument.
-    protected static byte[] DecodeBlock(byte[] block)
+    protected static byte[] DecodeBlock(ReadOnlySpan<byte> block)
     {
-        Debug.Assert(block?.Length >= 8, "Block too small");
+        Debug.Assert(block.Length >= 8, "Block too small");
 
-        uint info = BitConverter.ToUInt32(block, 0); // little-endian
+        uint info = BitConverter.ToUInt32(block); // little-endian
         int compressionMethod = (int)(info & 0xF);
         // int encryptionMethod = (int)((info >> 4) & 0xF);
         int encryptionSize = (int)((info >> 8) & 0xFF);
 
         // ---- adler32 (big-endian) ----
-        byte[] adlerBytes = new byte[4];
-        Array.Copy(block, 4, adlerBytes, 0, 4);
+        Span<byte> adlerBytes = stackalloc byte[4];
+        block[4..8].CopyTo(adlerBytes);
         uint adler32 = BitConverter.ToUInt32(Common.ToBigEndian(adlerBytes));
 
         // ---- encryption key ---- (SKIP)
 
         byte[] data = new byte[block.Length - 8];
-        Array.Copy(block, 8, data, 0, data.Length);
+        block[8..].CopyTo(data);
 
         Debug.Assert(encryptionSize <= data.Length, "Invalid encryption size");
 
         // ---- decrypt ---- (assume no encryption)
         var decryptedBlock = data;
 
-        byte[] decompressedBlock;
         Debug.Assert(compressionMethod == 2);
-        decompressedBlock = DecompressZlib(decryptedBlock);
+        var decompressedBlock = DecompressZlib(decryptedBlock);
 
         Debug.Assert(adler32 == Common.Adler32(decompressedBlock), "Adler32 mismatch after decompression");
 
