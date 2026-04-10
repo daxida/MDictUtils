@@ -35,11 +35,8 @@ internal class OffsetTableEntry
 
     public override string ToString()
     {
-        static string BytesToString(byte[] arr)
-        {
-            if (arr == null || arr.Length == 0) return "null";
-            return Encoding.UTF8.GetString(arr);
-        }
+        static string BytesToString(ReadOnlySpan<byte> bytes)
+            => bytes.IsEmpty ? "null" : Encoding.UTF8.GetString(bytes);
 
         return "OffsetTableEntry(" +
                $"KeyLen={KeyLen}, " +
