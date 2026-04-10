@@ -11,17 +11,18 @@ namespace Cli;
 
 static class Program
 {
-    class Args
+    sealed record Args
+    (
+        string MdictPath,
+        string[] AddPaths,
+        string? TitlePath,
+        string? ExtractDirPath,
+        string? DescriptionPath,
+        bool ExtractFlag,
+        bool MetaFlag,
+        bool IsMdd
+    )
     {
-        public required string MdictPath { get; init; }
-        public required string[] AddPaths { get; init; }
-        public required string? TitlePath { get; init; }
-        public required string? ExtractDirPath { get; init; }
-        public required string? DescriptionPath { get; init; }
-        public required bool ExtractFlag { get; init; }
-        public required bool MetaFlag { get; init; }
-        public required bool IsMdd { get; init; }
-
         public override string ToString() =>
             $$"""
             Args {
@@ -141,17 +142,17 @@ static class Program
                 return 1;
             }
 
-            Args arguments = new()
-            {
-                MdictPath = parsedMdictPath,
-                AddPaths = parsedAddPaths,
-                TitlePath = parsedTitlePath,
-                ExtractDirPath = parsedExtractDirPath,
-                DescriptionPath = parsedDescriptionPath,
-                ExtractFlag = parsedExtractFlag,
-                MetaFlag = parsedMetaFlag,
-                IsMdd = isMdd
-            };
+            Args arguments = new
+            (
+                MdictPath: parsedMdictPath,
+                AddPaths: parsedAddPaths,
+                TitlePath: parsedTitlePath,
+                ExtractDirPath: parsedExtractDirPath,
+                DescriptionPath: parsedDescriptionPath,
+                ExtractFlag: parsedExtractFlag,
+                MetaFlag: parsedMetaFlag,
+                IsMdd: isMdd
+            );
 
             Run(arguments);
             return 0;
