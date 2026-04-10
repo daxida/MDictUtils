@@ -69,10 +69,13 @@ public static class MDictPacker
 
         int itemCount = 0;
 
-        foreach ((string key, byte[] value) in mdx.Items())
+        foreach (var (key, bytes) in mdx.Items())
         {
             // if not value.strip(): continue
-            if (value == null || value.Length == 0 || IsAllWhitespace(value)) continue;
+            if (bytes.Length == 0 || bytes.All(static b => char.IsWhiteSpace((char)b)))
+            {
+                continue;
+            }
 
             itemCount++;
 
@@ -80,24 +83,14 @@ public static class MDictPacker
             writer.Write(keyBytes);
             writer.Write([.. "\r\n"u8]);
 
-            writer.Write(value);
-            if (value.Length == 0 || value[^1] != (byte)'\n')
+            writer.Write(bytes);
+            if (bytes.Length == 0 || bytes[^1] != (byte)'\n')
             {
                 writer.Write([.. "\r\n"u8]);
             }
 
             writer.Write(Encoding.UTF8.GetBytes("</>\r\n"));
         }
-    }
-
-    static bool IsAllWhitespace(byte[] data)
-    {
-        foreach (byte b in data)
-        {
-            if (!char.IsWhiteSpace((char)b))
-                return false;
-        }
-        return true;
     }
 
     public static void UnpackMdd(string target, string source)
