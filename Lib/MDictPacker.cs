@@ -130,13 +130,7 @@ public static class MDictPacker
             if (Path.DirectorySeparatorChar != '\\')
                 key = key.Replace(Path.DirectorySeparatorChar, '\\');
 
-            entries.Add(new MDictEntry
-            {
-                Key = key,
-                Pos = 0,
-                Path = source,
-                Size = size
-            });
+            entries.Add(new(key, Pos: 0, Path: source, size));
         }
         else if (Directory.Exists(source))
         {
@@ -149,13 +143,7 @@ public static class MDictPacker
                 if (Path.DirectorySeparatorChar != '\\')
                     key = key.Replace(Path.DirectorySeparatorChar, '\\');
 
-                entries.Add(new MDictEntry
-                {
-                    Key = key,
-                    Pos = 0,
-                    Path = fpath,
-                    Size = size
-                });
+                entries.Add(new(key, Pos: 0, fpath, size));
             }
         }
         else
@@ -215,13 +203,7 @@ public static class MDictPacker
                         throw new Exception($"Error at line {lineNum}: {path}");
 
                     long size = offset - pos + nullLength;
-                    entries.Add(new MDictEntry
-                    {
-                        Key = key,
-                        Pos = pos,
-                        Path = path,
-                        Size = size
-                    });
+                    entries.Add(new MDictEntry(key, pos, path, size));
                     key = null;
                 }
                 else if (key == null)

@@ -11,13 +11,8 @@ namespace Lib;
 
 // Tbh this is the Writer part
 
-public class MDictEntry
+public sealed record MDictEntry(string Key, long Pos, string Path, long Size)
 {
-    public required string Key { get; init; }
-    public required long Pos { get; init; }
-    public required string Path { get; init; }
-    public required long Size { get; init; }
-
     public override string ToString()
         => $"Key=\"{Key}\", Pos={Pos}, Size={Size}";
 }
