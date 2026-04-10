@@ -283,7 +283,7 @@ public sealed record MDictWriterOptions
 );
 #pragma warning restore format
 
-public partial class MDictWriter
+public sealed class MDictWriter
 {
     private readonly int _numEntries;
     private readonly string _title;
@@ -375,50 +375,9 @@ public partial class MDictWriter
         Console.WriteLine("[Writer] Initialization complete.\n");
     }
 
-    /// <summary>
-    /// https://docs.python.org/3/library/string.html#string.punctuation
-    /// </summary>
-    internal static readonly char[] _punctuationChars = [.. "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"];
-
-    /// <summary>
-    /// Regex to strip the python punctuation characters, and also the space character.
-    /// </summary>
-    [GeneratedRegex(@"[!\""#$%&'()*+,\-./:;<=>?@\[\\\]^_`{|}~ ]+")]
-    internal static partial Regex _regexStrip { get; }
-
-    // To be static, we pass isMdd (instead of reading _isMdd)
-    // Also internal so we can test it
-    internal static int CompareMDictKeys(string key1, string key2, bool isMdd)
-    {
-        string k1 = key1.ToLower();
-        string k2 = key2.ToLower();
-
-        if (!isMdd)
-        {
-            k1 = _regexStrip.Replace(k1, "");
-            k2 = _regexStrip.Replace(k2, "");
-        }
-
-        // key1 = locale.strxfrm(key1) ??
-        // this was locale dependent in py, but then we don't pass our tests,
-        // and it shouldn't matter anyway as long as the internal mapping works
-        int cmp = string.CompareOrdinal(k1, k2);
-        if (cmp != 0) return cmp;
-
-        // reverse length (longer first) - compare on current k1/k2
-        if (k1.Length != k2.Length)
-            return k2.Length.CompareTo(k1.Length);
-
-        // strip punctuation
-        k1 = k1.TrimEnd(_punctuationChars);
-        k2 = k2.TrimEnd(_punctuationChars);
-
-        return string.CompareOrdinal(k2, k1);
-    }
-
     private void BuildOffsetTable(List<MDictEntry> entries)
     {
-        entries.Sort((a, b) => CompareMDictKeys(a.Key, b.Key, _isMdd));
+        entries.Sort((a, b) => MDictKeyComparer.Compare(a.Key, b.Key, _isMdd));
 
         _offsetTable = [];
         long offset = 0;
@@ -722,5 +681,47 @@ public partial class MDictWriter
         {
             outfile.Write(block.BlockData);
         }
+    }
+}
+
+internal partial class MDictKeyComparer
+{
+    /// <summary>
+    /// https://docs.python.org/3/library/string.html#string.punctuation
+    /// </summary>
+    public static readonly char[] PunctuationChars = [.. "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"];
+
+    /// <summary>
+    /// Regex to strip the python punctuation characters, and also the space character.
+    /// </summary>
+    [GeneratedRegex(@"[!\""#$%&'()*+,\-./:;<=>?@\[\\\]^_`{|}~ ]+")]
+    public static partial Regex RegexStrip { get; }
+
+    public static int Compare(string key1, string key2, bool isMdd)
+    {
+        string k1 = key1.ToLower();
+        string k2 = key2.ToLower();
+
+        if (!isMdd)
+        {
+            k1 = RegexStrip.Replace(k1, "");
+            k2 = RegexStrip.Replace(k2, "");
+        }
+
+        // key1 = locale.strxfrm(key1) ??
+        // this was locale dependent in py, but then we don't pass our tests,
+        // and it shouldn't matter anyway as long as the internal mapping works
+        int cmp = string.CompareOrdinal(k1, k2);
+        if (cmp != 0) return cmp;
+
+        // reverse length (longer first) - compare on current k1/k2
+        if (k1.Length != k2.Length)
+            return k2.Length.CompareTo(k1.Length);
+
+        // strip punctuation
+        k1 = k1.TrimEnd(PunctuationChars);
+        k2 = k2.TrimEnd(PunctuationChars);
+
+        return string.CompareOrdinal(k2, k1);
     }
 }

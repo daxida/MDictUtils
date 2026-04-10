@@ -75,11 +75,11 @@ public class MDictSorterTests
     public void TestMDictRegexStrip()
     {
         const string expected = "cc100";
-        char[] punctuationChars = [.. MDictWriter._punctuationChars, ' '];
+        char[] punctuationChars = [.. MDictKeyComparer.PunctuationChars, ' '];
         foreach (var punctuation in punctuationChars)
         {
             var test = expected.Insert(3, punctuation.ToString());
-            var actual = MDictWriter._regexStrip.Replace(test, "");
+            var actual = MDictKeyComparer.RegexStrip.Replace(test, "");
             Assert.Equal(expected, actual);
         }
     }
@@ -98,7 +98,7 @@ public class MDictSorterTests
         var expected = new List<(string Key, int ExpectedIndex)>(items);
         expected.Sort((a, b) => a.ExpectedIndex.CompareTo(b.ExpectedIndex));
 
-        items.Sort((a, b) => MDictWriter.CompareMDictKeys(a.Key, b.Key, isMdd: false));
+        items.Sort((a, b) => MDictKeyComparer.Compare(a.Key, b.Key, isMdd: false));
 
         for (int i = 0; i < items.Count; i++)
         {
