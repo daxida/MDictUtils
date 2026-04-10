@@ -260,8 +260,8 @@ public partial class MDict
 
         if (_version >= 2.0)
         {
-            byte[] adlerBytes = new byte[4];
-            _ = f.Read(adlerBytes, 0, 4);
+            Span<byte> adlerBytes = stackalloc byte[4];
+            _ = f.Read(adlerBytes);
             uint adler32 = Common.ReadUInt32BigEndian(adlerBytes);
             Debug.Assert(adler32 == Common.Adler32(block));
         }
@@ -447,29 +447,32 @@ public partial class MDict
         return decompressedBlock;
     }
 
-    public List<(long, string)> SplitKeyBlock(byte[] keyBlock)
+    public List<(long, string)> SplitKeyBlock(ReadOnlySpan<byte> keyBlock)
     {
         Debug.Assert(keyBlock.Length >= _numberWidth, "Key block is too short");
 
         List<(long, string)> keyList = [];
         int keyStartIndex = 0;
 
+        Span<byte> idBytesBuffer = stackalloc byte[8];
+
+        ReadOnlySpan<byte> unicodeDelimiter = [0x00, 0x00];
+        ReadOnlySpan<byte> otherDelimiter = [0x00];
+
         while (keyStartIndex < keyBlock.Length)
         {
             Debug.Assert(keyStartIndex + _numberWidth <= keyBlock.Length, "Unexpected end of key block while reading key ID");
 
-            byte[] idBytes = new byte[_numberWidth];
-            Array.Copy(keyBlock, keyStartIndex, idBytes, 0, _numberWidth);
-            if (BitConverter.IsLittleEndian) Array.Reverse(idBytes);
+            var idBytes = idBytesBuffer[.._numberWidth];
+            keyBlock.Slice(keyStartIndex, _numberWidth).CopyTo(idBytes);
 
-            long keyId;
-            if (_numberWidth == 4)
-                keyId = BitConverter.ToUInt32(idBytes, 0);
-            else // 8
-                keyId = BitConverter.ToInt64(idBytes, 0);
+            long keyId = (_numberWidth == 4)
+                ? Common.ReadInt32BigEndian(idBytes)
+                : Common.ReadInt64BigEndian(idBytes);
 
-            // Determine delimiter
-            byte[] delimiter = _encoding == Encoding.Unicode ? [0x00, 0x00] : [0x00];
+            var delimiter = _encoding == Encoding.Unicode
+                ? unicodeDelimiter
+                : otherDelimiter;
             int width = delimiter.Length;
 
             // Find the end of the key text
@@ -477,7 +480,7 @@ public partial class MDict
             int keyEndIndex = -1;
             while (i <= keyBlock.Length - width)
             {
-                if (keyBlock.AsSpan(i, width).SequenceEqual(delimiter))
+                if (keyBlock.Slice(i, width).SequenceEqual(delimiter))
                 {
                     keyEndIndex = i;
                     break;
@@ -487,13 +490,11 @@ public partial class MDict
             Debug.Assert(keyEndIndex != -1, "Delimiter not found in key block");
 
             // Extract key text
-            int textLength = keyEndIndex - (keyStartIndex + _numberWidth);
-            byte[] rawText = new byte[textLength];
-            Array.Copy(keyBlock, keyStartIndex + _numberWidth, rawText, 0, textLength);
+            var keyTextBytes = keyBlock[(keyStartIndex + _numberWidth)..keyEndIndex];
 
             // Decode to string (ignore errors like Python)
             // Similar to TreatRecordData in the trim?
-            string keyText = _encoding.GetString(rawText).Trim('\0').Trim();
+            string keyText = _encoding.GetString(keyTextBytes).Trim('\0').Trim();
             keyList.Add((keyId, keyText));
             keyStartIndex = keyEndIndex + width;
 

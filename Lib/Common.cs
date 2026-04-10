@@ -39,8 +39,14 @@ internal static class Common
         return BitConverter.ToUInt16(ToBigEndian(slice));
     }
 
+    public static int ReadInt32BigEndian(Span<byte> bytes)
+        => BitConverter.ToInt32(ToBigEndian(bytes));
+
     public static uint ReadUInt32BigEndian(Span<byte> bytes)
         => BitConverter.ToUInt32(ToBigEndian(bytes));
+
+    public static long ReadInt64BigEndian(Span<byte> bytes)
+        => BitConverter.ToInt64(ToBigEndian(bytes));
 
     public static ulong ReadUInt64BigEndian(Span<byte> bytes)
         => BitConverter.ToUInt64(ToBigEndian(bytes));
