@@ -118,16 +118,4 @@ internal static class Common
 
         return (sum2 << 16) | adler;
     }
-
-    public static bool All<T>(this ReadOnlySpan<T> values, Func<T, bool> predicate)
-    {
-        foreach (var value in values)
-        {
-            if (!predicate(value))
-            {
-                return false;
-            }
-        }
-        return true;
-    }
 }
