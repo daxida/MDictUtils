@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.CommandLine;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -12,28 +13,28 @@ static class Program
 {
     class Args
     {
-        public string MdictPath { get; set; }
-        public string[] AddPaths { get; set; }
-        public string TitlePath { get; set; }
-        public string ExtractDirPath { get; set; }
-        public string DescriptionPath { get; set; }
-        public bool ExtractFlag { get; set; }
-        public bool MetaFlag { get; set; }
-        public bool IsMdd { get; set; }
+        public required string MdictPath { get; init; }
+        public required string[] AddPaths { get; init; }
+        public required string? TitlePath { get; init; }
+        public required string? ExtractDirPath { get; init; }
+        public required string? DescriptionPath { get; init; }
+        public required bool ExtractFlag { get; init; }
+        public required bool MetaFlag { get; init; }
+        public required bool IsMdd { get; init; }
 
-        public override string ToString()
-        {
-            return $@"Args {{
-    MdictPath = {MdictPath},
-    AddPaths = {AddPaths},
-    TitlePath = {TitlePath},
-    DescriptionPath = {DescriptionPath},
-    ExtractDirPath = {ExtractDirPath},
-    ExtractFlag = {ExtractFlag},
-    MetaFlag = {MetaFlag},
-    IsMdd = {IsMdd}
-}}";
-        }
+        public override string ToString() =>
+            $$"""
+            Args {
+                MdictPath = {{MdictPath}},
+                AddPaths = {{AddPaths}},
+                TitlePath = {{TitlePath}},
+                DescriptionPath = {{DescriptionPath}},
+                ExtractDirPath = {{ExtractDirPath}},
+                ExtractFlag = {{ExtractFlag}},
+                MetaFlag = {{MetaFlag}},
+                IsMdd = {{IsMdd}}
+            }
+            """;
     }
 
     // https://learn.microsoft.com/en-us/dotnet/standard/commandline/
@@ -92,8 +93,8 @@ static class Program
 
         rootCommand.SetAction(parseResult =>
         {
-            var parsedMdictPath = parseResult.GetValue(mdictPath);
-            string extension = Path.GetExtension(parsedMdictPath);
+            var parsedMdictPath = parseResult.GetRequiredValue(mdictPath);
+            string? extension = Path.GetExtension(parsedMdictPath);
             bool isMdd;
             switch (extension)
             {
@@ -115,7 +116,7 @@ static class Program
 
             // TODO: if we are mdx, we should only accept txt as in --add
 
-            var parsedAddPaths = parseResult.GetValue(addPaths);
+            var parsedAddPaths = parseResult.GetValue(addPaths) ?? [];
             var parsedTitlePath = parseResult.GetValue(titlePath);
             var parsedDescriptionPath = parseResult.GetValue(descriptionPath);
             var parsedExtractFlag = parseResult.GetValue(extractFlag);
@@ -160,7 +161,7 @@ static class Program
         return parseResult.Invoke();
     }
 
-    static int CheckPath(string path)
+    static int CheckPath(string? path)
     {
         if (path != null && !File.Exists(path) && !Directory.Exists(path))
         {
@@ -236,6 +237,7 @@ static class Program
         else
         {
             Console.WriteLine("Unreachable ^TM");
+            throw new UnreachableException();
         }
     }
 }
