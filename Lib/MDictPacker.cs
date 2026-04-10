@@ -98,7 +98,7 @@ public static class MDictPacker
         MDD mdd = new(source);
         var datafolder = Path.GetFullPath(target);
 
-        foreach ((string fname, byte[] v) in mdd.Items())
+        foreach (var (fname, bytes) in mdd.Items())
         {
             // fname = key.decode('UTF-8').replace('\\', os.path.sep)
             // We trim at start, because Path.Combine will not combine if the second arg is a dir...
@@ -110,7 +110,7 @@ public static class MDictPacker
                 Directory.CreateDirectory(dir);
             }
             // Console.WriteLine($"[UnpackMdd] {datafolder} | {fnameClean} | {dfname}");
-            File.WriteAllBytes(dfname, v);
+            File.WriteAllBytes(dfname, bytes);
         }
 
         Console.WriteLine($"Extracted {mdd.Count} entries to {target}");
