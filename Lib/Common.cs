@@ -15,6 +15,12 @@ internal static class Common
         return bytes;
     }
 
+    public static ReadOnlySpan<byte> ToLittleEndian(Span<byte> bytes)
+    {
+        if (!BitConverter.IsLittleEndian) bytes.Reverse();
+        return bytes;
+    }
+
     public static ReadOnlySpan<byte> ToBigEndian(ulong value) => ToBigEndian(BitConverter.GetBytes(value));
     public static ReadOnlySpan<byte> ToBigEndian(uint value) => ToBigEndian(BitConverter.GetBytes(value));
     public static ReadOnlySpan<byte> ToBigEndian(ushort value) => ToBigEndian(BitConverter.GetBytes(value));
