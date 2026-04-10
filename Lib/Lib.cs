@@ -751,8 +751,8 @@ public class MDictWriter
             var preambleChecksum = MdxBlock.Adler32(preambleArray);
             var checksumBytes = Common.ToBigEndian(preambleChecksum);
 
-            outfile.Write(preambleArray, 0, preambleArray.Length);
-            outfile.Write(checksumBytes, 0, checksumBytes.Length);
+            outfile.Write(preambleArray);
+            outfile.Write(checksumBytes);
         }
         else
         {

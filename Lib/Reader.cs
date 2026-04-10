@@ -415,7 +415,7 @@ public class MDict
         // ---- adler32 (big-endian) ----
         byte[] adlerBytes = new byte[4];
         Array.Copy(block, 4, adlerBytes, 0, 4);
-        uint adler32 = BitConverter.ToUInt32(Common.ToBigEndian(adlerBytes), 0);
+        uint adler32 = BitConverter.ToUInt32(Common.ToBigEndian(adlerBytes));
 
         // ---- encryption key ---- (SKIP)
 
