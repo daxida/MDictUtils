@@ -588,70 +588,52 @@ public class MDictWriter
         const string encrypted = "No";
         const string registerByStr = "";
 
-        string headerString;
-        if (_isMdd)
-        {
-            headerString = string.Format(
-                "<Library_Data " +
-                "GeneratedByEngineVersion=\"{0}\" " +
-                "RequiredEngineVersion=\"{0}\" " +
-                "Encrypted=\"{1}\" " +
-                "Encoding=\"\" " +
-                "Format=\"\" " +
-                "CreationDate=\"{2}-{3}-{4}\" " +
-                "KeyCaseSensitive=\"No\" " +
-                "Stripkey=\"No\" " +
-                "Description=\"{5}\" " +
-                "Title=\"{6}\" " +
-                "RegisterBy=\"{7}\" " +
-                "/>\r\n\0",
-                _version,
-                encrypted,
-                DateTime.Today.Year,
-                DateTime.Today.Month,
-                DateTime.Today.Day,
-                EscapeHtml(_description),
-                EscapeHtml(_title),
-                registerByStr
-            );
-        }
-        else
-        {
-            headerString = string.Format(
-                "<Dictionary " +
-                "GeneratedByEngineVersion=\"{0}\" " +
-                "RequiredEngineVersion=\"{0}\" " +
-                "Encrypted=\"{1}\" " +
-                "Encoding=\"{2}\" " +
-                "Format=\"Html\" " +
-                "Stripkey=\"Yes\" " +
-                "CreationDate=\"{3}-{4}-{5}\" " +
-                "Compact=\"Yes\" " +
-                "Compat=\"Yes\" " +
-                "KeyCaseSensitive=\"No\" " +
-                "Description=\"{6}\" " +
-                "Title=\"{7}\" " +
-                "DataSourceFormat=\"106\" " +
-                "StyleSheet=\"\" " +
-                "Left2Right=\"Yes\" " +
-                "RegisterBy=\"{8}\" " +
-                "/>\r\n\0",
-                _version,
-                encrypted,
-                "UTF-8",
-                DateTime.Today.Year,
-                DateTime.Today.Month,
-                DateTime.Today.Day,
-                EscapeHtml(_description),
-                EscapeHtml(_title),
-                registerByStr
-           );
-        }
+        var header = _isMdd
+            ? // MDD header
+            $"""
+            <Library_Data
+            GeneratedByEngineVersion="{_version}"
+            RequiredEngineVersion="{_version}"
+            Encrypted="{encrypted}"
+            Encoding=""
+            Format=""
+            CreationDate="{DateTime.Today.Year}-{DateTime.Today.Month}-{DateTime.Today.Day}"
+            KeyCaseSensitive="No"
+            Stripkey="No"
+            Description="{EscapeHtml(_description)}"
+            Title="{EscapeHtml(_title)}"
+            RegisterBy="{registerByStr}"
+            />
+            """
+            : // MDX header
+            $"""
+            <Dictionary
+            GeneratedByEngineVersion="{_version}"
+            RequiredEngineVersion="{_version}"
+            Encrypted="{encrypted}"
+            Encoding="UTF-8"
+            Format="Html"
+            Stripkey="Yes"
+            CreationDate="{DateTime.Today.Year}-{DateTime.Today.Month}-{DateTime.Today.Day}"
+            Compact="Yes"
+            Compat="Yes"
+            KeyCaseSensitive="No"
+            Description="{EscapeHtml(_description)}"
+            Title="{EscapeHtml(_title)}"
+            DataSourceFormat="106"
+            StyleSheet=""
+            Left2Right="Yes"
+            RegisterBy="{registerByStr}"
+            />
+            """;
+
+        header = header.ReplaceLineEndings(" ") + "\r\n\0";
+
         // Console.WriteLine($"{headerString}");
         // Console.WriteLine($"header str: {headerString.Length}");
 
         // Encode to UTF-16 LE (must be identical to python .encode("utf_16_le")
-        ReadOnlySpan<byte> headerBytes = Encoding.Unicode.GetBytes(headerString);
+        ReadOnlySpan<byte> headerBytes = Encoding.Unicode.GetBytes(header);
         // Console.WriteLine($"header bytes: {headerBytes.Length}");
         // Console.WriteLine("        " + string.Join(" ", headerBytes.Select(b => b.ToString("X2"))));
 
