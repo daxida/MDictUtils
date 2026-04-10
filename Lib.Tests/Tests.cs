@@ -151,12 +151,15 @@ public class Adler32Tests
 // Pack and Unpack should be reversable
 public class DoUndoTests
 {
-    const string testContent = @"apple
-A fruit that grows on trees.
-</>
-banana
-A long yellow fruit.
-</>";
+    const string testContent =
+        """
+        apple
+        A fruit that grows on trees.
+        </>
+        banana
+        A long yellow fruit.
+        </>
+        """;
 
     [Fact]
     public void DoUndo_PackAndUnpackMdx_ProducesIdenticalFile()
