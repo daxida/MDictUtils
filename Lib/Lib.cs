@@ -99,21 +99,19 @@ internal abstract class MdxBlock
     public abstract int LenBlockEntry(OffsetTableEntry entry);
 
     // Called in MdxBlock init
-    public static byte[] MdxCompress(byte[] data, int compressionType)
+    public static byte[] MdxCompress(ReadOnlySpan<byte> data, int compressionType)
     {
         if (compressionType != 2)
             throw new NotSupportedException("Only compressionType=2 (Zlib) is supported in this version.");
 
         // Compression type (little-endian)
-        byte[] lend = BitConverter.GetBytes(compressionType); // <L in Python
-        if (!BitConverter.IsLittleEndian) Array.Reverse(lend);
-
-        uint adler = Common.Adler32(data);
-        byte[] adlerBytes = BitConverter.GetBytes(adler);
-        if (BitConverter.IsLittleEndian) Array.Reverse(adlerBytes); // Python uses >L
+        var lend = Common.ToLittleEndian(BitConverter.GetBytes(compressionType)); // <L in Python
 
         // Adler32 checksum (big-endian)
-        byte[] header = [.. lend.Concat(adlerBytes)];
+        uint adler = Common.Adler32(data);
+        var adlerBytes = Common.ToBigEndian(BitConverter.GetBytes(adler)); // Python uses >L
+
+        // byte[] header = [.. lend, .. adlerBytes];
 
         using var ms = new MemoryStream();
 
@@ -125,7 +123,7 @@ internal abstract class MdxBlock
         // There is no reliable way to get the same exact bytes, so live with that
         using (var z = new ZLibStream(ms, CompressionLevel.Optimal, leaveOpen: true))
         {
-            z.Write(data, 0, data.Length);
+            z.Write(data);
         }
         var res = ms.ToArray();
 
@@ -136,7 +134,7 @@ internal abstract class MdxBlock
         // Console.WriteLine($"header: {BitConverter.ToString(header)}");
         // Common.PrintPythonStyle(final);
 
-        return [.. header, .. res];
+        return [.. lend, .. adlerBytes, .. res];
     }
 }
 
