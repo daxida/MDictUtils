@@ -320,7 +320,7 @@ public partial class MDict
             }
 
             // decompress zlib
-            keyBlockInfo = DecompressZlib([.. keyBlockInfoCompressed.Skip(8)]);
+            keyBlockInfo = DecompressZlib([.. keyBlockInfoCompressed.AsSpan(8..)]);
 
             uint adler32 = Common.ReadUInt32BigEndian(keyBlockInfoCompressed);
             if (adler32 != Common.Adler32(keyBlockInfo))
