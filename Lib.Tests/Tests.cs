@@ -12,7 +12,7 @@ public class MDictWriterTests
     public void Constructor_WithEmptyDictionary_Succeeds()
     {
         var entries = new List<MDictEntry>();
-        var writer = new MDictWriter(entries);
+        var writer = new MDictWriter(entries, new());
         Assert.NotNull(writer);
     }
 
@@ -23,8 +23,7 @@ public class MDictWriterTests
         var writer = new MDictWriter
         (
             entries,
-            title: "Test Dictionary",
-            description: "A test dictionary"
+            new(Title: "Test Dictionary", Description: "A test dictionary")
         );
         var outputPath = Path.GetTempFileName();
 
@@ -50,7 +49,7 @@ public class MDictWriterTests
     public void Write_WithUTF8Encoding_CreatesFile()
     {
         var entries = new List<MDictEntry>();
-        var writer = new MDictWriter(entries, encoding: "utf8");
+        var writer = new MDictWriter(entries, new(Encoding: "utf8"));
         var outputPath = Path.GetTempFileName();
 
         try
@@ -179,7 +178,7 @@ public class DoUndoTests
 
             // Pack stub.txt into out1.mdd
             var packedEntries = MDictPacker.PackMdxTxt(originalStubPath);
-            var writer = new MDictWriter(packedEntries, isMdd: isMdd);
+            var writer = new MDictWriter(packedEntries, new(IsMdd: isMdd));
             using (var outFile = File.Open(outMdxPath, FileMode.Create))
             {
                 writer.Write(outFile);
@@ -221,7 +220,7 @@ public class DoUndoTests
 
             // Pack stub.txt into out1.mdd
             var packedEntries = MDictPacker.PackMddFile(originalStubPath);
-            var writer = new MDictWriter(packedEntries, isMdd: isMdd);
+            var writer = new MDictWriter(packedEntries, new(IsMdd: isMdd));
             using (var outFile = File.Open(outMddPath, FileMode.Create))
             {
                 writer.Write(outFile);

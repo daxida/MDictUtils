@@ -269,6 +269,20 @@ internal class MdxKeyBlock : MdxBlock
     }
 }
 
+#pragma warning disable format
+public sealed record MDictWriterOptions
+(
+    string Title           = "",
+    string Description     = "",
+    int    KeySize         = 32768,
+    int    BlockSize       = 65536,
+    string Encoding        = "utf8",
+    int    CompressionType = 2,
+    string Version         = "2.0",
+    bool   IsMdd           = false
+);
+#pragma warning restore format
+
 public partial class MDictWriter
 {
     private readonly int _numEntries;
@@ -293,28 +307,20 @@ public partial class MDictWriter
     private long _recordbIndexSize;
     private long _totalRecordLen;
 
-    public MDictWriter(List<MDictEntry> entries,
-                      string title = "",
-                      string description = "",
-                      int keySize = 32768,
-                      int blockSize = 65536,
-                      string encoding = "utf8",
-                      int compressionType = 2,
-                      string version = "2.0",
-                      bool isMdd = false)
+    public MDictWriter(List<MDictEntry> entries, MDictWriterOptions opt)
     {
         _numEntries = entries.Count;
-        _title = title;
-        _description = description;
-        _blockSize = blockSize;
-        _compressionType = compressionType;
-        _version = version;
-        _isMdd = isMdd;
+        _title = opt.Title;
+        _description = opt.Description;
+        _blockSize = opt.BlockSize;
+        _compressionType = opt.CompressionType;
+        _version = opt.Version;
+        _isMdd = opt.IsMdd;
 
         // Set encoding
-        encoding = encoding.ToLower();
+        var encoding = opt.Encoding.ToLower();
         Debug.Assert(encoding == "utf8");
-        if (isMdd || encoding == "utf16" || encoding == "utf-16")
+        if (opt.IsMdd || encoding == "utf16" || encoding == "utf-16")
         {
             _innerEncoding = Encoding.Unicode;
             _encoding = Encoding.Unicode;
@@ -331,7 +337,7 @@ public partial class MDictWriter
             throw new ArgumentException("Unknown encoding. Supported: utf8, utf16");
         }
 
-        if (version != "2.0")
+        if (opt.Version != "2.0")
         {
             throw new ArgumentException("Unknown version. Supported: 2.0");
         }
@@ -342,13 +348,13 @@ public partial class MDictWriter
         Console.WriteLine("=========================");
 
         Console.WriteLine("[Writer] Building KeyBlocks");
-        _blockSize = keySize;
+        _blockSize = opt.KeySize;
         BuildKeyBlocks();
         Console.WriteLine($"[Writer] Block size set to {_blockSize}");
         Console.WriteLine($"[Writer] Built {_keyBlocks.Count} key blocks.");
         foreach (var item in _keyBlocks) { Console.WriteLine($"* KeyBlock: {item}"); }
 
-        _blockSize = blockSize;
+        _blockSize = opt.BlockSize;
         Console.WriteLine($"[Writer] Block size reset to {_blockSize}");
         Console.WriteLine("=========================");
 
