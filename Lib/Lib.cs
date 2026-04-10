@@ -53,7 +53,9 @@ internal class OffsetTableEntry
     }
 }
 
-// # Abstract base class for MdxRecordBlock and MdxKeyBlock.
+/// <summary>
+/// Abstract base class for <see cref="MdxRecordBlock"/> and <see cref="MdxKeyBlock"/>.
+/// </summary>
 internal abstract class MdxBlock
 {
     protected long _decompSize;
@@ -566,7 +568,10 @@ public class MDictWriter
     private void BuildRecordbIndex()
     {
         List<byte> indexData = [];
-        foreach (var block in _recordBlocks) { indexData.AddRange(block.GetIndexEntry()); }
+        foreach (var block in _recordBlocks)
+        {
+            indexData.AddRange(block.GetIndexEntry());
+        }
         _recordbIndex = [.. indexData];
         _recordbIndexSize = _recordbIndex.Length;
     }
@@ -646,29 +651,22 @@ public class MDictWriter
         // Console.WriteLine($"header str: {headerString.Length}");
 
         // Encode to UTF-16 LE (must be identical to python .encode("utf_16_le")
-        byte[] headerBytes = Encoding.Unicode.GetBytes(headerString);
+        ReadOnlySpan<byte> headerBytes = Encoding.Unicode.GetBytes(headerString);
         // Console.WriteLine($"header bytes: {headerBytes.Length}");
         // Console.WriteLine("        " + string.Join(" ", headerBytes.Select(b => b.ToString("X2"))));
 
         // Write header length (big-endian)
-        byte[] lengthBytes = BitConverter.GetBytes((uint)headerBytes.Length);
-        if (BitConverter.IsLittleEndian)
-        {
-            Array.Reverse(lengthBytes);
-        }
-        stream.Write(lengthBytes, 0, lengthBytes.Length);
+        var lengthBytes = Common.ToBigEndian(BitConverter.GetBytes((uint)headerBytes.Length));
+        stream.Write(lengthBytes);
 
         // Write header string
-        stream.Write(headerBytes, 0, headerBytes.Length);
+        stream.Write(headerBytes);
 
         // Write Adler32 checksum (little-endian)
         uint checksum = Common.Adler32(headerBytes);
-        byte[] checksumBytes = BitConverter.GetBytes(checksum);
-        if (!BitConverter.IsLittleEndian)
-        {
-            Array.Reverse(checksumBytes);
-        }
-        stream.Write(checksumBytes, 0, checksumBytes.Length);
+        var checksumBytes = Common.ToLittleEndian(BitConverter.GetBytes(checksum));
+
+        stream.Write(checksumBytes);
     }
 
     // Same as python: escape(self._description, quote=True),
