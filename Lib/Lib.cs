@@ -175,26 +175,26 @@ internal class MdxRecordBlock(List<OffsetTableEntry> offsetTable, int compressio
         if (size < 1) throw new ArgumentException("Size must be >= 1", nameof(size));
 
         byte[] record = new byte[size];
-        using (var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read))
+        using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+
+        fs.Seek(pos, SeekOrigin.Begin);
+        if (isMdd)
         {
-            fs.Seek(pos, SeekOrigin.Begin);
-            if (isMdd)
+            // For MDD, just read the whole record
+            int bytesRead = fs.Read(record, 0, size);
+            if (bytesRead < size)
             {
-                // For MDD, just read the whole record
-                int bytesRead = fs.Read(record, 0, size);
-                if (bytesRead < size)
-                {
-                    // Trim if fewer bytes were read
-                    Array.Resize(ref record, bytesRead);
-                }
-            }
-            else
-            {
-                // For MDX, read size-1 bytes and append null byte
-                int bytesRead = fs.Read(record, 0, size - 1);
-                record[bytesRead] = 0; // null-terminate
+                // Trim if fewer bytes were read
+                Array.Resize(ref record, bytesRead);
             }
         }
+        else
+        {
+            // For MDX, read size-1 bytes and append null byte
+            int bytesRead = fs.Read(record, 0, size - 1);
+            record[bytesRead] = 0; // null-terminate
+        }
+
         // Console.WriteLine($"[ReadRecord] Record length: {record.Length}");
 
         return record;
