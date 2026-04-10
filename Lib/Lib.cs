@@ -149,21 +149,17 @@ internal class MdxRecordBlock(List<OffsetTableEntry> offsetTable, int compressio
     {
         // Console.WriteLine("Called GetIndexEntry on MDXRECORDBLOCK");
         // Console.WriteLine($"    compSize {_compSize}; decompsize {_decompSize}");
-
-        List<byte> result = [];
-
-        if (_version == "2.0")
-        {
-            // Big-endian 64-bit values
-            result.AddRange(Common.ToBigEndian((ulong)_compSize));
-            result.AddRange(Common.ToBigEndian((ulong)_decompSize));
-        }
-        else
+        if (_version != "2.0")
         {
             throw new NotImplementedException();
         }
 
-        return [.. result];
+        // Big-endian 64-bit values
+        return
+        [
+            .. Common.ToBigEndian((ulong)_compSize),
+            .. Common.ToBigEndian((ulong)_decompSize),
+        ];
     }
 
     // rg: get_record_null
@@ -247,11 +243,12 @@ internal class MdxKeyBlock : MdxBlock
 
     protected override byte[] GetBlockEntry(OffsetTableEntry entry, string version)
     {
-        List<byte> result = [];
         Debug.Assert(version == "2.0");
-        result.AddRange(Common.ToBigEndian((ulong)entry.Offset));
-        result.AddRange(entry.KeyNull);
-        return [.. result];
+        return
+        [
+            .. Common.ToBigEndian((ulong)entry.Offset),
+            .. entry.KeyNull,
+        ];
     }
 
     // Approximate for version 2.0
@@ -670,7 +667,7 @@ public class MDictWriter
             throw new NotImplementedException();
         }
 
-        long keyblocksTotal = _keyBlocks.Sum(b => b.BlockData.Length);
+        long keyblocksTotal = _keyBlocks.Sum(static b => b.BlockData.Length);
 
         ReadOnlySpan<byte> preamble =
         [
