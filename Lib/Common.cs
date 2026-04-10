@@ -25,6 +25,10 @@ internal static class Common
     public static ReadOnlySpan<byte> ToBigEndian(uint value) => ToBigEndian(BitConverter.GetBytes(value));
     public static ReadOnlySpan<byte> ToBigEndian(ushort value) => ToBigEndian(BitConverter.GetBytes(value));
 
+    public static ReadOnlySpan<byte> ToLittleEndian(ulong value) => ToLittleEndian(BitConverter.GetBytes(value));
+    public static ReadOnlySpan<byte> ToLittleEndian(uint value) => ToLittleEndian(BitConverter.GetBytes(value));
+    public static ReadOnlySpan<byte> ToLittleEndian(ushort value) => ToLittleEndian(BitConverter.GetBytes(value));
+
     public static int ReadInt32BigEndian(BinaryReader br)
         => BitConverter.ToInt32(ToBigEndian(br.ReadBytes(4)));
 

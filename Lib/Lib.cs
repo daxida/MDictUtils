@@ -109,7 +109,7 @@ internal abstract class MdxBlock
 
         // Adler32 checksum (big-endian)
         uint adler = Common.Adler32(data);
-        var adlerBytes = Common.ToBigEndian(BitConverter.GetBytes(adler)); // Python uses >L
+        var adlerBytes = Common.ToBigEndian(adler); // Python uses >L
 
         // byte[] header = [.. lend, .. adlerBytes];
 
@@ -632,7 +632,7 @@ public partial class MDictWriter
         // Console.WriteLine("        " + string.Join(" ", headerBytes.Select(b => b.ToString("X2"))));
 
         // Write header length (big-endian)
-        var lengthBytes = Common.ToBigEndian(BitConverter.GetBytes((uint)headerBytes.Length));
+        var lengthBytes = Common.ToBigEndian((uint)headerBytes.Length);
         stream.Write(lengthBytes);
 
         // Write header string
@@ -640,7 +640,7 @@ public partial class MDictWriter
 
         // Write Adler32 checksum (little-endian)
         uint checksum = Common.Adler32(headerBytes);
-        var checksumBytes = Common.ToLittleEndian(BitConverter.GetBytes(checksum));
+        var checksumBytes = Common.ToLittleEndian(checksum);
 
         stream.Write(checksumBytes);
     }
