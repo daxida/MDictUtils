@@ -4,8 +4,6 @@ using System.IO;
 using System.Text;
 using Xunit;
 
-using D = System.Collections.Generic.List<Lib.MDictEntry>;
-
 namespace Lib.Tests;
 
 public class MDictWriterTests
@@ -13,18 +11,21 @@ public class MDictWriterTests
     [Fact]
     public void Constructor_WithEmptyDictionary_Succeeds()
     {
-        var dictionary = new D();
-        var writer = new MDictWriter(dictionary);
+        var entries = new List<MDictEntry>();
+        var writer = new MDictWriter(entries);
         Assert.NotNull(writer);
     }
 
     [Fact]
     public void Write_CreatesValidFile()
     {
-        var dictionary = new D();
-        var writer = new MDictWriter(dictionary,
+        var entries = new List<MDictEntry>();
+        var writer = new MDictWriter
+        (
+            entries,
             title: "Test Dictionary",
-            description: "A test dictionary");
+            description: "A test dictionary"
+        );
         var outputPath = Path.GetTempFileName();
 
         try
@@ -48,8 +49,8 @@ public class MDictWriterTests
     [Fact]
     public void Write_WithUTF8Encoding_CreatesFile()
     {
-        var dictionary = new D();
-        var writer = new MDictWriter(dictionary, encoding: "utf8");
+        var entries = new List<MDictEntry>();
+        var writer = new MDictWriter(entries, encoding: "utf8");
         var outputPath = Path.GetTempFileName();
 
         try

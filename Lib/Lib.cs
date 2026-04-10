@@ -7,8 +7,6 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.IO.Compression;
 
-using D = System.Collections.Generic.List<Lib.MDictEntry>;
-
 namespace Lib;
 
 // Tbh this is the Writer part
@@ -355,7 +353,7 @@ public class MDictWriter
     private long _recordbIndexSize;
     private long _totalRecordLen;
 
-    public MDictWriter(D dictionary,
+    public MDictWriter(List<MDictEntry> entries,
                       string title = "",
                       string description = "",
                       int keySize = 32768,
@@ -365,7 +363,7 @@ public class MDictWriter
                       string version = "2.0",
                       bool isMdd = false)
     {
-        _numEntries = dictionary.Count;
+        _numEntries = entries.Count;
         _title = title;
         _description = description;
         _blockSize = blockSize;
@@ -398,7 +396,7 @@ public class MDictWriter
             throw new ArgumentException("Unknown version. Supported: 2.0");
         }
 
-        BuildOffsetTable(dictionary);
+        BuildOffsetTable(entries);
         Console.WriteLine("[Writer] Offset table built.");
         Console.WriteLine($"[Writer] Total entries: {_offsetTable.Count}, record length {_totalRecordLen}");
         Console.WriteLine("=========================");
@@ -467,14 +465,14 @@ public class MDictWriter
         return string.CompareOrdinal(k2, k1);
     }
 
-    private void BuildOffsetTable(D dictionary)
+    private void BuildOffsetTable(List<MDictEntry> entries)
     {
-        dictionary.Sort((a, b) => CompareMDictKeys(a.Key, b.Key, _isMdd));
+        entries.Sort((a, b) => CompareMDictKeys(a.Key, b.Key, _isMdd));
 
         _offsetTable = [];
         long offset = 0;
 
-        foreach (var item in dictionary)
+        foreach (var item in entries)
         {
             // Console.WriteLine($"dict item: {item}");
             var keyEnc = _innerEncoding.GetBytes(item.Key);

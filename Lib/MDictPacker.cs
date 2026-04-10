@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 
-using D = System.Collections.Generic.List<Lib.MDictEntry>;
-
 namespace Lib;
 
 // Packer, does both writing (packing) and reading (unpacking)
@@ -117,9 +115,9 @@ public static class MDictPacker
     }
 
     // https://github.com/liuyug/mdict-utils/blob/64e15b99aca786dbf65e5a2274f85547f8029f2e/mdict_utils/writer.py#L509
-    public static D PackMddFile(string source)
+    public static List<MDictEntry> PackMddFile(string source)
     {
-        D dictionary = [];
+        List<MDictEntry> entries = [];
         source = Path.GetFullPath(source);
 
         if (File.Exists(source))
@@ -130,7 +128,7 @@ public static class MDictPacker
             if (Path.DirectorySeparatorChar != '\\')
                 key = key.Replace(Path.DirectorySeparatorChar, '\\');
 
-            dictionary.Add(new MDictEntry
+            entries.Add(new MDictEntry
             {
                 Key = key,
                 Pos = 0,
@@ -149,7 +147,7 @@ public static class MDictPacker
                 if (Path.DirectorySeparatorChar != '\\')
                     key = key.Replace(Path.DirectorySeparatorChar, '\\');
 
-                dictionary.Add(new MDictEntry
+                entries.Add(new MDictEntry
                 {
                     Key = key,
                     Pos = 0,
@@ -163,14 +161,14 @@ public static class MDictPacker
             throw new FileNotFoundException($"Path does not exist: {source}");
         }
 
-        return dictionary;
+        return entries;
     }
 
     // https://github.com/liuyug/mdict-utils/blob/master/mdict_utils/writer.py#L425
-    public static D PackMdxTxt(string source, Encoding? encoding = null)
+    public static List<MDictEntry> PackMdxTxt(string source, Encoding? encoding = null)
     {
         encoding ??= Encoding.UTF8;
-        D dictionary = [];
+        List<MDictEntry> entries = [];
         List<string> sources = [];
         int nullLength = encoding.GetByteCount("\0");
 
@@ -215,7 +213,7 @@ public static class MDictPacker
                         throw new Exception($"Error at line {lineNum}: {path}");
 
                     long size = offset - pos + nullLength;
-                    dictionary.Add(new MDictEntry
+                    entries.Add(new MDictEntry
                     {
                         Key = key,
                         Pos = pos,
@@ -237,7 +235,7 @@ public static class MDictPacker
             }
         }
 
-        return dictionary;
+        return entries;
     }
 }
 
