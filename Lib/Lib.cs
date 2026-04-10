@@ -262,18 +262,17 @@ internal class MdxKeyBlock : MdxBlock
 
     public override byte[] GetIndexEntry()
     {
-        List<byte> result = [];
         Debug.Assert(_version == "2.0");
-
-        result.AddRange(Common.ToBigEndian((ulong)_numEntries));
-        result.AddRange(Common.ToBigEndian((ushort)_firstKeyLen));
-        result.AddRange(_firstKey);
-        result.AddRange(Common.ToBigEndian((ushort)_lastKeyLen));
-        result.AddRange(_lastKey);
-        result.AddRange(Common.ToBigEndian((ulong)_compSize));
-        result.AddRange(Common.ToBigEndian((ulong)_decompSize));
-
-        return [.. result];
+        return
+        [
+            .. Common.ToBigEndian((ulong)_numEntries),
+            .. Common.ToBigEndian((ushort)_firstKeyLen),
+            .. _firstKey,
+            .. Common.ToBigEndian((ushort)_lastKeyLen),
+            .. _lastKey,
+            .. Common.ToBigEndian((ulong)_compSize),
+            .. Common.ToBigEndian((ulong)_decompSize),
+        ];
     }
 }
 
@@ -554,9 +553,10 @@ public class MDictWriter
         var decompData = new List<byte>();
         foreach (var block in _keyBlocks)
         {
-            var thing = string.Join(" ", block.GetIndexEntry().Select(b => b.ToString("X2")));
-            Console.WriteLine($"entry {thing}");
-            decompData.AddRange(block.GetIndexEntry());
+            var indexEntry = block.GetIndexEntry();
+            var displayBytes = string.Join(" ", indexEntry.Select(static b => b.ToString("X2")));
+            Console.WriteLine($"entry {displayBytes}");
+            decompData.AddRange(indexEntry);
         }
 
         var decompArray = decompData.ToArray();
