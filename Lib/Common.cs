@@ -42,6 +42,9 @@ internal static class Common
     public static uint ReadUInt32BigEndian(Span<byte> bytes)
         => BitConverter.ToUInt32(ToBigEndian(bytes));
 
+    public static ulong ReadUInt64BigEndian(Span<byte> bytes)
+        => BitConverter.ToUInt64(ToBigEndian(bytes));
+
     public static void PrintPythonStyle(byte[] data)
     {
         Console.WriteLine("        " + string.Join(" ", data.Select(b => b.ToString("X2"))));

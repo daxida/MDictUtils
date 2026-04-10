@@ -285,7 +285,7 @@ public partial class MDict
     // _decode_key_block_info
     protected List<(long, long)> DecodeKeyBlockInfo(byte[] keyBlockInfoCompressed)
     {
-        byte[] keyBlockInfo;
+        ReadOnlySpan<byte> keyBlockInfo;
 
         if (_version >= 2)
         {
@@ -388,18 +388,12 @@ public partial class MDict
 
     static private long ReadNumber(ReadOnlySpan<byte> buffer, int offset, int numberWidth)
     {
-        var slice = numberWidth < 100
-            ? stackalloc byte[numberWidth]
-            : new byte[numberWidth];
-
+        // numberWidth should always be 4 or 8
+        Span<byte> slice = stackalloc byte[numberWidth];
         buffer.Slice(offset, numberWidth).CopyTo(slice);
-
-        if (BitConverter.IsLittleEndian)
-            slice.Reverse();
-
         return (numberWidth == 4)
-            ? BitConverter.ToUInt32(slice)
-            : (long)BitConverter.ToUInt64(slice);
+            ? Common.ReadUInt32BigEndian(slice)
+            : (long)Common.ReadUInt64BigEndian(slice);
     }
 
     // _decode_key_block
@@ -455,7 +449,6 @@ public partial class MDict
 
     public List<(long, string)> SplitKeyBlock(byte[] keyBlock)
     {
-        Debug.Assert(keyBlock != null, "Key block cannot be null");
         Debug.Assert(keyBlock.Length >= _numberWidth, "Key block is too short");
 
         List<(long, string)> keyList = [];
