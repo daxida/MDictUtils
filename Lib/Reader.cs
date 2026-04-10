@@ -292,17 +292,26 @@ public partial class MDict
             // SAFETY: check header bytes
             if (keyBlockInfoCompressed.Length < 4)
             {
-                throw new InvalidDataException(
-                    $"Key block info is too short: expected at least 4 bytes, got {keyBlockInfoCompressed.Length} bytes.");
+                throw new InvalidDataException($"""
+                    Key block info is too short.
+                    Expected at least 4 bytes.
+                    Got {keyBlockInfoCompressed.Length} bytes.
+                    """);
             }
-            byte[] expectedHeader = [0x02, 0x00, 0x00, 0x00];
-            for (int idx = 0; idx < 4; idx++)
+
+            if (keyBlockInfoCompressed is not [0x02, 0x00, 0x00, 0x00, ..])
             {
-                if (keyBlockInfoCompressed[idx] != expectedHeader[idx])
-                {
-                    throw new InvalidDataException(
-                        $"Key block info header mismatch at byte {idx}: expected 0x{expectedHeader[idx]:X2}, got 0x{keyBlockInfoCompressed[idx]:X2}.");
-                }
+                var actual = string.Join(
+                    separator: ", ",
+                    values: keyBlockInfoCompressed
+                        .Take(4)
+                        .Select(static b => $"{b:X2}"));
+
+                throw new InvalidDataException($"""
+                    Key block info header mismatch.
+                    Expected: [0x02, 0x00, 0x00, 0x00, ..]
+                    Actual:   [{actual}, ..]"
+                    """);
             }
 
             if ((_encrypt & 0x02) != 0)

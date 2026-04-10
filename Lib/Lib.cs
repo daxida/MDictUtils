@@ -138,7 +138,8 @@ internal abstract class MdxBlock
     }
 }
 
-internal class MdxRecordBlock(List<OffsetTableEntry> offsetTable, int compressionType, string version) : MdxBlock(offsetTable, compressionType, version)
+internal class MdxRecordBlock(List<OffsetTableEntry> offsetTable, int compressionType, string version)
+    : MdxBlock(offsetTable, compressionType, version)
 {
     public override byte[] GetIndexEntry()
     {
