@@ -9,7 +9,7 @@ using System.Linq;
 
 namespace Lib;
 
-public class MDict
+public partial class MDict
 {
     protected string _fname;
     protected Encoding _encoding;
@@ -137,7 +137,8 @@ public class MDict
             return (long)BitConverter.ToUInt64(bytes, 0);
     }
 
-    private static readonly Regex HeaderKeyValuesRegex = new(@"(\w+)=""(.*?)""", RegexOptions.Singleline);
+    [GeneratedRegex(@"(\w+)=""(.*?)""", RegexOptions.Singleline)]
+    private static partial Regex HeaderKeyValuesRegex { get; }
 
     protected Dictionary<string, string> ParseHeader(string headerText)
     {

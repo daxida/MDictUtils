@@ -268,7 +268,7 @@ internal class MdxKeyBlock : MdxBlock
     }
 }
 
-public class MDictWriter
+public partial class MDictWriter
 {
     private readonly int _numEntries;
     private readonly string _title;
@@ -371,7 +371,9 @@ public class MDictWriter
     // We could merge this two at some point
     // Also internal so we can test it
     // [!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~ ]+
-    internal static readonly Regex _regexStrip = new(@"[!\""#$%&'()*+,\-./:;<=>?@\[\\\]^_`{|}~]+");
+    [GeneratedRegex(@"[!\""#$%&'()*+,\-./:;<=>?@\[\\\]^_`{|}~]+")]
+    internal static partial Regex _regexStrip { get; }
+
     internal static readonly char[] _punctuationChars = [.. "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"];
 
     // To be static, we pass isMdd (instead of reading _isMdd)
