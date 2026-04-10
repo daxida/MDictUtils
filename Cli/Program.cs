@@ -197,7 +197,12 @@ static class Program
                 description = File.ReadAllText(args.DescriptionPath, Encoding.UTF8).Trim();
             }
 
-            MDictWriter writer = new(packed, title, description, isMdd: args.IsMdd);
+            var options = new MDictWriterOptions(
+                Title: title,
+                Description: description,
+                IsMdd: args.IsMdd);
+
+            MDictWriter writer = new(packed, options);
 
             // creates intermediate directories if needed
             // so that it works if MdictPath is a/b/thing.mdx
