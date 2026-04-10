@@ -106,10 +106,10 @@ static class Program
                     break;
                 case "":
                     // WARN: We enter here with empty input, f.e. cli -f (since f is not a flag!)
-                    Console.WriteLine("Folders are not yet supported");
+                    Console.Error.WriteLine("Folders are not yet supported");
                     return 1;
                 default:
-                    Console.WriteLine(
+                    Console.Error.WriteLine(
                         $"Unsupported file type: '{extension}'. Only .mdx and .mdd are allowed.");
                     return 1;
             }
@@ -132,12 +132,12 @@ static class Program
 
             if (!string.IsNullOrEmpty(parsedTitlePath) && Path.GetExtension(parsedTitlePath) != ".html")
             {
-                Console.WriteLine($"Path '{parsedTitlePath}' should point to html");
+                Console.Error.WriteLine($"Path '{parsedTitlePath}' should point to html");
                 return 1;
             }
             if (!string.IsNullOrEmpty(parsedDescriptionPath) && Path.GetExtension(parsedDescriptionPath) != ".html")
             {
-                Console.WriteLine($"Path '{parsedDescriptionPath}' should point to html");
+                Console.Error.WriteLine($"Path '{parsedDescriptionPath}' should point to html");
                 return 1;
             }
 
@@ -165,7 +165,7 @@ static class Program
     {
         if (path != null && !File.Exists(path) && !Directory.Exists(path))
         {
-            Console.WriteLine($"Path does not exist: {path}");
+            Console.Error.WriteLine($"Path does not exist: {path}");
             return 1;
         }
         return 0;
@@ -224,19 +224,21 @@ static class Program
         }
         else if (args.MetaFlag)
         {
-            MDict m = args.IsMdd ? new MDD(args.MdictPath) : new MDX(args.MdictPath);
-            Console.WriteLine("Version: \"2.0\""); // le hardcode
-            Console.WriteLine($"Record: \"{m.Count}\"");
-            foreach ((string key, string value) in m.Header)
+            MDict m = args.IsMdd
+                ? new MDD(args.MdictPath)
+                : new MDX(args.MdictPath);
+            Console.Error.WriteLine("Version: \"2.0\""); // le hardcode
+            Console.Error.WriteLine($"Record: \"{m.Count}\"");
+            foreach (var (key, value) in m.Header)
             {
                 // Not sure why this was done in the original, it seems worse to me...
                 var keyTitled = CultureInfo.CurrentCulture.TextInfo.ToTitleCase(key);
-                Console.WriteLine($"{keyTitled}: \"{value}\"");
+                Console.Error.WriteLine($"{keyTitled}: \"{value}\"");
             }
         }
         else
         {
-            Console.WriteLine("Unreachable ^TM");
+            Console.Error.WriteLine("Unreachable ^TM");
             throw new UnreachableException();
         }
     }
