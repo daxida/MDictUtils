@@ -588,14 +588,18 @@ public class MDictWriter
         return blocks;
     }
 
-    private void BuildKeyBlocks() => _keyBlocks = SplitBlocks(
-            (entries, comp, ver) => new MdxKeyBlock(entries, comp, ver),
-            (entry) => 8 + entry.KeyNull.Length
+    private void BuildKeyBlocks()
+        => _keyBlocks = SplitBlocks
+        (
+            static (entries, comp, ver) => new MdxKeyBlock(entries, comp, ver),
+            static (entry) => 8 + entry.KeyNull.Length
         );
 
-    private void BuildRecordBlocks() => _recordBlocks = SplitBlocks(
-            (entries, comp, ver) => new MdxRecordBlock(entries, comp, ver),
-            (entry) => entry.RecordSize
+    private void BuildRecordBlocks()
+        => _recordBlocks = SplitBlocks
+        (
+            static (entries, comp, ver) => new MdxRecordBlock(entries, comp, ver),
+            static (entry) => entry.RecordSize
         );
 
     private void BuildKeybIndex()
