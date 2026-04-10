@@ -74,7 +74,14 @@ public class MDictSorterTests
     [Fact]
     public void TestMDictRegexStrip()
     {
-        Assert.Equal("cc100", MDictWriter._regexStrip.Replace("@cc-100", ""));
+        const string expected = "cc100";
+        char[] punctuationChars = [.. MDictWriter._punctuationChars, ' '];
+        foreach (var punctuation in punctuationChars)
+        {
+            var test = expected.Insert(3, punctuation.ToString());
+            var actual = MDictWriter._regexStrip.Replace(test, "");
+            Assert.Equal(expected, actual);
+        }
     }
 
     [Fact]

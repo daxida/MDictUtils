@@ -375,13 +375,16 @@ public partial class MDictWriter
         Console.WriteLine("[Writer] Initialization complete.\n");
     }
 
-    // We could merge this two at some point
-    // Also internal so we can test it
-    // [!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~ ]+
-    [GeneratedRegex(@"[!\""#$%&'()*+,\-./:;<=>?@\[\\\]^_`{|}~]+")]
-    internal static partial Regex _regexStrip { get; }
-
+    /// <summary>
+    /// https://docs.python.org/3/library/string.html#string.punctuation
+    /// </summary>
     internal static readonly char[] _punctuationChars = [.. "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"];
+
+    /// <summary>
+    /// Regex to strip the python punctuation characters, and also the space character.
+    /// </summary>
+    [GeneratedRegex(@"[!\""#$%&'()*+,\-./:;<=>?@\[\\\]^_`{|}~ ]+")]
+    internal static partial Regex _regexStrip { get; }
 
     // To be static, we pass isMdd (instead of reading _isMdd)
     // Also internal so we can test it
