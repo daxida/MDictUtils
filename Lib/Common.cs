@@ -54,7 +54,6 @@ internal static class Common
         Console.WriteLine("        " + pythonStyle);
     }
 
-
     // Check zlib implementation...
     //
     // https://github.com/madler/zlib/blob/f9dd6009be3ed32415edf1e89d1bc38380ecb95d/adler32.c#L128

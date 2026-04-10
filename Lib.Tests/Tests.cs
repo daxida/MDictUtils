@@ -123,7 +123,7 @@ public class Adler32Tests
         foreach (var part in parts)
         {
             byte[] data = Encoding.UTF8.GetBytes(part);
-            uint adlerValue = MdxBlock.Adler32(data);
+            uint adlerValue = Common.Adler32(data);
             Assert.Equal(expected[i], adlerValue);
             i++;
         }
@@ -135,10 +135,10 @@ public class Adler32Tests
             0x00,0x00,
             0x06, (byte)'b', (byte)'a', (byte)'n', (byte)'a', (byte)'n', (byte)'a',
             0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
-            0x21,  // <- THIS is the correct byte, 0x21 = '!' 
+            0x21,  // <- THIS is the correct byte, 0x21 = '!'
             0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x1d
         ];
-        uint adlerValue2 = MdxBlock.Adler32(data2); // Replace with your static method
+        uint adlerValue2 = Common.Adler32(data2); // Replace with your static method
         Assert.Equal((uint)1872954559, adlerValue2);
         // python -c "import zlib, struct; data = b'\x00\x00\x00\x00\x00\x00\x00\x02\x00\x05apple\x00\x00\x06banana\x00\x00\x00\x00\x00\x00\x00\x00!\x00\x00\x00\x00\x00\x00\x00\x1d'; checksum = zlib.adler32(data) & 0xffffffff; print('Little-endian:', struct.pack('<L', checksum)); print('Big-endian:', struct.pack('>L', checksum)); print(checksum)"
         //

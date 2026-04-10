@@ -109,7 +109,7 @@ internal abstract class MdxBlock
         byte[] lend = BitConverter.GetBytes(compressionType); // <L in Python
         if (!BitConverter.IsLittleEndian) Array.Reverse(lend);
 
-        uint adler = Adler32(data);
+        uint adler = Common.Adler32(data);
         byte[] adlerBytes = BitConverter.GetBytes(adler);
         if (BitConverter.IsLittleEndian) Array.Reverse(adlerBytes); // Python uses >L
 
@@ -138,54 +138,6 @@ internal abstract class MdxBlock
         // Common.PrintPythonStyle(final);
 
         return [.. header, .. res];
-    }
-
-    // Check zlib implementation...
-    //
-    // https://github.com/madler/zlib/blob/f9dd6009be3ed32415edf1e89d1bc38380ecb95d/adler32.c#L128
-    // https://gist.github.com/AristurtleDev/316358b3f87fd995923b79350be342f5
-    //
-    // header = (struct.pack(b"<L", compression_type) + 
-    //          struct.pack(b">L", zlib.adler32(data) & 0xffffffff)) #depending on python version, zlib.adler32 may return a signed number. 
-    private const uint BASE = 65521;
-    private const int NMAX = 5552;
-
-    public static uint Adler32(byte[] buf)
-    {
-        if (buf == null) return 1;
-
-        uint adler = 1;
-        uint sum2 = 0;
-
-        int len = buf.Length;
-        int index = 0;
-
-        while (len > 0)
-        {
-            int blockLen = len < NMAX ? len : NMAX;
-            len -= blockLen;
-
-            while (blockLen >= 16)
-            {
-                for (int i = 0; i < 16; i++)
-                {
-                    adler += buf[index++];
-                    sum2 += adler;
-                }
-                blockLen -= 16;
-            }
-
-            while (blockLen-- > 0)
-            {
-                adler += buf[index++];
-                sum2 += adler;
-            }
-
-            adler %= BASE;
-            sum2 %= BASE;
-        }
-
-        return (sum2 << 16) | adler;
     }
 }
 
@@ -710,7 +662,7 @@ public class MDictWriter
         stream.Write(headerBytes, 0, headerBytes.Length);
 
         // Write Adler32 checksum (little-endian)
-        uint checksum = MdxBlock.Adler32(headerBytes);
+        uint checksum = Common.Adler32(headerBytes);
         byte[] checksumBytes = BitConverter.GetBytes(checksum);
         if (!BitConverter.IsLittleEndian)
         {
@@ -745,7 +697,7 @@ public class MDictWriter
             preamble.AddRange(Common.ToBigEndian((ulong)keyblocksTotal));
 
             var preambleArray = preamble.ToArray();
-            var preambleChecksum = MdxBlock.Adler32(preambleArray);
+            var preambleChecksum = Common.Adler32(preambleArray);
             var checksumBytes = Common.ToBigEndian(preambleChecksum);
 
             outfile.Write(preambleArray);
