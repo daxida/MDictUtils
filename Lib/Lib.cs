@@ -277,12 +277,14 @@ public sealed record MDictWriterOptions
     string Encoding        = "utf8",
     int    CompressionType = 2,
     string Version         = "2.0",
-    bool   IsMdd           = false
+    bool   IsMdd           = false,
+    bool   Logging         = true
 );
 #pragma warning restore format
 
 public sealed class MDictWriter
 {
+    private readonly MDictWriterLogger _logger;
     private readonly int _numEntries;
     private readonly string _title;
     private readonly string _description;
@@ -308,6 +310,8 @@ public sealed class MDictWriter
     public MDictWriter(List<MDictEntry> entries, MDictWriterOptions? opt = null)
     {
         opt ??= new();
+
+        _logger = new() { Enabled = opt.Logging };
 
         _numEntries = entries.Count;
         _title = opt.Title;
@@ -343,36 +347,27 @@ public sealed class MDictWriter
         }
 
         BuildOffsetTable(entries);
-        Console.WriteLine("[Writer] Offset table built.");
-        Console.WriteLine($"[Writer] Total entries: {_offsetTable.Count}, record length {_totalRecordLen}");
-        Console.WriteLine("=========================");
+        _logger.LogOffsetTable(_offsetTable, _totalRecordLen);
 
-        Console.WriteLine("[Writer] Building KeyBlocks");
+        _logger.LogBeginBuildingKeyBlocks();
         _blockSize = opt.KeySize;
         BuildKeyBlocks();
-        Console.WriteLine($"[Writer] Block size set to {_blockSize}");
-        Console.WriteLine($"[Writer] Built {_keyBlocks.Count} key blocks.");
-        foreach (var item in _keyBlocks) { Console.WriteLine($"* KeyBlock: {item}"); }
+        _logger.LogKeyBlocks(_blockSize, _keyBlocks);
 
         _blockSize = opt.BlockSize;
-        Console.WriteLine($"[Writer] Block size reset to {_blockSize}");
-        Console.WriteLine("=========================");
+        _logger.LogBlockSizeReset(_blockSize);
 
-        Console.WriteLine("[Writer] Building KeybIndex");
+        _logger.LogBeginBuildingKeybIndex();
         BuildKeybIndex();
-        Console.WriteLine($"[Writer] Key index built: decompressed={_keybIndexDecompSize}, compressed={_keybIndexCompSize}");
-        Console.WriteLine("=========================");
+        _logger.LogKeybIndex(_keybIndexDecompSize, _keybIndexCompSize);
 
         BuildRecordBlocks();
-        Console.WriteLine($"[Writer] Built {_recordBlocks.Count} record blocks.");
-        Console.WriteLine($"[Writer] Built {_recordBlocks}.");
-        Console.WriteLine("=========================");
+        _logger.LogRecordBlocks(_recordBlocks);
 
         BuildRecordbIndex();
-        Console.WriteLine($"[Writer] Record index built: size={_recordbIndexSize}");
-        Console.WriteLine("=========================");
+        _logger.LogRecordIndex(_recordbIndexSize);
 
-        Console.WriteLine("[Writer] Initialization complete.\n");
+        _logger.LogInitializationComplete();
     }
 
     private void BuildOffsetTable(List<MDictEntry> entries)
@@ -517,8 +512,7 @@ public sealed class MDictWriter
         foreach (var block in _keyBlocks)
         {
             var indexEntry = block.GetIndexEntry();
-            var displayBytes = string.Join(" ", indexEntry.Select(static b => b.ToString("X2")));
-            Console.WriteLine($"entry {displayBytes}");
+            _logger.LogIndexEntry(indexEntry);
             decompData.AddRange(indexEntry);
         }
 
