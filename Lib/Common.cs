@@ -4,7 +4,9 @@ using System.Linq;
 
 namespace Lib;
 
-// Some helper methods
+/// <summary>
+/// Some helper methods
+/// </summary>
 internal static class Common
 {
     public static byte[] ToBigEndian(byte[] value)

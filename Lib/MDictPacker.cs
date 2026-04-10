@@ -5,7 +5,9 @@ using System.Text;
 
 namespace Lib;
 
-// Packer, does both writing (packing) and reading (unpacking)
+/// <summary>
+/// Class for both writing (packing) and reading (unpacking)
+/// </summary>
 public static class MDictPacker
 {
     // python does not include the BOM in the title/description

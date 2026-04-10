@@ -229,7 +229,9 @@ internal class MdxRecordBlock(List<OffsetTableEntry> offsetTable, int compressio
         return record;
     }
 
-    // Helper method: read from file and null-terminate
+    /// <summary>
+    /// Helper method: read from file and null-terminate
+    /// </summary>
     private static byte[] ReadRecord(string filePath, long pos, int size, bool isMdd)
     {
         if (size < 1) throw new ArgumentException("Size must be >= 1", nameof(size));
