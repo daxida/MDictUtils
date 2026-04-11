@@ -399,6 +399,10 @@ public partial class MDict
             }
             totalRead += bytesRead;
         }
+        if (totalRead != decompSize || z.ReadByte() is not -1)
+        {
+            throw new OverflowException($"More than expected {decompSize} bytes in decompression stream");
+        }
 
         return output;
     }
