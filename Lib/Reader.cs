@@ -411,24 +411,21 @@ public partial class MDict
     }
 
     // _decode_key_block
-    protected List<(long, string)> DecodeKeyBlock(byte[] keyBlockCompressed, List<(long, long)> keyBlockInfoList)
+    protected List<(long, string)> DecodeKeyBlock(ReadOnlySpan<byte> keyBlockCompressed, List<(long, long)> keyBlockInfoList)
     {
         List<(long, string)> keyList = [];
         int offset = 0;
         foreach (var (compSize, decompSize) in keyBlockInfoList)
         {
-            byte[] block = new byte[compSize];
-            // key_block_compressed[offset:offset+compSize]
-            Array.Copy(keyBlockCompressed, offset, block, 0, compSize);
+            int size = Convert.ToInt32(compSize);
+            var block = keyBlockCompressed.Slice(offset, size);
             byte[] decompressed = DecodeBlock(block, decompSize);
             keyList.AddRange(SplitKeyBlock(decompressed));
-            offset += (int)compSize;
+            offset += size;
         }
         return keyList;
     }
 
-    // decompressedSize is only used for compression_method = 1.
-    // We only deal with 0, so don't pass it as an argument.
     protected static byte[] DecodeBlock(ReadOnlySpan<byte> block, long decompSize)
     {
         Debug.Assert(block.Length >= 8, "Block too small");
