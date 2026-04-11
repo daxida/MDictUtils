@@ -25,8 +25,6 @@ internal class OffsetTableEntry
     public required long Offset { get; init; }
     public required byte[] RecordNull { get; set; }
     public required bool IsMdd { get; init; }
-
-    // This are sort of hidden in inheritance
     public required long RecordSize { get; init; }
     public required long RecordPos { get; init; }
 
@@ -61,10 +59,6 @@ internal abstract class MdxBlock
     protected byte[] _compData;
     protected long _compSize;
     protected string _version;
-
-    // This are sort of hidden in inheritance
-    public long RecordSize { get; set; }
-    public long RecordPos { get; set; }
 
     protected MdxBlock(List<OffsetTableEntry> offsetTable, int compressionType, string version)
     {
