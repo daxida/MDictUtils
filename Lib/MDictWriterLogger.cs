@@ -3,10 +3,22 @@ using System.Collections.Generic;
 
 namespace Lib;
 
-internal sealed class MDictWriterLogger
+internal interface IMDictWriterLogger
 {
-    public bool Enabled { get; init; }
+    void LogBeginBuildingKeybIndex();
+    void LogBeginBuildingKeyBlocks();
+    void LogBlockSizeReset(int blockSize);
+    void LogIndexEntry(ReadOnlySpan<byte> indexEntry);
+    void LogInitializationComplete();
+    void LogKeybIndex(long decompressedSize, long compressedSize);
+    void LogKeyBlocks(int blockSize, IReadOnlyList<MdxKeyBlock> keyBlocks);
+    void LogOffsetTable(IReadOnlyList<OffsetTableEntry> table, long totalRecordLen);
+    void LogRecordBlocks(IReadOnlyList<MdxRecordBlock> recordBlocks);
+    void LogRecordIndex(long size);
+}
 
+internal sealed class MDictWriterLogger : IMDictWriterLogger
+{
     private static void WriteSeparator()
         => Console.Error.WriteLine("=========================");
 
@@ -15,7 +27,6 @@ internal sealed class MDictWriterLogger
 
     public void LogOffsetTable(IReadOnlyList<OffsetTableEntry> table, long totalRecordLen)
     {
-        if (!Enabled) return;
         WriteMessage("Offset table built.");
         WriteMessage($"Total entries: {table.Count}, record length {totalRecordLen}");
         WriteSeparator();
@@ -23,13 +34,11 @@ internal sealed class MDictWriterLogger
 
     public void LogBeginBuildingKeyBlocks()
     {
-        if (!Enabled) return;
         WriteMessage("Building KeyBlocks");
     }
 
     public void LogKeyBlocks(int blockSize, IReadOnlyList<MdxKeyBlock> keyBlocks)
     {
-        if (!Enabled) return;
         WriteMessage($"Block size set to {blockSize}");
         WriteMessage($"Built {keyBlocks.Count} key blocks.");
         foreach (var keyBlock in keyBlocks)
@@ -40,20 +49,17 @@ internal sealed class MDictWriterLogger
 
     public void LogBlockSizeReset(int blockSize)
     {
-        if (!Enabled) return;
         WriteMessage($"Block size reset to {blockSize}");
         WriteSeparator();
     }
 
     public void LogBeginBuildingKeybIndex()
     {
-        if (!Enabled) return;
         WriteMessage("Building KeybIndex");
     }
 
     public void LogIndexEntry(ReadOnlySpan<byte> indexEntry)
     {
-        if (!Enabled) return;
         var bytes = new string[indexEntry.Length];
         for (int i = 0; i < indexEntry.Length; i++)
         {
@@ -65,14 +71,12 @@ internal sealed class MDictWriterLogger
 
     public void LogKeybIndex(long decompressedSize, long compressedSize)
     {
-        if (!Enabled) return;
         WriteMessage($"Key index built: decompressed={decompressedSize}, compressed={compressedSize}");
         WriteSeparator();
     }
 
     public void LogRecordBlocks(IReadOnlyList<MdxRecordBlock> recordBlocks)
     {
-        if (!Enabled) return;
         WriteMessage($"Built {recordBlocks.Count} record blocks.");
         WriteMessage($"Built {recordBlocks}."); // TODO: this only prints the type of the collection.
         WriteSeparator();
@@ -80,14 +84,26 @@ internal sealed class MDictWriterLogger
 
     public void LogRecordIndex(long size)
     {
-        if (!Enabled) return;
         WriteMessage($"Record index built: size={size}");
         WriteSeparator();
     }
 
     public void LogInitializationComplete()
     {
-        if (!Enabled) return;
         WriteMessage("Initialization complete.\n");
     }
+}
+
+internal sealed class MDictWriterDummyLogger : IMDictWriterLogger
+{
+    public void LogBeginBuildingKeybIndex() { }
+    public void LogBeginBuildingKeyBlocks() { }
+    public void LogBlockSizeReset(int _) { }
+    public void LogIndexEntry(ReadOnlySpan<byte> _) { }
+    public void LogInitializationComplete() { }
+    public void LogKeybIndex(long _, long __) { }
+    public void LogKeyBlocks(int _, IReadOnlyList<MdxKeyBlock> __) { }
+    public void LogOffsetTable(IReadOnlyList<OffsetTableEntry> _, long __) { }
+    public void LogRecordBlocks(IReadOnlyList<MdxRecordBlock> _) { }
+    public void LogRecordIndex(long _) { }
 }

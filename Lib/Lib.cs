@@ -284,7 +284,7 @@ public sealed record MDictWriterOptions
 
 public sealed class MDictWriter
 {
-    private readonly MDictWriterLogger _logger;
+    private readonly IMDictWriterLogger _logger;
     private readonly int _numEntries;
     private readonly string _title;
     private readonly string _description;
@@ -311,7 +311,9 @@ public sealed class MDictWriter
     {
         opt ??= new();
 
-        _logger = new() { Enabled = opt.Logging };
+        _logger = opt.Logging
+            ? new MDictWriterLogger()
+            : new MDictWriterDummyLogger();
 
         _numEntries = entries.Count;
         _title = opt.Title;
