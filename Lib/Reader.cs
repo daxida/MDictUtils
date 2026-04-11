@@ -280,7 +280,7 @@ public partial class MDict
     }
 
     // _decode_key_block_info
-    protected List<(long, long)> DecodeKeyBlockInfo(byte[] keyBlockInfoCompressed, long decompSize)
+    protected List<(long, long)> DecodeKeyBlockInfo(ReadOnlySpan<byte> keyBlockInfoCompressed, long decompSize)
     {
         ReadOnlySpan<byte> keyBlockInfo;
 
@@ -300,8 +300,8 @@ public partial class MDict
             {
                 var actual = string.Join(
                     separator: ", ",
-                    values: keyBlockInfoCompressed
-                        .Take(4)
+                    values: keyBlockInfoCompressed[..4]
+                        .ToArray()
                         .Select(static b => $"{b:X2}"));
 
                 throw new InvalidDataException($"""
@@ -317,10 +317,13 @@ public partial class MDict
             }
 
             // decompress zlib
-            var data = keyBlockInfoCompressed.AsSpan(8..);
+            var data = keyBlockInfoCompressed[8..];
             keyBlockInfo = DecompressZlib(data, decompSize);
 
-            uint adler32 = Common.ReadUInt32BigEndian(keyBlockInfoCompressed);
+            Span<byte> checksumBuffer = stackalloc byte[4];
+            keyBlockInfoCompressed[4..8].CopyTo(checksumBuffer);
+
+            uint adler32 = Common.ReadUInt32BigEndian(checksumBuffer);
             if (adler32 != Common.Adler32(keyBlockInfo))
                 throw new InvalidDataException("Key block info Adler32 mismatch.");
         }
