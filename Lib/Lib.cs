@@ -569,63 +569,54 @@ public sealed class MDictWriter
     {
         const string encrypted = "No";
         const string registerByStr = "";
-        var now = DateTime.Today;
+        const string encoding = "UTF-8";
 
-        return _isMdd
-            ? // MDD header
-            string.Format(
-                "<Library_Data " +
-                "GeneratedByEngineVersion=\"{0}\" " +
-                "RequiredEngineVersion=\"{0}\" " +
-                "Encrypted=\"{1}\" " +
-                "Encoding=\"\" " +
-                "Format=\"\" " +
-                "CreationDate=\"{2}-{3}-{4}\" " +
-                "KeyCaseSensitive=\"No\" " +
-                "Stripkey=\"No\" " +
-                "Description=\"{5}\" " +
-                "Title=\"{6}\" " +
-                "RegisterBy=\"{7}\" " +
-                "/>\r\n\0",
-                _version,
-                encrypted,
-                now.Year,
-                now.Month,
-                now.Day,
-                EscapeHtml(_description),
-                EscapeHtml(_title),
-                registerByStr
-            )
-            : // MDX header
-            string.Format(
-                "<Dictionary " +
-                "GeneratedByEngineVersion=\"{0}\" " +
-                "RequiredEngineVersion=\"{0}\" " +
-                "Encrypted=\"{1}\" " +
-                "Encoding=\"{2}\" " +
-                "Format=\"Html\" " +
-                "Stripkey=\"Yes\" " +
-                "CreationDate=\"{3}-{4}-{5}\" " +
-                "Compact=\"Yes\" " +
-                "Compat=\"Yes\" " +
-                "KeyCaseSensitive=\"No\" " +
-                "Description=\"{6}\" " +
-                "Title=\"{7}\" " +
-                "DataSourceFormat=\"106\" " +
-                "StyleSheet=\"\" " +
-                "Left2Right=\"Yes\" " +
-                "RegisterBy=\"{8}\" " +
-                "/>\r\n\0",
-                _version,
-                encrypted,
-                "UTF-8",
-                now.Year,
-                now.Month,
-                now.Day,
-                EscapeHtml(_description),
-                EscapeHtml(_title),
-                registerByStr
-           );
+        var now = DateTime.Today;
+        var sb = new StringBuilder();
+
+        void append(ReadOnlySpan<char> val)
+        {
+            sb.Append(val.Trim());
+            sb.Append(' ');
+        }
+
+        if (_isMdd)
+        {
+            append($"""  <Library_Data                                    """);
+            append($"""  GeneratedByEngineVersion="{_version}"            """);
+            append($"""  RequiredEngineVersion="{_version}"               """);
+            append($"""  Encrypted="{encrypted}"                          """);
+            append($"""  Encoding=""                                      """);
+            append($"""  Format=""                                        """);
+            append($"""  CreationDate="{now.Year}-{now.Month}-{now.Day}"  """);
+            append($"""  KeyCaseSensitive="No"                            """);
+            append($"""  Stripkey="No"                                    """);
+            append($"""  Description="{EscapeHtml(_description)}"         """);
+            append($"""  Title="{EscapeHtml(_title)}"                     """);
+            append($"""  RegisterBy="{registerByStr}"                     """);
+        }
+        else
+        {
+            append($"""  <Dictionary                                      """);
+            append($"""  GeneratedByEngineVersion="{_version}"            """);
+            append($"""  RequiredEngineVersion="{_version}"               """);
+            append($"""  Encrypted="{encrypted}"                          """);
+            append($"""  Encoding="{encoding}"                            """);
+            append($"""  Format="Html"                                    """);
+            append($"""  Stripkey="Yes"                                   """);
+            append($"""  CreationDate="{now.Year}-{now.Month}-{now.Day}"  """);
+            append($"""  Compact="Yes"                                    """);
+            append($"""  Compat="Yes"                                     """);
+            append($"""  KeyCaseSensitive="No"                            """);
+            append($"""  Description="{EscapeHtml(_description)}"         """);
+            append($"""  Title="{EscapeHtml(_title)}"                     """);
+            append($"""  DataSourceFormat="106"                           """);
+            append($"""  StyleSheet=""                                    """);
+            append($"""  Left2Right="Yes"                                 """);
+            append($"""  RegisterBy="{registerByStr}"                     """);
+        }
+        sb.Append("/>\r\n\0");
+        return sb.ToString();
     }
 
     // Same as python: escape(self._description, quote=True),
