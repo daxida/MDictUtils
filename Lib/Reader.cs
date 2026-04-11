@@ -123,18 +123,15 @@ public partial class MDict
     //     return unpack(self._number_format, f.read(self._number_width))[0]
     protected long ReadNumber(BinaryReader br)
     {
-        byte[] bytes = br.ReadBytes(_numberWidth);
-        if (bytes.Length != _numberWidth)
-            throw new EndOfStreamException("Unexpected end of file while reading number");
-
-        // reverse for big-endian
-        if (BitConverter.IsLittleEndian)
-            Array.Reverse(bytes);
-
-        if (_numberWidth == 4)
-            return BitConverter.ToUInt32(bytes, 0);
-        else // 8 bytes
-            return (long)BitConverter.ToUInt64(bytes, 0);
+        // _numberWidth is either 4 or 8
+        Span<byte> bytes = stackalloc byte[_numberWidth];
+        for (int i = 0; i < _numberWidth; i++)
+        {
+            bytes[i] = br.ReadByte();
+        }
+        return (_numberWidth == 4)
+            ? Common.ReadUInt32BigEndian(bytes)
+            : (long)Common.ReadUInt64BigEndian(bytes);
     }
 
     [GeneratedRegex(@"(\w+)=""(.*?)""", RegexOptions.Singleline)]
