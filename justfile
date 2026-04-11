@@ -1,5 +1,10 @@
+# Run the (dev) command line
 cli *args:
   dotnet run --project Cli -- {{args}}
+
+# Run benchmarks
+bench:
+  dotnet run -c Release --project Lib.Benchmark
 
 run:
   dotnet run --project Cli -- assets/out2.mdx -a assets/stub.txt -a assets/extra.txt --title assets/title.html --description assets/description.html
@@ -24,11 +29,6 @@ oracle-do-undo:
 
 test:
   dotnet test Lib.Tests/
-
-final-old:
-  dotnet run --project Cli -- assets/out2.mdx -a assets/stub.txt
-  mdict assets/out1.mdx -a assets/stub.txt
-  cmp assets/out1.mdx assets/out2.mdx
 
 cmp *args:
   cmp {{args}} assets/out1.mdx assets/out2.mdx
