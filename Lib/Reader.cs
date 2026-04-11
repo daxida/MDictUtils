@@ -78,10 +78,10 @@ public partial class MDict
         int keyIndex = 0;
         sizeCounter = 0;
 
-        foreach (var (compressedSize, decompressedSize) in recordBlockInfoList)
+        foreach (var (compressedSize, decompSize) in recordBlockInfoList)
         {
             byte[] compressedBlock = br.ReadBytes((int)compressedSize);
-            byte[] recordBlock = DecodeBlock(compressedBlock);
+            byte[] recordBlock = DecodeBlock(compressedBlock, decompSize);
             // Console.WriteLine(
             //     $"[ReadRecords]\ncompressedBlock = {BitConverter.ToString(compressedBlock)}\n" +
             //     $"recordBlock = {Encoding.UTF8.GetString(recordBlock)}"
@@ -266,7 +266,7 @@ public partial class MDict
         // Read key block info
         byte[] keyBlockInfo = new byte[keyBlockInfoSize];
         _ = f.Read(keyBlockInfo, 0, keyBlockInfo.Length);
-        List<(long, long)> keyBlockInfoList = DecodeKeyBlockInfo(keyBlockInfo);
+        List<(long, long)> keyBlockInfoList = DecodeKeyBlockInfo(keyBlockInfo, keyBlockInfoDecompSize);
         Debug.Assert(numKeyBlocks == keyBlockInfoList.Count);
 
         // Read and extract key block
@@ -280,7 +280,7 @@ public partial class MDict
     }
 
     // _decode_key_block_info
-    protected List<(long, long)> DecodeKeyBlockInfo(byte[] keyBlockInfoCompressed)
+    protected List<(long, long)> DecodeKeyBlockInfo(byte[] keyBlockInfoCompressed, long decompSize)
     {
         ReadOnlySpan<byte> keyBlockInfo;
 
@@ -317,7 +317,8 @@ public partial class MDict
             }
 
             // decompress zlib
-            keyBlockInfo = DecompressZlib([.. keyBlockInfoCompressed.AsSpan(8..)]);
+            var data = keyBlockInfoCompressed.AsSpan(8..);
+            keyBlockInfo = DecompressZlib(data, decompSize);
 
             uint adler32 = Common.ReadUInt32BigEndian(keyBlockInfoCompressed);
             if (adler32 != Common.Adler32(keyBlockInfo))
@@ -374,13 +375,29 @@ public partial class MDict
         return keyBlockInfoList;
     }
 
-    static private byte[] DecompressZlib(byte[] data)
+    static private byte[] DecompressZlib(ReadOnlySpan<byte> data, long decompSize)
     {
-        using var input = new MemoryStream(data);
+        var output = new byte[decompSize];
+
+        // The .ToArray() allocation here is unfortunately unavoidable.
+        // See: https://github.com/dotnet/runtime/issues/24622
+        // Unless we want to enable the "unsafe" compiler flag.
+        // See: https://stackoverflow.com/a/48223990
+        using var input = new MemoryStream(data.ToArray());
         using var z = new ZLibStream(input, CompressionMode.Decompress);
-        using var output = new MemoryStream();
-        z.CopyTo(output);
-        return output.ToArray();
+
+        int totalRead = 0;
+        while (totalRead < output.Length)
+        {
+            int bytesRead = z.Read(output.AsSpan(totalRead));
+            if (bytesRead == 0)
+            {
+                throw new EndOfStreamException();
+            }
+            totalRead += bytesRead;
+        }
+
+        return output;
     }
 
     static private long ReadNumber(ReadOnlySpan<byte> buffer, int offset, int numberWidth)
@@ -403,7 +420,7 @@ public partial class MDict
             byte[] block = new byte[compSize];
             // key_block_compressed[offset:offset+compSize]
             Array.Copy(keyBlockCompressed, offset, block, 0, compSize);
-            byte[] decompressed = DecodeBlock(block);
+            byte[] decompressed = DecodeBlock(block, decompSize);
             keyList.AddRange(SplitKeyBlock(decompressed));
             offset += (int)compSize;
         }
@@ -412,7 +429,7 @@ public partial class MDict
 
     // decompressedSize is only used for compression_method = 1.
     // We only deal with 0, so don't pass it as an argument.
-    protected static byte[] DecodeBlock(ReadOnlySpan<byte> block)
+    protected static byte[] DecodeBlock(ReadOnlySpan<byte> block, long decompSize)
     {
         Debug.Assert(block.Length >= 8, "Block too small");
 
@@ -427,17 +444,12 @@ public partial class MDict
         uint adler32 = BitConverter.ToUInt32(Common.ToBigEndian(adlerBytes));
 
         // ---- encryption key ---- (SKIP)
-
-        byte[] data = new byte[block.Length - 8];
-        block[8..].CopyTo(data);
-
+        var data = block[8..];
         Debug.Assert(encryptionSize <= data.Length, "Invalid encryption size");
 
         // ---- decrypt ---- (assume no encryption)
-        var decryptedBlock = data;
-
         Debug.Assert(compressionMethod == 2);
-        var decompressedBlock = DecompressZlib(decryptedBlock);
+        var decompressedBlock = DecompressZlib(data, decompSize);
 
         Debug.Assert(adler32 == Common.Adler32(decompressedBlock), "Adler32 mismatch after decompression");
 
