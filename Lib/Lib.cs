@@ -276,16 +276,7 @@ internal class MdxKeyBlock : MdxBlock
         Debug.Assert(_version == "2.0");
         Debug.Assert(buffer.Length == IndexEntryLength);
 
-        int start = 0;
-
-        // This `Range` function increments the slice window for each piece of data.
-        Range r(int length)
-        {
-            int end = start + length;
-            Range range = new(start, end);
-            start = end;
-            return range;
-        }
+        var r = Common.RangeIncrementor();
 
         Common.ToBigEndian((ulong)_numEntries, buffer[r(8)]);
         Common.ToBigEndian((ushort)_firstKeyLen, buffer[r(2)]);

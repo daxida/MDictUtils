@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -6,7 +7,6 @@ using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Runtime.InteropServices;
 
 namespace Lib;
 
@@ -125,13 +125,24 @@ public partial class MDict
     {
         // _numberWidth is either 4 or 8
         Span<byte> bytes = stackalloc byte[_numberWidth];
-        for (int i = 0; i < _numberWidth; i++)
-        {
-            bytes[i] = br.ReadByte();
-        }
+        br.ReadExactly(bytes);
         return (_numberWidth == 4)
             ? Common.ReadUInt32BigEndian(bytes)
             : (long)Common.ReadUInt64BigEndian(bytes);
+    }
+
+    protected long ReadNumber(ReadOnlySpan<byte> buffer)
+    {
+        // _numberWidth is either 4 or 8
+        Span<byte> copy = stackalloc byte[_numberWidth];
+
+        // The BigEndian methods mutate the data,
+        // so we have to make a copy of it.
+        buffer.CopyTo(copy);
+
+        return (_numberWidth == 4)
+            ? Common.ReadUInt32BigEndian(copy)
+            : (long)Common.ReadUInt64BigEndian(copy);
     }
 
     [GeneratedRegex(@"(\w+)=""(.*?)""", RegexOptions.Singleline)]
@@ -238,22 +249,21 @@ public partial class MDict
         f.Seek(_keyBlockOffset, SeekOrigin.Begin);
 
         int numBytes = (_version >= 2.0) ? 8 * 5 : 4 * 4;
-        byte[] block = new byte[numBytes];
-        _ = f.Read(block, 0, numBytes);
+        Span<byte> block = stackalloc byte[numBytes];
+        f.ReadExactly(block);
 
         if ((_encrypt & 1) != 0)
         {
             throw new NotImplementedException();
         }
 
-        using MemoryStream sf = new(block);
-        using BinaryReader reader = new(sf);
+        var r = Common.RangeIncrementor();
 
-        long numKeyBlocks = ReadNumber(reader);
-        _numEntries = (int)ReadNumber(reader);
-        long keyBlockInfoDecompSize = (_version >= 2.0) ? ReadNumber(reader) : 0;
-        long keyBlockInfoSize = ReadNumber(reader);
-        long keyBlockSize = ReadNumber(reader);
+        long numKeyBlocks = ReadNumber(block[r(_numberWidth)]);
+        _numEntries = (int)ReadNumber(block[r(_numberWidth)]);
+        long keyBlockInfoDecompSize = (_version >= 2.0) ? ReadNumber(block[r(_numberWidth)]) : 0;
+        int keyBlockInfoSize = (int)ReadNumber(block[r(_numberWidth)]);
+        int keyBlockSize = (int)ReadNumber(block[r(_numberWidth)]);
 
         if (_version >= 2.0)
         {
@@ -263,16 +273,22 @@ public partial class MDict
             Debug.Assert(adler32 == Common.Adler32(block));
         }
 
+        var arrayPool = ArrayPool<byte>.Shared;
+
         // Read key block info
-        byte[] keyBlockInfo = new byte[keyBlockInfoSize];
-        _ = f.Read(keyBlockInfo, 0, keyBlockInfo.Length);
+        byte[] buffer = arrayPool.Rent(keyBlockInfoSize);
+        var keyBlockInfo = buffer.AsSpan(..keyBlockInfoSize);
+        f.ReadExactly(keyBlockInfo);
         List<(long, long)> keyBlockInfoList = DecodeKeyBlockInfo(keyBlockInfo, keyBlockInfoDecompSize);
         Debug.Assert(numKeyBlocks == keyBlockInfoList.Count);
+        arrayPool.Return(buffer);
 
         // Read and extract key block
-        byte[] keyBlockCompressed = new byte[keyBlockSize];
-        _ = f.Read(keyBlockCompressed, 0, keyBlockCompressed.Length);
+        buffer = arrayPool.Rent(keyBlockSize);
+        var keyBlockCompressed = buffer.AsSpan(..keyBlockSize);
+        f.ReadExactly(keyBlockCompressed);
         List<(long, string)> keyList = DecodeKeyBlock(keyBlockCompressed, keyBlockInfoList);
+        arrayPool.Return(buffer);
 
         _recordBlockOffset = f.Position;
 
