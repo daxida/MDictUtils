@@ -3,7 +3,6 @@ using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -12,6 +11,7 @@ namespace Lib;
 
 public partial class MDict
 {
+    private static readonly ArrayPool<byte> _arrayPool = ArrayPool<byte>.Shared;
     protected string _fname;
     protected Encoding _encoding;
     // protected byte[] _encryptedKey;
@@ -85,9 +85,8 @@ public partial class MDict
         int keyIndex = 0;
         sizeCounter = 0;
 
-        var arrayPool = ArrayPool<byte>.Shared;
-        var compressedBuffer = arrayPool.Rent((int)maxCompressedSize);
-        var decompressedBuffer = arrayPool.Rent((int)maxDecompressedSize);
+        var compressedBuffer = _arrayPool.Rent((int)maxCompressedSize);
+        var decompressedBuffer = _arrayPool.Rent((int)maxDecompressedSize);
 
         foreach (var (compressedSize, decompSize) in recordBlockInfoList)
         {
@@ -132,8 +131,8 @@ public partial class MDict
             sizeCounter += compressedSize;
         }
 
-        arrayPool.Return(compressedBuffer);
-        arrayPool.Return(decompressedBuffer);
+        _arrayPool.Return(compressedBuffer);
+        _arrayPool.Return(decompressedBuffer);
 
         if (sizeCounter != recordBlockSize)
             throw new InvalidDataException("Record block size mismatch.");
@@ -292,22 +291,20 @@ public partial class MDict
             Debug.Assert(adler32 == Common.Adler32(block));
         }
 
-        var arrayPool = ArrayPool<byte>.Shared;
-
         // Read key block info
-        byte[] buffer = arrayPool.Rent(keyBlockInfoSize);
+        byte[] buffer = _arrayPool.Rent(keyBlockInfoSize);
         var keyBlockInfo = buffer.AsSpan(..keyBlockInfoSize);
         f.ReadExactly(keyBlockInfo);
         List<(long, long)> keyBlockInfoList = DecodeKeyBlockInfo(keyBlockInfo, keyBlockInfoDecompSize);
         Debug.Assert(numKeyBlocks == keyBlockInfoList.Count);
-        arrayPool.Return(buffer);
+        _arrayPool.Return(buffer);
 
         // Read and extract key block
-        buffer = arrayPool.Rent(keyBlockSize);
+        buffer = _arrayPool.Rent(keyBlockSize);
         var keyBlockCompressed = buffer.AsSpan(..keyBlockSize);
         f.ReadExactly(keyBlockCompressed);
         List<(long, string)> keyList = DecodeKeyBlock(keyBlockCompressed, keyBlockInfoList);
-        arrayPool.Return(buffer);
+        _arrayPool.Return(buffer);
 
         _recordBlockOffset = f.Position;
 
@@ -421,11 +418,9 @@ public partial class MDict
         if (keyBlockInfoList is [])
             return [];
 
-        var arrayPool = ArrayPool<byte>.Shared;
-
         List<(long, string)> keyList = new(keyBlockInfoList.Count);
         long maxDecompSize = keyBlockInfoList.Max(static k => k.Item2);
-        byte[] buffer = arrayPool.Rent((int)maxDecompSize);
+        byte[] buffer = _arrayPool.Rent((int)maxDecompSize);
         int offset = 0;
 
         foreach (var (compSize, decompSize) in keyBlockInfoList)
@@ -437,7 +432,7 @@ public partial class MDict
             keyList.AddRange(SplitKeyBlock(decompressed));
             offset += size;
         }
-        arrayPool.Return(buffer);
+        _arrayPool.Return(buffer);
         return keyList;
     }
 
