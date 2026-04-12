@@ -204,6 +204,16 @@ public partial class MDict
             _encrypt = 0;
         }
 
+        if (_encrypt != 0)
+        {
+            Console.WriteLine($"Encryption detected. Kind: {_encrypt}");
+        }
+        if (_encrypt != 0 && _encrypt != 2)
+        {
+            throw new InvalidDataException($"Encryted data with level {_encrypt}, unsupported");
+        }
+
+
         // TODO: stylesheet parsing
         _stylesheet = [];
         if (headerTag.TryGetValue("StyleSheet", out var styleSheetValue))
@@ -243,7 +253,7 @@ public partial class MDict
 
         if ((_encrypt & 1) != 0)
         {
-            throw new NotImplementedException();
+            throw new InvalidDataException("Encryted data with level 1, unsupported");
         }
 
         using MemoryStream sf = new(block);
@@ -280,7 +290,7 @@ public partial class MDict
     }
 
     // _decode_key_block_info
-    protected List<(long, long)> DecodeKeyBlockInfo(ReadOnlySpan<byte> keyBlockInfoCompressed, long decompSize)
+    protected List<(long, long)> DecodeKeyBlockInfo(byte[] keyBlockInfoCompressed, long decompSize)
     {
         ReadOnlySpan<byte> keyBlockInfo;
 
@@ -313,7 +323,16 @@ public partial class MDict
 
             if ((_encrypt & 0x02) != 0)
             {
-                throw new InvalidDataException("Encryted data, unsupported");
+                // decrypt if needed
+                // https://github.com/liuyug/mdict-utils/blob/master/mdict_utils/base/readmdict.py#L199
+                //
+                // key = ripemd128(key_block_info_compressed[4:8] + pack(b'<L', 0x3695))
+                // key_block_info_compressed = key_block_info_compressed[:8] + _fast_decrypt(key_block_info_compressed[8:], key)
+                byte[] key = Ripemd128.ComputeHash(
+                    [.. keyBlockInfoCompressed[4..8], .. BitConverter.GetBytes(0x3695u)]
+                );
+                byte[] decrypted = Ripemd128.FastDecrypt(keyBlockInfoCompressed[8..], key);
+                keyBlockInfoCompressed = [.. keyBlockInfoCompressed[..8], .. decrypted];
             }
 
             // decompress zlib
