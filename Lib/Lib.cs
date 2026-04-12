@@ -57,6 +57,7 @@ internal class OffsetTableEntry
 /// </summary>
 internal abstract class MdxBlock
 {
+    private readonly static ArrayPool<byte> _arrayPool = ArrayPool<byte>.Shared;
     protected long _decompSize;
     protected byte[] _compData;
     protected long _compSize;
@@ -67,12 +68,10 @@ internal abstract class MdxBlock
         if (compressionType != 2 || version != "2.0")
             throw new NotSupportedException();
 
-        var arrayPool = ArrayPool<byte>.Shared;
-
         // Console.WriteLine("[Debug] Calling MdxBlock...");
 
         var decompDataSize = offsetTable.Sum(LenBlockEntry);
-        var decompData = arrayPool.Rent(decompDataSize);
+        var decompData = _arrayPool.Rent(decompDataSize);
 
         var maxBlockSize = offsetTable.Max(LenBlockEntry);
         var blockBuffer = maxBlockSize < 256
@@ -101,7 +100,7 @@ internal abstract class MdxBlock
 
         _version = version;
 
-        arrayPool.Return(decompData);
+        _arrayPool.Return(decompData);
     }
 
     public ReadOnlySpan<byte> BlockData => _compData;
@@ -128,19 +127,16 @@ internal abstract class MdxBlock
 
         // byte[] header = [.. lend, .. adlerBytes];
 
-        using var ms = new MemoryStream();
+        // It's possible for compressed data to be larger than the uncompressed.
+        // See: https://zlib.net/zlib_tech.html
+        // "For the default settings, ... five bytes per 16 KB block (about 0.03%)"
+        // So we have to rent a size a little bit larger.
+        var buffer = _arrayPool.Rent(data.Length + (data.Length * 5 / 16_000) + 32);
 
-        // return header + zlib.compress(data)
-        // python default is -1 == 6 , see: https://docs.python.org/3/library/zlib.html#zlib.Z_DEFAULT_COMPRESSION
-        // c# are cooked, custom-made levels, and may not correspond to anything
-        // https://learn.microsoft.com/en-us/dotnet/api/system.io.compression.compressionlevel?view=net-10.0
-        //
-        // There is no reliable way to get the same exact bytes, so live with that
-        using (var z = new ZLibStream(ms, CompressionLevel.Optimal, leaveOpen: true))
-        {
-            z.Write(data);
-        }
-        var res = ms.ToArray();
+        var size = ZLibCompression.Compress(data, buffer);
+
+        byte[] compressed = [.. lend, .. adlerBytes, .. buffer.AsSpan(..size)];
+        _arrayPool.Return(buffer);
 
         // Common.PrintPythonStyle(data);
         // Common.PrintPythonStyle(lend);
@@ -149,7 +145,7 @@ internal abstract class MdxBlock
         // Console.WriteLine($"header: {BitConverter.ToString(header)}");
         // Common.PrintPythonStyle(final);
 
-        return [.. lend, .. adlerBytes, .. res];
+        return compressed;
     }
 }
 

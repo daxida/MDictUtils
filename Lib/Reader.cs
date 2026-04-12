@@ -354,7 +354,7 @@ public partial class MDict
             // decompress zlib
             var data = keyBlockInfoCompressed[8..];
             var buffer = new byte[(int)decompSize];
-            DecompressZlib(data, buffer);
+            ZLibCompression.Decompress(data, buffer);
             keyBlockInfo = buffer;
 
             Span<byte> checksumBuffer = stackalloc byte[4];
@@ -415,23 +415,6 @@ public partial class MDict
         return keyBlockInfoList;
     }
 
-    static private void DecompressZlib(ReadOnlySpan<byte> input, Span<byte> output)
-    {
-        // The .ToArray() allocation here is unfortunately unavoidable.
-        // See: https://github.com/dotnet/runtime/issues/24622
-        // Unless we want to enable the "unsafe" compiler flag.
-        // See: https://stackoverflow.com/a/48223990
-        using var ms = new MemoryStream(input.ToArray());
-        using var z = new ZLibStream(ms, CompressionMode.Decompress);
-
-        z.ReadExactly(output);
-
-        if (z.ReadByte() is not -1)
-        {
-            throw new OverflowException($"More than expected {output.Length} bytes in decompression stream");
-        }
-    }
-
     // _decode_key_block
     protected List<(long, string)> DecodeKeyBlock(ReadOnlySpan<byte> keyBlockCompressed, List<(long, long)> keyBlockInfoList)
     {
@@ -478,7 +461,7 @@ public partial class MDict
 
         // ---- decrypt ---- (assume no encryption)
         Debug.Assert(compressionMethod == 2);
-        DecompressZlib(data, output);
+        ZLibCompression.Decompress(data, output);
 
         Debug.Assert(adler32 == Common.Adler32(output), "Adler32 mismatch after decompression");
     }
