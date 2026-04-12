@@ -394,7 +394,7 @@ public sealed class MDictWriter
         {
             // Console.WriteLine($"dict item: {item}");
             var keyEnc = _innerEncoding.GetBytes(item.Key);
-            var keyNull = _innerEncoding.GetBytes(item.Key + "\0");
+            var keyNull = _innerEncoding.GetBytes($"{item.Key}\0");
             var keyLen = keyEnc.Length / _encodingLength;
 
             // var recordNull = _innerEncoding.GetBytes(item.Path);
