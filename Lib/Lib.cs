@@ -106,9 +106,10 @@ internal abstract class MdxBlock
 
     public ReadOnlySpan<byte> BlockData => _compData;
 
-    public abstract byte[] GetIndexEntry();
+    public abstract void GetIndexEntry(Span<byte> buffer);
     protected abstract int GetBlockEntry(OffsetTableEntry entry, string version, Span<byte> buffer);
     public abstract int LenBlockEntry(OffsetTableEntry entry);
+    public abstract int IndexEntryLength { get; }
 
     // Called in MdxBlock init
     public static byte[] MdxCompress(ReadOnlySpan<byte> data, int compressionType)
@@ -155,7 +156,9 @@ internal abstract class MdxBlock
 internal class MdxRecordBlock(List<OffsetTableEntry> offsetTable, int compressionType, string version)
     : MdxBlock(offsetTable, compressionType, version)
 {
-    public override byte[] GetIndexEntry()
+    public override int IndexEntryLength => 16;
+
+    public override void GetIndexEntry(Span<byte> buffer)
     {
         // Console.WriteLine("Called GetIndexEntry on MDXRECORDBLOCK");
         // Console.WriteLine($"    compSize {_compSize}; decompsize {_decompSize}");
@@ -164,13 +167,11 @@ internal class MdxRecordBlock(List<OffsetTableEntry> offsetTable, int compressio
             throw new NotImplementedException();
         }
 
-        byte[] indexEntry = new byte[16];
+        Debug.Assert(buffer.Length == IndexEntryLength);
 
         // Big-endian 64-bit values
-        Common.ToBigEndian((ulong)_compSize, indexEntry.AsSpan(..8));
-        Common.ToBigEndian((ulong)_decompSize, indexEntry.AsSpan(8..16));
-
-        return indexEntry;
+        Common.ToBigEndian((ulong)_compSize, buffer[..8]);
+        Common.ToBigEndian((ulong)_decompSize, buffer[8..16]);
     }
 
     // rg: get_record_null
@@ -267,32 +268,32 @@ internal class MdxKeyBlock : MdxBlock
         return 8 + entry.KeyNull.Length;
     }
 
-    public override byte[] GetIndexEntry()
+    public override int IndexEntryLength
+        => 8 + 2 + _firstKey.Length + 2 + _lastKey.Length + 8 + 8;
+
+    public override void GetIndexEntry(Span<byte> buffer)
     {
         Debug.Assert(_version == "2.0");
+        Debug.Assert(buffer.Length == IndexEntryLength);
 
-        Span<byte> numEntries = stackalloc byte[8];
-        Span<byte> firstKeyLen = stackalloc byte[2];
-        Span<byte> lastKeyLen = stackalloc byte[2];
-        Span<byte> compSize = stackalloc byte[8];
-        Span<byte> decompSize = stackalloc byte[8];
+        int start = 0;
 
-        Common.ToBigEndian((ulong)_numEntries, numEntries);
-        Common.ToBigEndian((ushort)_firstKeyLen, firstKeyLen);
-        Common.ToBigEndian((ushort)_lastKeyLen, lastKeyLen);
-        Common.ToBigEndian((ulong)_compSize, compSize);
-        Common.ToBigEndian((ulong)_decompSize, decompSize);
+        // This `Range` function increments the slice window for each piece of data.
+        Range r(int length)
+        {
+            int end = start + length;
+            Range range = new(start, end);
+            start = end;
+            return range;
+        }
 
-        return
-        [
-            .. numEntries,
-            .. firstKeyLen,
-            .. _firstKey,
-            .. lastKeyLen,
-            .. _lastKey,
-            .. compSize,
-            .. decompSize,
-        ];
+        Common.ToBigEndian((ulong)_numEntries, buffer[r(8)]);
+        Common.ToBigEndian((ushort)_firstKeyLen, buffer[r(2)]);
+        _firstKey.CopyTo(buffer[r(_firstKey.Length)]);
+        Common.ToBigEndian((ushort)_lastKeyLen, buffer[r(2)]);
+        _lastKey.CopyTo(buffer[r(_lastKey.Length)]);
+        Common.ToBigEndian((ulong)_compSize, buffer[r(8)]);
+        Common.ToBigEndian((ulong)_decompSize, buffer[r(8)]);
     }
 }
 
@@ -539,29 +540,78 @@ public sealed class MDictWriter
     private void BuildKeybIndex()
     {
         Debug.Assert(_version == "2.0");
-        var decompData = new List<byte>();
-        foreach (var block in _keyBlocks)
+
+        if (_keyBlocks is [])
         {
-            var indexEntry = block.GetIndexEntry();
-            _logger.LogIndexEntry(indexEntry);
-            decompData.AddRange(indexEntry);
+            _keybIndexDecompSize = 0;
+            _keybIndex = [];
+            _keybIndexCompSize = 0;
+            return;
         }
 
-        var decompArray = decompData.ToArray();
-        _keybIndexDecompSize = decompArray.Length;
-        _keybIndex = MdxBlock.MdxCompress(decompArray, _compressionType);
+        var arrayPool = ArrayPool<byte>.Shared;
+
+        int decompDataTotalSize = _keyBlocks.Sum(static b => b.IndexEntryLength);
+        var decompData = arrayPool.Rent(decompDataTotalSize);
+
+        int maxBlockSize = _keyBlocks.Max(static b => b.IndexEntryLength);
+        var blockBuffer = maxBlockSize < 256
+            ? stackalloc byte[maxBlockSize]
+            : new byte[maxBlockSize];
+
+        int bytesWritten = 0;
+        foreach (var block in _keyBlocks)
+        {
+            var indexEntry = blockBuffer[..block.IndexEntryLength];
+            block.GetIndexEntry(indexEntry);
+            _logger.LogIndexEntry(indexEntry);
+
+            var destination = decompData.AsSpan().Slice(bytesWritten, indexEntry.Length);
+            indexEntry.CopyTo(destination);
+            bytesWritten += indexEntry.Length;
+        }
+
+        Debug.Assert(bytesWritten == decompDataTotalSize);
+
+        _keybIndexDecompSize = bytesWritten;
+        _keybIndex = MdxBlock.MdxCompress(decompData.AsSpan(..bytesWritten), _compressionType);
         _keybIndexCompSize = _keybIndex.Length;
+
+        arrayPool.Return(decompData);
     }
 
     private void BuildRecordbIndex()
     {
-        List<byte> indexData = [];
+        if (_recordBlocks is [])
+        {
+            _recordbIndex = [];
+            _recordbIndexSize = 0;
+            return;
+        }
+
+        int indexSize = _recordBlocks.Sum(static b => b.IndexEntryLength);
+        var indexData = new byte[indexSize];
+
+        int maxBlockSize = _keyBlocks.Max(static b => b.IndexEntryLength);
+        var blockBuffer = maxBlockSize < 256
+            ? stackalloc byte[maxBlockSize]
+            : new byte[maxBlockSize];
+
+        int bytesWritten = 0;
         foreach (var block in _recordBlocks)
         {
-            indexData.AddRange(block.GetIndexEntry());
+            var indexEntry = blockBuffer[..block.IndexEntryLength];
+            block.GetIndexEntry(indexEntry);
+
+            var destination = indexData.AsSpan().Slice(bytesWritten, indexEntry.Length);
+            indexEntry.CopyTo(destination);
+            bytesWritten += indexEntry.Length;
         }
-        _recordbIndex = [.. indexData];
-        _recordbIndexSize = _recordbIndex.Length;
+
+        Debug.Assert(bytesWritten == indexData.Length);
+
+        _recordbIndex = indexData;
+        _recordbIndexSize = indexData.Length;
     }
 
     public void Write(Stream outfile)
