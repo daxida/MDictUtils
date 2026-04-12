@@ -690,7 +690,7 @@ internal partial class MDictKeyComparer
     /// <summary>
     /// https://docs.python.org/3/library/string.html#string.punctuation
     /// </summary>
-    public static readonly char[] PunctuationChars = [.. "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"];
+    public const string PunctuationChars = "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~";
 
     /// <summary>
     /// Regex to strip the python punctuation characters, and also the space character.
