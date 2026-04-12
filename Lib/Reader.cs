@@ -361,12 +361,22 @@ public partial class MDict
                 //
                 // key = ripemd128(key_block_info_compressed[4:8] + pack(b'<L', 0x3695))
                 // key_block_info_compressed = key_block_info_compressed[:8] + _fast_decrypt(key_block_info_compressed[8:], key)
-                byte[] key = Ripemd128.ComputeHash(
-                    [.. keyBlockInfoCompressed[4..8], .. BitConverter.GetBytes(0x3695u)]
-                );
-                byte[] decrypted = Ripemd128.FastDecrypt(keyBlockInfoCompressed[8..].ToArray(), key);
-                byte[] bytes = [.. keyBlockInfoCompressed[..8], .. decrypted];
+                Span<byte> message = stackalloc byte[8];
+                Span<byte> hash = stackalloc byte[16]; // RIPEMD-128 is 16 bytes
+                keyBlockInfoCompressed[4..8].CopyTo(message[..4]);
+                BitConverter.TryWriteBytes(message[4..8], 0x3695u);
+
+                var hashSize = Ripemd128.ComputeHash(message, hash);
+                var key = hash[..hashSize];
+
+                var decryptedSize = keyBlockInfoCompressed.Length - 8;
+                byte[] decrypted = _arrayPool.Rent(decryptedSize);
+                var result = decrypted.AsSpan(..decryptedSize);
+
+                Ripemd128.FastDecrypt(keyBlockInfoCompressed[8..], key, result);
+                byte[] bytes = [.. keyBlockInfoCompressed[..8], .. result];
                 compressed = bytes;
+                _arrayPool.Return(decrypted);
             }
             else
             {
