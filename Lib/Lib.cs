@@ -68,11 +68,18 @@ internal abstract class MdxBlock
         // Console.WriteLine("[Debug] Calling MdxBlock...");
 
         var decompData = new List<byte>();
+
+        var maxSize = offsetTable.Max(LenBlockEntry);
+
+        var buffer = maxSize < 256
+            ? stackalloc byte[maxSize]
+            : new byte[maxSize];
+
         foreach (var entry in offsetTable)
         {
-            var blockEntry = GetBlockEntry(entry, version);
+            int size = GetBlockEntry(entry, version, buffer);
             // Console.WriteLine($"[Debug] BlockEntry ({blockEntry.Length} bytes): {BitConverter.ToString(blockEntry)}");
-            decompData.AddRange(blockEntry);
+            decompData.AddRange(buffer[..size]);
         }
 
         var decompArray = decompData.ToArray();
@@ -91,7 +98,7 @@ internal abstract class MdxBlock
     public ReadOnlySpan<byte> BlockData => _compData;
 
     public abstract byte[] GetIndexEntry();
-    protected abstract byte[] GetBlockEntry(OffsetTableEntry entry, string version);
+    protected abstract int GetBlockEntry(OffsetTableEntry entry, string version, Span<byte> buffer);
     public abstract int LenBlockEntry(OffsetTableEntry entry);
 
     // Called in MdxBlock init
@@ -156,44 +163,45 @@ internal class MdxRecordBlock(List<OffsetTableEntry> offsetTable, int compressio
 
     // rg: get_record_null
     // We overwrite "return entry.RecordNull"
-    protected override byte[] GetBlockEntry(OffsetTableEntry entry, string version)
+    protected override int GetBlockEntry(OffsetTableEntry entry, string version, Span<byte> buffer)
     {
-        byte[] record = ReadRecord(entry.FilePath, entry.RecordPos, (int)entry.RecordSize, entry.IsMdd);
-        entry.RecordNull = record;
-        return record;
+        int size = ReadRecord(entry.FilePath, entry.RecordPos, (int)entry.RecordSize, entry.IsMdd, buffer);
+        // entry.RecordNull = buffer[..size].ToArray();
+        return size;
     }
 
     /// <summary>
     /// Helper method: read from file and null-terminate
     /// </summary>
-    private static byte[] ReadRecord(string filePath, long pos, int size, bool isMdd)
+    private static int ReadRecord(string filePath, long pos, int size, bool isMdd, Span<byte> buffer)
     {
         if (size < 1) throw new ArgumentException("Size must be >= 1", nameof(size));
 
-        byte[] record = new byte[size];
         using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read);
 
         fs.Seek(pos, SeekOrigin.Begin);
         if (isMdd)
         {
-            // For MDD, just read the whole record
-            int bytesRead = fs.Read(record, 0, size);
-            if (bytesRead < size)
+            int totalRead = 0;
+            while (true)
             {
-                // Trim if fewer bytes were read
-                Array.Resize(ref record, bytesRead);
+                int bytesRead = fs.Read(buffer[totalRead..]);
+                totalRead += bytesRead;
+                if (bytesRead == 0)
+                    break;
             }
+            // For MDD, apparently fewer bytes than the expected size might be read?
+            return totalRead;
         }
         else
         {
             // For MDX, read size-1 bytes and append null byte
-            int bytesRead = fs.Read(record, 0, size - 1);
-            record[bytesRead] = 0; // null-terminate
+            fs.ReadExactly(buffer[..(size - 1)]);
+            buffer[size - 1] = 0; // null-terminate
+            return size;
         }
 
         // Console.WriteLine($"[ReadRecord] Record length: {record.Length}");
-
-        return record;
     }
 
 
@@ -231,14 +239,15 @@ internal class MdxKeyBlock : MdxBlock
         _lastKeyLen = offsetTable[^1].KeyLen;
     }
 
-    protected override byte[] GetBlockEntry(OffsetTableEntry entry, string version)
+    protected override int GetBlockEntry(OffsetTableEntry entry, string version, Span<byte> buffer)
     {
         Debug.Assert(version == "2.0");
-        return
-        [
-            .. Common.ToBigEndian((ulong)entry.Offset),
-            .. entry.KeyNull,
-        ];
+
+        var offsetBytes = Common.ToBigEndian((ulong)entry.Offset);
+        offsetBytes.CopyTo(buffer);
+        entry.KeyNull.CopyTo(buffer[offsetBytes.Length..]);
+
+        return offsetBytes.Length + entry.KeyNull.Length;
     }
 
     // Approximate for version 2.0
