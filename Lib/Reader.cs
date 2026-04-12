@@ -3,9 +3,10 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Linq;
+using System.Runtime.InteropServices;
 
 namespace Lib;
 
@@ -42,7 +43,7 @@ public partial class MDict
     public IEnumerable<(string, byte[])> Items() => ReadRecords();
 
     // overwriten for MDX
-    public virtual byte[] TreatRecordData(byte[] data) => data;
+    public virtual byte[] TreatRecordData(ReadOnlySpan<byte> data) => data.ToArray();
 
     // _read_records_v1v2
     // https://github.com/liuyug/mdict-utils/blob/64e15b99aca786dbf65e5a2274f85547f8029f2e/mdict_utils/base/readmdict.py#L563
@@ -105,8 +106,7 @@ public partial class MDict
                 keyIndex++;
                 int start = (int)(recordStart - offset);
                 int length = (int)(recordEnd - offset - start);
-                byte[] data = new byte[length];
-                Array.Copy(recordBlock, start, data, 0, length);
+                var data = recordBlock.AsSpan(start, length);
 
                 yield return (keyText, TreatRecordData(data));
             }
@@ -519,10 +519,16 @@ public class MDD(string fname) : MDict(fname, Encoding.Unicode)
 
 public class MDX(string fname) : MDict(fname, Encoding.UTF8)
 {
-    public override byte[] TreatRecordData(byte[] data)
+    public override byte[] TreatRecordData(ReadOnlySpan<byte> data)
     {
-        string text = _encoding.GetString(data);
-        text = text.Trim('\0');
-        return Encoding.UTF8.GetBytes(text);
+        if (_encoding != Encoding.UTF8)
+        {
+            // For Encoding.Unicode, trimming the \0 bytes
+            // might(?) accidentally cut a character in half
+            // (since UTF-16 uses two bytes per character).
+            throw new InvalidOperationException();
+        }
+
+        return data.Trim((byte)'\0').ToArray();
     }
 }
