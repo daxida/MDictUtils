@@ -380,7 +380,7 @@ public partial class MDict
         while (i < keyBlockInfo.Length)
         {
             // number of entries in current key block
-            numEntries += (int)ReadNumber(keyBlockInfo, i, _numberWidth);
+            numEntries += (int)ReadNumber(keyBlockInfo.Slice(i, _numberWidth));
             i += _numberWidth;
 
             int textHeadSize = (byteWidth == 2)
@@ -403,9 +403,9 @@ public partial class MDict
             else
                 i += (textTailSize + textTerm) * 2;
 
-            long keyBlockCompressedSize = ReadNumber(keyBlockInfo, i, _numberWidth);
+            long keyBlockCompressedSize = ReadNumber(keyBlockInfo.Slice(i, _numberWidth));
             i += _numberWidth;
-            long keyBlockDecompressedSize = ReadNumber(keyBlockInfo, i, _numberWidth);
+            long keyBlockDecompressedSize = ReadNumber(keyBlockInfo.Slice(i, _numberWidth));
             i += _numberWidth;
 
             keyBlockInfoList.Add((keyBlockCompressedSize, keyBlockDecompressedSize));
@@ -431,16 +431,6 @@ public partial class MDict
         {
             throw new OverflowException($"More than expected {output.Length} bytes in decompression stream");
         }
-    }
-
-    static private long ReadNumber(ReadOnlySpan<byte> buffer, int offset, int numberWidth)
-    {
-        // numberWidth should always be 4 or 8
-        Span<byte> slice = stackalloc byte[numberWidth];
-        buffer.Slice(offset, numberWidth).CopyTo(slice);
-        return (numberWidth == 4)
-            ? Common.ReadUInt32BigEndian(slice)
-            : (long)Common.ReadUInt64BigEndian(slice);
     }
 
     // _decode_key_block
