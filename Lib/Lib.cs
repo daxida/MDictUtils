@@ -25,8 +25,6 @@ internal class OffsetTableEntry
     public required long Offset { get; init; }
     public required byte[] RecordNull { get; set; }
     public required bool IsMdd { get; init; }
-
-    // This are sort of hidden in inheritance
     public required long RecordSize { get; init; }
     public required long RecordPos { get; init; }
 
@@ -38,15 +36,17 @@ internal class OffsetTableEntry
         static string BytesToString(ReadOnlySpan<byte> bytes)
             => bytes.IsEmpty ? "null" : Encoding.UTF8.GetString(bytes);
 
-        return "OffsetTableEntry(" +
-               $"KeyLen={KeyLen}, " +
-               $"Offset={Offset}, " +
-               $"RecordPos={RecordPos}, " +
-               $"RecordSize={RecordSize}, " +
-               $"IsMdd='{IsMdd}', " +
-               $"Key='{BytesToString(Key)}', " +
-               $"KeyNull='{BytesToString(KeyNull)}', " +
-               $"RecordNull='{BytesToString(RecordNull)}')";
+        var sb = new StringBuilder();
+        sb.Append("OffsetTableEntry(");
+        sb.Append($"KeyLen={KeyLen}, ");
+        sb.Append($"Offset={Offset}, ");
+        sb.Append($"RecordPos={RecordPos}, ");
+        sb.Append($"RecordSize={RecordSize}, ");
+        sb.Append($"IsMdd='{IsMdd}', ");
+        sb.Append($"Key='{BytesToString(Key)}', ");
+        sb.Append($"KeyNull='{BytesToString(KeyNull)}', ");
+        sb.Append($"RecordNull='{BytesToString(RecordNull)}')");
+        return sb.ToString();
     }
 }
 
@@ -59,10 +59,6 @@ internal abstract class MdxBlock
     protected byte[] _compData;
     protected long _compSize;
     protected string _version;
-
-    // This are sort of hidden in inheritance
-    public long RecordSize { get; set; }
-    public long RecordPos { get; set; }
 
     protected MdxBlock(List<OffsetTableEntry> offsetTable, int compressionType, string version)
     {
