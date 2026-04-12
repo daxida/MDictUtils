@@ -258,7 +258,7 @@ public partial class MDict
         if (_version >= 2.0)
         {
             Span<byte> adlerBytes = stackalloc byte[4];
-            _ = f.Read(adlerBytes);
+            f.ReadExactly(adlerBytes);
             uint adler32 = Common.ReadUInt32BigEndian(adlerBytes);
             Debug.Assert(adler32 == Common.Adler32(block));
         }
@@ -389,17 +389,9 @@ public partial class MDict
         using var input = new MemoryStream(data.ToArray());
         using var z = new ZLibStream(input, CompressionMode.Decompress);
 
-        int totalRead = 0;
-        while (totalRead < output.Length)
-        {
-            int bytesRead = z.Read(output.AsSpan(totalRead));
-            if (bytesRead == 0)
-            {
-                throw new EndOfStreamException();
-            }
-            totalRead += bytesRead;
-        }
-        if (totalRead != decompSize || z.ReadByte() is not -1)
+        z.ReadExactly(output);
+
+        if (z.ReadByte() is not -1)
         {
             throw new OverflowException($"More than expected {decompSize} bytes in decompression stream");
         }
