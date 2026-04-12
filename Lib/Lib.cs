@@ -24,7 +24,7 @@ internal class OffsetTableEntry
     public required byte[] KeyNull { get; init; }
     public required int KeyLen { get; init; }
     public required long Offset { get; init; }
-    public required byte[] RecordNull { get; set; }
+    // public required byte[] RecordNull { get; set; }
     public required bool IsMdd { get; init; }
     public required long RecordSize { get; init; }
     public required long RecordPos { get; init; }
@@ -46,7 +46,8 @@ internal class OffsetTableEntry
         sb.Append($"IsMdd='{IsMdd}', ");
         sb.Append($"Key='{BytesToString(Key)}', ");
         sb.Append($"KeyNull='{BytesToString(KeyNull)}', ");
-        sb.Append($"RecordNull='{BytesToString(RecordNull)}')");
+        // sb.Append($"RecordNull='{BytesToString(RecordNull)}'");
+        sb.Append(')');
         return sb.ToString();
     }
 }
@@ -396,14 +397,14 @@ public sealed class MDictWriter
             var keyNull = _innerEncoding.GetBytes(item.Key + "\0");
             var keyLen = keyEnc.Length / _encodingLength;
 
-            var recordNull = _innerEncoding.GetBytes(item.Path);
+            // var recordNull = _innerEncoding.GetBytes(item.Path);
 
             var tableEntry = new OffsetTableEntry
             {
                 Key = keyEnc,
                 KeyNull = keyNull,
                 KeyLen = keyLen,
-                RecordNull = recordNull,
+                // RecordNull = recordNull,
                 Offset = offset,
                 RecordSize = item.Size,
                 RecordPos = item.Pos,
