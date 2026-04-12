@@ -9,25 +9,51 @@ namespace Lib;
 /// </summary>
 internal static class Common
 {
+    public static void ToLittleEndian(uint input, Span<byte> output)
+    {
+        if (output.Length != 4)
+            throw new ArgumentException("Wrong size buffer", nameof(output));
+        if (!BitConverter.TryWriteBytes(output, input))
+            throw new ArgumentException($"Could not convert value {input} to bytes");
+        if (!BitConverter.IsLittleEndian)
+            output.Reverse();
+    }
+
+    public static void ToBigEndian(ulong input, Span<byte> output)
+    {
+        if (output.Length != 8)
+            throw new ArgumentException("Wrong size buffer", nameof(output));
+        if (!BitConverter.TryWriteBytes(output, input))
+            throw new ArgumentException($"Could not convert value {input} to bytes");
+        if (BitConverter.IsLittleEndian)
+            output.Reverse();
+    }
+
+    public static void ToBigEndian(uint input, Span<byte> output)
+    {
+        if (output.Length != 4)
+            throw new ArgumentException("Wrong size buffer", nameof(output));
+        if (!BitConverter.TryWriteBytes(output, input))
+            throw new ArgumentException($"Could not convert value {input} to bytes");
+        if (BitConverter.IsLittleEndian)
+            output.Reverse();
+    }
+
+    public static void ToBigEndian(ushort input, Span<byte> output)
+    {
+        if (output.Length != 2)
+            throw new ArgumentException("Wrong size buffer", nameof(output));
+        if (!BitConverter.TryWriteBytes(output, input))
+            throw new ArgumentException($"Could not convert value {input} to bytes");
+        if (BitConverter.IsLittleEndian)
+            output.Reverse();
+    }
+
     public static ReadOnlySpan<byte> ToBigEndian(Span<byte> bytes)
     {
         if (BitConverter.IsLittleEndian) bytes.Reverse();
         return bytes;
     }
-
-    public static ReadOnlySpan<byte> ToLittleEndian(Span<byte> bytes)
-    {
-        if (!BitConverter.IsLittleEndian) bytes.Reverse();
-        return bytes;
-    }
-
-    public static ReadOnlySpan<byte> ToBigEndian(ulong value) => ToBigEndian(BitConverter.GetBytes(value));
-    public static ReadOnlySpan<byte> ToBigEndian(uint value) => ToBigEndian(BitConverter.GetBytes(value));
-    public static ReadOnlySpan<byte> ToBigEndian(ushort value) => ToBigEndian(BitConverter.GetBytes(value));
-
-    public static ReadOnlySpan<byte> ToLittleEndian(ulong value) => ToLittleEndian(BitConverter.GetBytes(value));
-    public static ReadOnlySpan<byte> ToLittleEndian(uint value) => ToLittleEndian(BitConverter.GetBytes(value));
-    public static ReadOnlySpan<byte> ToLittleEndian(ushort value) => ToLittleEndian(BitConverter.GetBytes(value));
 
     public static int ReadInt32BigEndian(BinaryReader br)
         => BitConverter.ToInt32(ToBigEndian(br.ReadBytes(4)));

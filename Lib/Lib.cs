@@ -117,11 +117,13 @@ internal abstract class MdxBlock
             throw new NotSupportedException("Only compressionType=2 (Zlib) is supported in this version.");
 
         // Compression type (little-endian)
-        var lend = Common.ToLittleEndian(BitConverter.GetBytes(compressionType)); // <L in Python
+        Span<byte> lend = stackalloc byte[4];
+        Common.ToLittleEndian((uint)compressionType, lend); // <L in Python
 
         // Adler32 checksum (big-endian)
         uint adler = Common.Adler32(data);
-        var adlerBytes = Common.ToBigEndian(adler); // Python uses >L
+        Span<byte> adlerBytes = stackalloc byte[4];
+        Common.ToBigEndian(adler, adlerBytes); // Python uses >L
 
         // byte[] header = [.. lend, .. adlerBytes];
 
@@ -162,12 +164,13 @@ internal class MdxRecordBlock(List<OffsetTableEntry> offsetTable, int compressio
             throw new NotImplementedException();
         }
 
+        byte[] indexEntry = new byte[16];
+
         // Big-endian 64-bit values
-        return
-        [
-            .. Common.ToBigEndian((ulong)_compSize),
-            .. Common.ToBigEndian((ulong)_decompSize),
-        ];
+        Common.ToBigEndian((ulong)_compSize, indexEntry.AsSpan(..8));
+        Common.ToBigEndian((ulong)_decompSize, indexEntry.AsSpan(8..16));
+
+        return indexEntry;
     }
 
     // rg: get_record_null
@@ -252,11 +255,10 @@ internal class MdxKeyBlock : MdxBlock
     {
         Debug.Assert(version == "2.0");
 
-        var offsetBytes = Common.ToBigEndian((ulong)entry.Offset);
-        offsetBytes.CopyTo(buffer);
-        entry.KeyNull.CopyTo(buffer[offsetBytes.Length..]);
+        Common.ToBigEndian((ulong)entry.Offset, buffer[..8]);
+        entry.KeyNull.CopyTo(buffer[8..]);
 
-        return offsetBytes.Length + entry.KeyNull.Length;
+        return 8 + entry.KeyNull.Length;
     }
 
     // Approximate for version 2.0
@@ -268,15 +270,28 @@ internal class MdxKeyBlock : MdxBlock
     public override byte[] GetIndexEntry()
     {
         Debug.Assert(_version == "2.0");
+
+        Span<byte> numEntries = stackalloc byte[8];
+        Span<byte> firstKeyLen = stackalloc byte[2];
+        Span<byte> lastKeyLen = stackalloc byte[2];
+        Span<byte> compSize = stackalloc byte[8];
+        Span<byte> decompSize = stackalloc byte[8];
+
+        Common.ToBigEndian((ulong)_numEntries, numEntries);
+        Common.ToBigEndian((ushort)_firstKeyLen, firstKeyLen);
+        Common.ToBigEndian((ushort)_lastKeyLen, lastKeyLen);
+        Common.ToBigEndian((ulong)_compSize, compSize);
+        Common.ToBigEndian((ulong)_decompSize, decompSize);
+
         return
         [
-            .. Common.ToBigEndian((ulong)_numEntries),
-            .. Common.ToBigEndian((ushort)_firstKeyLen),
+            .. numEntries,
+            .. firstKeyLen,
             .. _firstKey,
-            .. Common.ToBigEndian((ushort)_lastKeyLen),
+            .. lastKeyLen,
             .. _lastKey,
-            .. Common.ToBigEndian((ulong)_compSize),
-            .. Common.ToBigEndian((ulong)_decompSize),
+            .. compSize,
+            .. decompSize,
         ];
     }
 }
@@ -566,7 +581,8 @@ public sealed class MDictWriter
         // Console.WriteLine("        " + string.Join(" ", headerBytes.Select(b => b.ToString("X2"))));
 
         // Write header length (big-endian)
-        var lengthBytes = Common.ToBigEndian((uint)headerBytes.Length);
+        Span<byte> lengthBytes = stackalloc byte[4];
+        Common.ToBigEndian((uint)headerBytes.Length, lengthBytes);
         stream.Write(lengthBytes);
 
         // Write header string
@@ -574,7 +590,8 @@ public sealed class MDictWriter
 
         // Write Adler32 checksum (little-endian)
         uint checksum = Common.Adler32(headerBytes);
-        var checksumBytes = Common.ToLittleEndian(checksum);
+        Span<byte> checksumBytes = stackalloc byte[4];
+        Common.ToLittleEndian(checksum, checksumBytes);
 
         stream.Write(checksumBytes);
     }
@@ -652,23 +669,23 @@ public sealed class MDictWriter
             throw new NotImplementedException();
         }
 
-        long keyblocksTotal = _keyBlocks.Sum(static b => b.BlockData.Length);
+        long keyBlocksTotalValue = _keyBlocks.Sum(static b => b.BlockData.Length);
 
-        ReadOnlySpan<byte> preamble =
-        [
-            .. Common.ToBigEndian((ulong)_keyBlocks.Count),
-            .. Common.ToBigEndian((ulong)_numEntries),
-            .. Common.ToBigEndian((ulong)_keybIndexDecompSize),
-            .. Common.ToBigEndian((ulong)_keybIndexCompSize),
-            .. Common.ToBigEndian((ulong)keyblocksTotal),
-        ];
+        Span<byte> preamble = stackalloc byte[5 * 8]; // Five 8-byte buffers
 
-        var preambleChecksum = Common.Adler32(preamble);
-        var checksumBytes = Common.ToBigEndian(preambleChecksum);
+        Common.ToBigEndian((ulong)_keyBlocks.Count, preamble[0..8]);
+        Common.ToBigEndian((ulong)_numEntries, preamble[8..16]);
+        Common.ToBigEndian((ulong)_keybIndexDecompSize, preamble[16..24]);
+        Common.ToBigEndian((ulong)_keybIndexCompSize, preamble[24..32]);
+        Common.ToBigEndian((ulong)keyBlocksTotalValue, preamble[32..40]);
+
+        uint checksumValue = Common.Adler32(preamble);
+        Span<byte> checksum = stackalloc byte[4];
+        Common.ToBigEndian(checksumValue, checksum);
 
         outfile.Write(preamble);
-        outfile.Write(checksumBytes);
-        outfile.Write(_keybIndex, 0, _keybIndex.Length);
+        outfile.Write(checksum);
+        outfile.Write(_keybIndex.AsSpan());
 
         foreach (var block in _keyBlocks)
         {
@@ -685,16 +702,15 @@ public sealed class MDictWriter
 
         long recordblocksTotal = _recordBlocks.Sum(static b => b.BlockData.Length);
 
-        ReadOnlySpan<byte> preamble =
-        [
-            .. Common.ToBigEndian((ulong)_recordBlocks.Count),
-            .. Common.ToBigEndian((ulong)_numEntries),
-            .. Common.ToBigEndian((ulong)_recordbIndexSize),
-            .. Common.ToBigEndian((ulong)recordblocksTotal),
-        ];
+        Span<byte> preamble = stackalloc byte[4 * 8]; // Four 8-byte buffers
+
+        Common.ToBigEndian((ulong)_recordBlocks.Count, preamble[0..8]);
+        Common.ToBigEndian((ulong)_numEntries, preamble[8..16]);
+        Common.ToBigEndian((ulong)_recordbIndexSize, preamble[16..24]);
+        Common.ToBigEndian((ulong)recordblocksTotal, preamble[24..32]);
 
         outfile.Write(preamble);
-        outfile.Write(_recordbIndex, 0, _recordbIndex.Length);
+        outfile.Write(_recordbIndex.AsSpan());
 
         foreach (var block in _recordBlocks)
         {
