@@ -67,10 +67,12 @@ internal abstract class MdxBlock
         if (compressionType != 2 || version != "2.0")
             throw new NotSupportedException();
 
+        var arrayPool = ArrayPool<byte>.Shared;
+
         // Console.WriteLine("[Debug] Calling MdxBlock...");
 
         var decompDataSize = offsetTable.Sum(LenBlockEntry);
-        var decompData = ArrayPool<byte>.Shared.Rent(decompDataSize);
+        var decompData = arrayPool.Rent(decompDataSize);
 
         var maxBlockSize = offsetTable.Max(LenBlockEntry);
         var blockBuffer = maxBlockSize < 256
@@ -99,7 +101,7 @@ internal abstract class MdxBlock
 
         _version = version;
 
-        ArrayPool<byte>.Shared.Return(decompData);
+        arrayPool.Return(decompData);
     }
 
     public ReadOnlySpan<byte> BlockData => _compData;
