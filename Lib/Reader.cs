@@ -63,26 +63,41 @@ public partial class MDict
         long recordBlockSize = ReadNumber(br);
 
         // Read record block info
-        List<(long, long)> recordBlockInfoList = [];
+        List<(long, long)> recordBlockInfoList = new((int)numRecordBlocks);
         long sizeCounter = 0;
+        long maxCompressedSize = 0;
+        long maxDecompressedSize = 0;
+
         for (int i = 0; i < numRecordBlocks; i++)
         {
             long compressedSize = ReadNumber(br);
             long decompressedSize = ReadNumber(br);
+            maxCompressedSize = long.Max(compressedSize, maxCompressedSize);
+            maxDecompressedSize = long.Max(decompressedSize, maxDecompressedSize);
             recordBlockInfoList.Add((compressedSize, decompressedSize));
             sizeCounter += _numberWidth * 2; // two numbers per block
         }
         if (sizeCounter != recordBlockInfoSize)
             throw new InvalidDataException("Record block info size mismatch.");
 
+        // List<(string, byte[])> records = new(recordBlockInfoList.Count);
         long offset = 0;
         int keyIndex = 0;
         sizeCounter = 0;
 
+        var arrayPool = ArrayPool<byte>.Shared;
+        var compressedBuffer = arrayPool.Rent((int)maxCompressedSize);
+        var decompressedBuffer = arrayPool.Rent((int)maxDecompressedSize);
+
         foreach (var (compressedSize, decompSize) in recordBlockInfoList)
         {
-            byte[] compressedBlock = br.ReadBytes((int)compressedSize);
-            byte[] recordBlock = DecodeBlock(compressedBlock, decompSize);
+            var compressedBlock = compressedBuffer.AsSpan(..(int)compressedSize);
+            br.ReadExactly(compressedBlock);
+
+            int size = Convert.ToInt32(decompSize);
+            var recordBlock = decompressedBuffer.AsSpan(..size);
+
+            DecodeBlock(compressedBlock, recordBlock);
             // Console.WriteLine(
             //     $"[ReadRecords]\ncompressedBlock = {BitConverter.ToString(compressedBlock)}\n" +
             //     $"recordBlock = {Encoding.UTF8.GetString(recordBlock)}"
@@ -94,26 +109,31 @@ public partial class MDict
                 // Console.WriteLine($"[ReadRecords] recordStart {recordStart}, keyText {keyText}");
 
                 // If the current record starts beyond this block, break
-                if (recordStart - offset >= recordBlock.Length)
+                if (recordStart - offset >= size)
                 {
                     break;
                 }
 
                 long recordEnd = (keyIndex < _keyList.Count - 1)
                     ? _keyList[keyIndex + 1].keyId
-                    : recordBlock.Length + offset;
+                    : size + offset;
 
                 keyIndex++;
                 int start = (int)(recordStart - offset);
                 int length = (int)(recordEnd - offset - start);
-                var data = recordBlock.AsSpan(start, length);
+                // Must create a span again because the runtime will complain
+                // if spans are reused across the `yield return` boundary.
+                var data = decompressedBuffer.AsSpan(..size).Slice(start, length);
 
                 yield return (keyText, TreatRecordData(data));
             }
 
-            offset += recordBlock.Length;
+            offset += size;
             sizeCounter += compressedSize;
         }
+
+        arrayPool.Return(compressedBuffer);
+        arrayPool.Return(decompressedBuffer);
 
         if (sizeCounter != recordBlockSize)
             throw new InvalidDataException("Record block size mismatch.");
@@ -334,7 +354,9 @@ public partial class MDict
 
             // decompress zlib
             var data = keyBlockInfoCompressed[8..];
-            keyBlockInfo = DecompressZlib(data, decompSize);
+            var buffer = new byte[(int)decompSize];
+            DecompressZlib(data, buffer);
+            keyBlockInfo = buffer;
 
             Span<byte> checksumBuffer = stackalloc byte[4];
             keyBlockInfoCompressed[4..8].CopyTo(checksumBuffer);
@@ -394,25 +416,21 @@ public partial class MDict
         return keyBlockInfoList;
     }
 
-    static private byte[] DecompressZlib(ReadOnlySpan<byte> data, long decompSize)
+    static private void DecompressZlib(ReadOnlySpan<byte> input, Span<byte> output)
     {
-        var output = new byte[decompSize];
-
         // The .ToArray() allocation here is unfortunately unavoidable.
         // See: https://github.com/dotnet/runtime/issues/24622
         // Unless we want to enable the "unsafe" compiler flag.
         // See: https://stackoverflow.com/a/48223990
-        using var input = new MemoryStream(data.ToArray());
-        using var z = new ZLibStream(input, CompressionMode.Decompress);
+        using var ms = new MemoryStream(input.ToArray());
+        using var z = new ZLibStream(ms, CompressionMode.Decompress);
 
         z.ReadExactly(output);
 
         if (z.ReadByte() is not -1)
         {
-            throw new OverflowException($"More than expected {decompSize} bytes in decompression stream");
+            throw new OverflowException($"More than expected {output.Length} bytes in decompression stream");
         }
-
-        return output;
     }
 
     static private long ReadNumber(ReadOnlySpan<byte> buffer, int offset, int numberWidth)
@@ -428,44 +446,52 @@ public partial class MDict
     // _decode_key_block
     protected List<(long, string)> DecodeKeyBlock(ReadOnlySpan<byte> keyBlockCompressed, List<(long, long)> keyBlockInfoList)
     {
-        List<(long, string)> keyList = [];
+        if (keyBlockInfoList is [])
+            return [];
+
+        var arrayPool = ArrayPool<byte>.Shared;
+
+        List<(long, string)> keyList = new(keyBlockInfoList.Count);
+        long maxDecompSize = keyBlockInfoList.Max(static k => k.Item2);
+        byte[] buffer = arrayPool.Rent((int)maxDecompSize);
         int offset = 0;
+
         foreach (var (compSize, decompSize) in keyBlockInfoList)
         {
             int size = Convert.ToInt32(compSize);
-            var block = keyBlockCompressed.Slice(offset, size);
-            byte[] decompressed = DecodeBlock(block, decompSize);
+            var compressed = keyBlockCompressed.Slice(offset, size);
+            var decompressed = buffer.AsSpan(..(int)decompSize);
+            DecodeBlock(compressed, decompressed);
             keyList.AddRange(SplitKeyBlock(decompressed));
             offset += size;
         }
+        arrayPool.Return(buffer);
         return keyList;
     }
 
-    protected static byte[] DecodeBlock(ReadOnlySpan<byte> block, long decompSize)
+    protected static void DecodeBlock(ReadOnlySpan<byte> input, Span<byte> output)
     {
-        Debug.Assert(block.Length >= 8, "Block too small");
+        Debug.Assert(input.Length >= 8, "Block too small");
 
-        uint info = BitConverter.ToUInt32(block); // little-endian
+        uint info = BitConverter.ToUInt32(input); // little-endian
         int compressionMethod = (int)(info & 0xF);
         // int encryptionMethod = (int)((info >> 4) & 0xF);
         int encryptionSize = (int)((info >> 8) & 0xFF);
 
         // ---- adler32 (big-endian) ----
         Span<byte> adlerBytes = stackalloc byte[4];
-        block[4..8].CopyTo(adlerBytes);
+        input[4..8].CopyTo(adlerBytes);
         uint adler32 = BitConverter.ToUInt32(Common.ToBigEndian(adlerBytes));
 
         // ---- encryption key ---- (SKIP)
-        var data = block[8..];
+        var data = input[8..];
         Debug.Assert(encryptionSize <= data.Length, "Invalid encryption size");
 
         // ---- decrypt ---- (assume no encryption)
         Debug.Assert(compressionMethod == 2);
-        var decompressedBlock = DecompressZlib(data, decompSize);
+        DecompressZlib(data, output);
 
-        Debug.Assert(adler32 == Common.Adler32(decompressedBlock), "Adler32 mismatch after decompression");
-
-        return decompressedBlock;
+        Debug.Assert(adler32 == Common.Adler32(output), "Adler32 mismatch after decompression");
     }
 
     public List<(long, string)> SplitKeyBlock(ReadOnlySpan<byte> keyBlock)
