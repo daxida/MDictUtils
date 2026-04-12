@@ -72,19 +72,20 @@ internal abstract class MdxBlock
         var decompDataSize = offsetTable.Sum(LenBlockEntry);
         var decompData = ArrayPool<byte>.Shared.Rent(decompDataSize);
 
-        var maxSize = offsetTable.Max(LenBlockEntry);
-
-        var buffer = maxSize < 256
-            ? stackalloc byte[maxSize]
-            : new byte[maxSize];
+        var maxBlockSize = offsetTable.Max(LenBlockEntry);
+        var blockBuffer = maxBlockSize < 256
+            ? stackalloc byte[maxBlockSize]
+            : new byte[maxBlockSize];
 
         int totalSize = 0;
         foreach (var entry in offsetTable)
         {
-            int size = GetBlockEntry(entry, version, buffer);
+            int blockSize = GetBlockEntry(entry, version, blockBuffer);
             // Console.WriteLine($"[Debug] BlockEntry ({blockEntry.Length} bytes): {BitConverter.ToString(blockEntry)}");
-            buffer[..size].CopyTo(decompData.AsSpan(totalSize, size));
-            totalSize += size;
+            var source = blockBuffer[..blockSize];
+            var destination = decompData.AsSpan(start: totalSize, length: blockSize);
+            source.CopyTo(destination);
+            totalSize += blockSize;
         }
 
         // Console.WriteLine("[Debug] Building MdxBlock...");
