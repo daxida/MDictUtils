@@ -151,16 +151,15 @@ public partial class MDict
             : (long)Common.ReadUInt64BigEndian(bytes);
     }
 
-    protected long ReadNumber(ReadOnlySpan<byte> buffer)
+    protected static long ReadNumber(ReadOnlySpan<byte> buffer)
     {
-        // _numberWidth is either 4 or 8
-        Span<byte> copy = stackalloc byte[_numberWidth];
+        Span<byte> copy = stackalloc byte[buffer.Length];
 
         // The BigEndian methods mutate the data,
         // so we have to make a copy of it.
         buffer.CopyTo(copy);
 
-        return (_numberWidth == 4)
+        return (buffer.Length == 4)
             ? Common.ReadUInt32BigEndian(copy)
             : (long)Common.ReadUInt64BigEndian(copy);
     }
