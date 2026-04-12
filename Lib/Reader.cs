@@ -233,6 +233,16 @@ public partial class MDict
             _encrypt = 0;
         }
 
+        if (_encrypt != 0)
+        {
+            Console.WriteLine($"Encryption detected. Kind: {_encrypt}");
+        }
+        if (_encrypt != 0 && _encrypt != 2)
+        {
+            throw new InvalidDataException($"Encryted data with level {_encrypt}, unsupported");
+        }
+
+
         // TODO: stylesheet parsing
         _stylesheet = [];
         if (headerTag.TryGetValue("StyleSheet", out var styleSheetValue))
@@ -272,7 +282,7 @@ public partial class MDict
 
         if ((_encrypt & 1) != 0)
         {
-            throw new NotImplementedException();
+            throw new InvalidDataException("Encryted data with level 1, unsupported");
         }
 
         var r = Common.RangeIncrementor();
@@ -343,19 +353,34 @@ public partial class MDict
                     """);
             }
 
+            ReadOnlySpan<byte> compressed;
             if ((_encrypt & 0x02) != 0)
             {
-                throw new InvalidDataException("Encryted data, unsupported");
+                // decrypt if needed
+                // https://github.com/liuyug/mdict-utils/blob/master/mdict_utils/base/readmdict.py#L199
+                //
+                // key = ripemd128(key_block_info_compressed[4:8] + pack(b'<L', 0x3695))
+                // key_block_info_compressed = key_block_info_compressed[:8] + _fast_decrypt(key_block_info_compressed[8:], key)
+                byte[] key = Ripemd128.ComputeHash(
+                    [.. keyBlockInfoCompressed[4..8], .. BitConverter.GetBytes(0x3695u)]
+                );
+                byte[] decrypted = Ripemd128.FastDecrypt(keyBlockInfoCompressed[8..].ToArray(), key);
+                byte[] bytes = [.. keyBlockInfoCompressed[..8], .. decrypted];
+                compressed = bytes;
+            }
+            else
+            {
+                compressed = keyBlockInfoCompressed;
             }
 
             // decompress zlib
-            var data = keyBlockInfoCompressed[8..];
+            var data = compressed[8..];
             var buffer = new byte[(int)decompSize];
             ZLibCompression.Decompress(data, buffer);
             keyBlockInfo = buffer;
 
             Span<byte> checksumBuffer = stackalloc byte[4];
-            keyBlockInfoCompressed[4..8].CopyTo(checksumBuffer);
+            compressed[4..8].CopyTo(checksumBuffer);
 
             uint adler32 = Common.ReadUInt32BigEndian(checksumBuffer);
             if (adler32 != Common.Adler32(keyBlockInfo))

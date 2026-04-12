@@ -267,3 +267,21 @@ public class DoUndoTests
         }
     }
 }
+
+public class Ripemd128Tests
+{
+    // https://emn178.github.io/online-tools/ripemd-128/
+    [Theory]
+    [InlineData("", "cdf26213a150dc3ecb610f18f6b38b46")]
+    [InlineData("a", "86be7afa339d0fc7cfc785e72f578d33")]
+    [InlineData("abc", "c14a12199c66e4ba84636b0f69144c77")]
+    [InlineData("message digest", "9e327b3d6e523062afc1132d7df9d1b8")]
+    [InlineData("The quick brown fox jumps over the lazy dog", "3fa9b57f053c053fbe2735b2380db596")]
+    public void TestKnownVectors(string input, string expected)
+    {
+        byte[] inputBytes = Encoding.UTF8.GetBytes(input);
+        byte[] hash = Ripemd128.ComputeHash(inputBytes);
+        string hexHash = Convert.ToHexString(hash).ToLowerInvariant();
+        Assert.Equal(expected, hexHash);
+    }
+}

@@ -48,10 +48,10 @@ public static class MDictPacker
             using FileStream fs = new(descPath, FileMode.Create, FileAccess.Write);
             using StreamWriter swriter = new(fs, UTF8NoBOM);
 
-            foreach (var line in description.Split(["\r\n", "\n"], StringSplitOptions.None))
-            {
-                swriter.WriteLine(line);
-            }
+            // f.write(b'\r\n'.join(mdx.header[b'Description'].splitlines()))
+            // Force CRLF like the python model
+            var lines = description.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+            swriter.Write(string.Join("\r\n", lines));
         }
 
         if (header.TryGetValue("Title", out var title) && title.Length > 0)

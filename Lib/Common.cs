@@ -49,6 +49,8 @@ internal static class Common
             output.Reverse();
     }
 
+    // To simplify much of this, maybe we can use:
+    // https://learn.microsoft.com/en-us/dotnet/api/system.buffers.binary?view=net-10.0
     public static ReadOnlySpan<byte> ToBigEndian(Span<byte> bytes)
     {
         if (BitConverter.IsLittleEndian) bytes.Reverse();
