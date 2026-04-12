@@ -1,11 +1,12 @@
 ﻿using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.IO.Compression;
 
 namespace Lib;
 
@@ -67,7 +68,8 @@ internal abstract class MdxBlock
 
         // Console.WriteLine("[Debug] Calling MdxBlock...");
 
-        var decompData = new List<byte>();
+        var decompDataSize = offsetTable.Sum(LenBlockEntry);
+        var decompData = ArrayPool<byte>.Shared.Rent(decompDataSize);
 
         var maxSize = offsetTable.Max(LenBlockEntry);
 
@@ -75,24 +77,27 @@ internal abstract class MdxBlock
             ? stackalloc byte[maxSize]
             : new byte[maxSize];
 
+        int totalSize = 0;
         foreach (var entry in offsetTable)
         {
             int size = GetBlockEntry(entry, version, buffer);
             // Console.WriteLine($"[Debug] BlockEntry ({blockEntry.Length} bytes): {BitConverter.ToString(blockEntry)}");
-            decompData.AddRange(buffer[..size]);
+            buffer[..size].CopyTo(decompData.AsSpan(totalSize, size));
+            totalSize += size;
         }
 
-        var decompArray = decompData.ToArray();
         // Console.WriteLine("[Debug] Building MdxBlock...");
-        _decompSize = decompArray.Length;
+        _decompSize = totalSize;
         // Console.WriteLine($"[Debug] Decompressed array length (_decompSize): {_decompSize}");
         // Common.PrintPythonStyle(decompArray);
 
-        _compData = MdxCompress(decompArray, compressionType);
+        _compData = MdxCompress(decompData[..totalSize], compressionType);
         _compSize = _compData.Length;
         // Console.WriteLine($"[Debug] Compressed array length (_compSize): {_compSize}");
 
         _version = version;
+
+        ArrayPool<byte>.Shared.Return(decompData);
     }
 
     public ReadOnlySpan<byte> BlockData => _compData;
