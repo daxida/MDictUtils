@@ -271,15 +271,15 @@ internal class MdxKeyBlock : MdxBlock
         Debug.Assert(_version == "2.0");
         Debug.Assert(buffer.Length == IndexEntryLength);
 
-        var r = Common.RangeIncrementor();
+        var r = new SpanReader<byte>(buffer);
 
-        Common.ToBigEndian((ulong)_numEntries, buffer[r(8)]);
-        Common.ToBigEndian((ushort)_firstKeyLen, buffer[r(2)]);
-        _firstKey.CopyTo(buffer[r(_firstKey.Length)]);
-        Common.ToBigEndian((ushort)_lastKeyLen, buffer[r(2)]);
-        _lastKey.CopyTo(buffer[r(_lastKey.Length)]);
-        Common.ToBigEndian((ulong)_compSize, buffer[r(8)]);
-        Common.ToBigEndian((ulong)_decompSize, buffer[r(8)]);
+        Common.ToBigEndian((ulong)_numEntries, r.Read(8));
+        Common.ToBigEndian((ushort)_firstKeyLen, r.Read(2));
+        _firstKey.CopyTo(r.Read(_firstKey.Length));
+        Common.ToBigEndian((ushort)_lastKeyLen, r.Read(2));
+        _lastKey.CopyTo(r.Read(_lastKey.Length));
+        Common.ToBigEndian((ulong)_compSize, r.Read(8));
+        Common.ToBigEndian((ulong)_decompSize, r.Read(8));
     }
 }
 

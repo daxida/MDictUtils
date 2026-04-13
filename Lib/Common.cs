@@ -117,30 +117,4 @@ internal static class Common
 
         return (sum2 << 16) | adler;
     }
-
-    public static Func<int, Range> RangeIncrementor()
-    {
-        int start = 0;
-        Range getNewRange(int length)
-        {
-            int end = start + length;
-            Range range = new(start, end);
-            start = end;
-            return range;
-        }
-        return getNewRange;
-    }
-
-    public static Func<Range> RangeIncrementor(int length)
-    {
-        int start = 0;
-        Range getNewRange()
-        {
-            int end = start + length;
-            Range range = new(start, end);
-            start = end;
-            return range;
-        }
-        return getNewRange;
-    }
 }
