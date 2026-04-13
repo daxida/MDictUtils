@@ -4,8 +4,7 @@ using Org.BouncyCastle.Crypto.Digests;
 
 namespace Lib;
 
-
-public static class Ripemd128
+internal static class Ripemd128
 {
     // Wrapper in case we end up implementing it ourselves
     public static int ComputeHash(ReadOnlySpan<byte> message, Span<byte> hash)
