@@ -293,6 +293,11 @@ internal sealed record KeyBlockIndex(byte[] CompressedBytes, long DecompSize)
     public int CompressedSize => CompressedBytes.Length;
 }
 
+internal sealed record RecordBlockIndex(byte[] Bytes)
+{
+    public int Size => Bytes.Length;
+}
+
 public sealed class MDictWriter
 {
     private readonly IMDictWriterLogger _logger;
@@ -312,8 +317,7 @@ public sealed class MDictWriter
     private List<MdxKeyBlock> _keyBlocks = [];
     private List<MdxRecordBlock> _recordBlocks = [];
     private readonly KeyBlockIndex _keyBlockIndex;
-    private byte[] _recordbIndex = [];
-    private long _recordbIndexSize;
+    private readonly RecordBlockIndex _recordBlockIndex;
     private long _totalRecordLen;
 
     public MDictWriter(List<MDictEntry> entries, MDictWriterOptions? opt = null)
@@ -375,8 +379,8 @@ public sealed class MDictWriter
         BuildRecordBlocks();
         _logger.LogRecordBlocks(_recordBlocks);
 
-        BuildRecordbIndex();
-        _logger.LogRecordIndex(_recordbIndexSize);
+        _recordBlockIndex = BuildRecordBlockIndex();
+        _logger.LogRecordIndex(_recordBlockIndex);
 
         _logger.LogInitializationComplete();
     }
@@ -558,14 +562,10 @@ public sealed class MDictWriter
         return index;
     }
 
-    private void BuildRecordbIndex()
+    private RecordBlockIndex BuildRecordBlockIndex()
     {
         if (_recordBlocks is [])
-        {
-            _recordbIndex = [];
-            _recordbIndexSize = 0;
-            return;
-        }
+            return new([]);
 
         int indexSize = _recordBlocks.Sum(static b => b.IndexEntryLength);
         var indexData = new byte[indexSize];
@@ -588,8 +588,7 @@ public sealed class MDictWriter
 
         Debug.Assert(bytesWritten == indexData.Length);
 
-        _recordbIndex = indexData;
-        _recordbIndexSize = indexData.Length;
+        return new(indexData);
     }
 
     public void Write(Stream outfile)
@@ -734,11 +733,11 @@ public sealed class MDictWriter
 
         Common.ToBigEndian((ulong)_recordBlocks.Count, preamble[0..8]);
         Common.ToBigEndian((ulong)_numEntries, preamble[8..16]);
-        Common.ToBigEndian((ulong)_recordbIndexSize, preamble[16..24]);
+        Common.ToBigEndian((ulong)_recordBlockIndex.Size, preamble[16..24]);
         Common.ToBigEndian((ulong)recordblocksTotal, preamble[24..32]);
 
         outfile.Write(preamble);
-        outfile.Write(_recordbIndex.AsSpan());
+        outfile.Write(_recordBlockIndex.Bytes.AsSpan());
 
         foreach (var block in _recordBlocks)
         {
