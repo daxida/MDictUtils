@@ -277,13 +277,13 @@ public partial class MDict
             throw new InvalidDataException("Encryted data with level 1, unsupported");
         }
 
-        var r = Common.RangeIncrementor();
+        var r = Common.RangeIncrementor(_numberWidth);
 
-        long numKeyBlocks = ReadNumber(block[r(_numberWidth)]);
-        _numEntries = (int)ReadNumber(block[r(_numberWidth)]);
-        long keyBlockInfoDecompSize = (_version >= 2.0) ? ReadNumber(block[r(_numberWidth)]) : 0;
-        int keyBlockInfoSize = (int)ReadNumber(block[r(_numberWidth)]);
-        int keyBlockSize = (int)ReadNumber(block[r(_numberWidth)]);
+        long numKeyBlocks = ReadNumber(block[r()]);
+        _numEntries = (int)ReadNumber(block[r()]);
+        long keyBlockInfoDecompSize = (_version >= 2.0) ? ReadNumber(block[r()]) : 0;
+        int keyBlockInfoSize = (int)ReadNumber(block[r()]);
+        int keyBlockSize = (int)ReadNumber(block[r()]);
 
         if (_version >= 2.0)
         {

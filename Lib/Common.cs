@@ -123,4 +123,17 @@ internal static class Common
         }
         return getNewRange;
     }
+
+    public static Func<Range> RangeIncrementor(int length)
+    {
+        int start = 0;
+        Range getNewRange()
+        {
+            int end = start + length;
+            Range range = new(start, end);
+            start = end;
+            return range;
+        }
+        return getNewRange;
+    }
 }
