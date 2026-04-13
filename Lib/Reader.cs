@@ -181,8 +181,9 @@ public partial class MDict
         int headerBytesSize = Common.ReadBigEndian<int>(br.ReadBytes(4), false);
         byte[] headerBytes = br.ReadBytes(headerBytesSize);
 
-        // 4 bytes: Adler32 checksum of header, little endian
-        uint adler32 = br.ReadUInt32(); // Little-endian by default in BinaryReader
+        // Adler32 checksum of header
+        uint adler32 = Common.ReadLittleEndian<uint>(br.ReadBytes(4), true);
+
         if (adler32 != Common.Adler32(headerBytes))
             throw new InvalidDataException("Header Adler32 checksum mismatch.");
 
