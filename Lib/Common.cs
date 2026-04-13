@@ -1,6 +1,6 @@
 using System;
-using System.IO;
 using System.Linq;
+using System.Numerics;
 
 namespace Lib;
 
@@ -9,6 +9,9 @@ namespace Lib;
 /// </summary>
 internal static class Common
 {
+    // To simplify much of this, maybe we can use:
+    // https://learn.microsoft.com/en-us/dotnet/api/system.buffers.binary?view=net-10.0
+
     public static void ToLittleEndian(uint input, Span<byte> output)
     {
         if (output.Length != 4)
@@ -49,35 +52,9 @@ internal static class Common
             output.Reverse();
     }
 
-    // To simplify much of this, maybe we can use:
-    // https://learn.microsoft.com/en-us/dotnet/api/system.buffers.binary?view=net-10.0
-    public static ReadOnlySpan<byte> ToBigEndian(Span<byte> bytes)
-    {
-        if (BitConverter.IsLittleEndian) bytes.Reverse();
-        return bytes;
-    }
-
-    public static int ReadInt32BigEndian(BinaryReader br)
-        => BitConverter.ToInt32(ToBigEndian(br.ReadBytes(4)));
-
-    public static int ReadUInt16BigEndian(ReadOnlySpan<byte> buffer, int offset)
-    {
-        Span<byte> slice = stackalloc byte[2];
-        buffer.Slice(offset, 2).CopyTo(slice);
-        return BitConverter.ToUInt16(ToBigEndian(slice));
-    }
-
-    public static int ReadInt32BigEndian(Span<byte> bytes)
-        => BitConverter.ToInt32(ToBigEndian(bytes));
-
-    public static uint ReadUInt32BigEndian(Span<byte> bytes)
-        => BitConverter.ToUInt32(ToBigEndian(bytes));
-
-    public static long ReadInt64BigEndian(Span<byte> bytes)
-        => BitConverter.ToInt64(ToBigEndian(bytes));
-
-    public static ulong ReadUInt64BigEndian(Span<byte> bytes)
-        => BitConverter.ToUInt64(ToBigEndian(bytes));
+    public static T ReadBigEndian<T>(ReadOnlySpan<byte> input, bool isUnsigned)
+        where T : unmanaged, IBinaryInteger<T>
+        => T.ReadBigEndian(input, isUnsigned);
 
     public static void PrintPythonStyle(byte[] data)
     {

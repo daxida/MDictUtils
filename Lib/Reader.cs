@@ -146,22 +146,14 @@ public partial class MDict
         Span<byte> bytes = stackalloc byte[_numberWidth];
         br.ReadExactly(bytes);
         return (_numberWidth == 4)
-            ? Common.ReadUInt32BigEndian(bytes)
-            : (long)Common.ReadUInt64BigEndian(bytes);
+            ? Common.ReadBigEndian<uint>(bytes, true)
+            : (long)Common.ReadBigEndian<ulong>(bytes, true);
     }
 
     protected static long ReadNumber(ReadOnlySpan<byte> buffer)
-    {
-        Span<byte> copy = stackalloc byte[buffer.Length];
-
-        // The BigEndian methods mutate the data,
-        // so we have to make a copy of it.
-        buffer.CopyTo(copy);
-
-        return (buffer.Length == 4)
-            ? Common.ReadUInt32BigEndian(copy)
-            : (long)Common.ReadUInt64BigEndian(copy);
-    }
+        => (buffer.Length == 4)
+        ? Common.ReadBigEndian<uint>(buffer, true)
+        : (long)Common.ReadBigEndian<ulong>(buffer, true);
 
     [GeneratedRegex(@"(\w+)=""(.*?)""", RegexOptions.Singleline)]
     private static partial Regex HeaderKeyValuesRegex { get; }
@@ -186,7 +178,7 @@ public partial class MDict
         using var fs = new FileStream(_fname, FileMode.Open, FileAccess.Read);
         using var br = new BinaryReader(fs);
 
-        int headerBytesSize = Common.ReadInt32BigEndian(br);
+        int headerBytesSize = Common.ReadBigEndian<int>(br.ReadBytes(4), false);
         byte[] headerBytes = br.ReadBytes(headerBytesSize);
 
         // 4 bytes: Adler32 checksum of header, little endian
@@ -297,7 +289,7 @@ public partial class MDict
         {
             Span<byte> adlerBytes = stackalloc byte[4];
             f.ReadExactly(adlerBytes);
-            uint adler32 = Common.ReadUInt32BigEndian(adlerBytes);
+            uint adler32 = Common.ReadBigEndian<uint>(adlerBytes, true);
             Debug.Assert(adler32 == Common.Adler32(block));
         }
 
@@ -392,7 +384,7 @@ public partial class MDict
             Span<byte> checksumBuffer = stackalloc byte[4];
             compressed[4..8].CopyTo(checksumBuffer);
 
-            uint adler32 = Common.ReadUInt32BigEndian(checksumBuffer);
+            uint adler32 = Common.ReadBigEndian<uint>(checksumBuffer, true);
             if (adler32 != Common.Adler32(keyBlockInfo))
                 throw new InvalidDataException("Key block info Adler32 mismatch.");
         }
@@ -415,7 +407,7 @@ public partial class MDict
             i += _numberWidth;
 
             int textHeadSize = (byteWidth == 2)
-                ? Common.ReadUInt16BigEndian(keyBlockInfo, i)
+                ? Common.ReadBigEndian<ushort>(keyBlockInfo.Slice(i, 2), true)
                 : keyBlockInfo[i];
             i += byteWidth;
 
@@ -425,7 +417,7 @@ public partial class MDict
                 i += (textHeadSize + textTerm) * 2;
 
             int textTailSize = (byteWidth == 2)
-                ? Common.ReadUInt16BigEndian(keyBlockInfo, i)
+                ? Common.ReadBigEndian<ushort>(keyBlockInfo.Slice(i, 2), true)
                 : keyBlockInfo[i];
             i += byteWidth;
 
@@ -483,7 +475,7 @@ public partial class MDict
         // ---- adler32 (big-endian) ----
         Span<byte> adlerBytes = stackalloc byte[4];
         input[4..8].CopyTo(adlerBytes);
-        uint adler32 = BitConverter.ToUInt32(Common.ToBigEndian(adlerBytes));
+        uint adler32 = Common.ReadBigEndian<uint>(adlerBytes, true);
 
         // ---- encryption key ---- (SKIP)
         var data = input[8..];
@@ -516,8 +508,8 @@ public partial class MDict
             keyBlock.Slice(keyStartIndex, _numberWidth).CopyTo(idBytes);
 
             long keyId = (_numberWidth == 4)
-                ? Common.ReadInt32BigEndian(idBytes)
-                : Common.ReadInt64BigEndian(idBytes);
+                ? Common.ReadBigEndian<int>(idBytes, false)
+                : Common.ReadBigEndian<long>(idBytes, false);
 
             var delimiter = _encoding == Encoding.Unicode
                 ? unicodeDelimiter
