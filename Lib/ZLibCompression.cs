@@ -29,9 +29,15 @@ internal static class ZLibCompression
     {
         fixed (byte* pBuffer = &MemoryMarshal.GetReference(input))
         {
-            using var stream = new UnmanagedMemoryStream(pBuffer, input.Length);
-            using var z = new ZLibStream(stream, CompressionMode.Decompress);
+            using var ms = new UnmanagedMemoryStream(pBuffer, input.Length);
+            using var z = new ZLibStream(ms, CompressionMode.Decompress);
+
             z.ReadExactly(output);
+
+            if (z.ReadByte() is not -1)
+            {
+                throw new OverflowException($"More than expected {output.Length} bytes in decompression stream");
+            }
         }
     }
     #endif
