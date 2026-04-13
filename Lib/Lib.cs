@@ -288,6 +288,11 @@ public sealed record MDictWriterOptions
 );
 #pragma warning restore format
 
+internal sealed record KeyBlockIndex(byte[] CompressedBytes, long DecompSize)
+{
+    public int CompressedSize => CompressedBytes.Length;
+}
+
 public sealed class MDictWriter
 {
     private readonly IMDictWriterLogger _logger;
@@ -306,9 +311,7 @@ public sealed class MDictWriter
     private List<OffsetTableEntry> _offsetTable = [];
     private List<MdxKeyBlock> _keyBlocks = [];
     private List<MdxRecordBlock> _recordBlocks = [];
-    private byte[] _keybIndex = [];
-    private long _keybIndexCompSize;
-    private long _keybIndexDecompSize;
+    private readonly KeyBlockIndex _keyBlockIndex;
     private byte[] _recordbIndex = [];
     private long _recordbIndexSize;
     private long _totalRecordLen;
@@ -366,8 +369,8 @@ public sealed class MDictWriter
         _logger.LogBlockSizeReset(_blockSize);
 
         _logger.LogBeginBuildingKeybIndex();
-        BuildKeybIndex();
-        _logger.LogKeybIndex(_keybIndexDecompSize, _keybIndexCompSize);
+        _keyBlockIndex = BuildKeyBlockIndex();
+        _logger.LogKeyBlockIndex(_keyBlockIndex);
 
         BuildRecordBlocks();
         _logger.LogRecordBlocks(_recordBlocks);
@@ -513,22 +516,18 @@ public sealed class MDictWriter
             static (entry) => entry.RecordSize
         );
 
-    private void BuildKeybIndex()
+    private KeyBlockIndex BuildKeyBlockIndex()
     {
         Debug.Assert(_version == "2.0");
 
         if (_keyBlocks is [])
-        {
-            _keybIndexDecompSize = 0;
-            _keybIndex = [];
-            _keybIndexCompSize = 0;
-            return;
-        }
+            return new([], 0);
 
         var arrayPool = ArrayPool<byte>.Shared;
 
         int decompDataTotalSize = _keyBlocks.Sum(static b => b.IndexEntryLength);
-        var decompData = arrayPool.Rent(decompDataTotalSize);
+        var decompArray = arrayPool.Rent(decompDataTotalSize);
+        var decompData = decompArray.AsSpan(..decompDataTotalSize);
 
         int maxBlockSize = _keyBlocks.Max(static b => b.IndexEntryLength);
         var blockBuffer = maxBlockSize < 256
@@ -542,18 +541,21 @@ public sealed class MDictWriter
             block.GetIndexEntry(indexEntry);
             _logger.LogIndexEntry(indexEntry);
 
-            var destination = decompData.AsSpan().Slice(bytesWritten, indexEntry.Length);
+            var destination = decompData.Slice(bytesWritten, indexEntry.Length);
             indexEntry.CopyTo(destination);
             bytesWritten += indexEntry.Length;
         }
-
         Debug.Assert(bytesWritten == decompDataTotalSize);
 
-        _keybIndexDecompSize = bytesWritten;
-        _keybIndex = MdxBlock.MdxCompress(decompData.AsSpan(..bytesWritten), _compressionType);
-        _keybIndexCompSize = _keybIndex.Length;
+        var compressedBytes = MdxBlock.MdxCompress(decompData, _compressionType);
 
-        arrayPool.Return(decompData);
+        KeyBlockIndex index = new(
+            CompressedBytes: compressedBytes,
+            DecompSize: bytesWritten);
+
+        arrayPool.Return(decompArray);
+
+        return index;
     }
 
     private void BuildRecordbIndex()
@@ -701,8 +703,8 @@ public sealed class MDictWriter
 
         Common.ToBigEndian((ulong)_keyBlocks.Count, preamble[0..8]);
         Common.ToBigEndian((ulong)_numEntries, preamble[8..16]);
-        Common.ToBigEndian((ulong)_keybIndexDecompSize, preamble[16..24]);
-        Common.ToBigEndian((ulong)_keybIndexCompSize, preamble[24..32]);
+        Common.ToBigEndian((ulong)_keyBlockIndex.DecompSize, preamble[16..24]);
+        Common.ToBigEndian((ulong)_keyBlockIndex.CompressedSize, preamble[24..32]);
         Common.ToBigEndian((ulong)keyBlocksTotalValue, preamble[32..40]);
 
         uint checksumValue = Common.Adler32(preamble);
@@ -711,7 +713,7 @@ public sealed class MDictWriter
 
         outfile.Write(preamble);
         outfile.Write(checksum);
-        outfile.Write(_keybIndex.AsSpan());
+        outfile.Write(_keyBlockIndex.CompressedBytes.AsSpan());
 
         foreach (var block in _keyBlocks)
         {
