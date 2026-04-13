@@ -15,7 +15,6 @@ internal static class ZLibCompression
 
     public static unsafe int Compress(ReadOnlySpan<byte> input, Span<byte> output)
     {
-        Console.Error.WriteLine("Hello unsafe!");
         fixed (byte* pBuffer = &MemoryMarshal.GetReference(output))
         {
             using var ms = new UnmanagedMemoryStream(pBuffer, output.Length, output.Length, FileAccess.Write);
@@ -52,7 +51,6 @@ internal static class ZLibCompression
     /// There is no reliable way to get the same exact bytes, so live with that
     public static int Compress(ReadOnlySpan<byte> input, byte[] output)
     {
-        Console.Error.WriteLine("Hello safe!");
         using var ms = new MemoryStream(output);
         using (var z = new ZLibStream(ms, CompressionLevel.Optimal, leaveOpen: true))
         {
