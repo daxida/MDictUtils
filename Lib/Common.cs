@@ -1,8 +1,10 @@
 using System;
+using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace Lib;
 
@@ -11,47 +13,28 @@ namespace Lib;
 /// </summary>
 internal static class Common
 {
-    // To simplify much of this, maybe we can use:
-    // https://learn.microsoft.com/en-us/dotnet/api/system.buffers.binary?view=net-10.0
-
     public static void ToLittleEndian(uint input, Span<byte> output)
     {
-        if (output.Length != 4)
-            throw new ArgumentException("Wrong size buffer", nameof(output));
-        if (!BitConverter.TryWriteBytes(output, input))
-            throw new ArgumentException($"Could not convert value {input} to bytes");
-        if (!BitConverter.IsLittleEndian)
-            output.Reverse();
+        Debug.Assert(output.Length == sizeof(uint));
+        BinaryPrimitives.WriteUInt32LittleEndian(output, input);
     }
 
     public static void ToBigEndian(ulong input, Span<byte> output)
     {
-        if (output.Length != 8)
-            throw new ArgumentException("Wrong size buffer", nameof(output));
-        if (!BitConverter.TryWriteBytes(output, input))
-            throw new ArgumentException($"Could not convert value {input} to bytes");
-        if (BitConverter.IsLittleEndian)
-            output.Reverse();
+        Debug.Assert(output.Length == sizeof(ulong));
+        BinaryPrimitives.WriteUInt64BigEndian(output, input);
     }
 
     public static void ToBigEndian(uint input, Span<byte> output)
     {
-        if (output.Length != 4)
-            throw new ArgumentException("Wrong size buffer", nameof(output));
-        if (!BitConverter.TryWriteBytes(output, input))
-            throw new ArgumentException($"Could not convert value {input} to bytes");
-        if (BitConverter.IsLittleEndian)
-            output.Reverse();
+        Debug.Assert(output.Length == sizeof(uint));
+        BinaryPrimitives.WriteUInt32BigEndian(output, input);
     }
 
     public static void ToBigEndian(ushort input, Span<byte> output)
     {
-        if (output.Length != 2)
-            throw new ArgumentException("Wrong size buffer", nameof(output));
-        if (!BitConverter.TryWriteBytes(output, input))
-            throw new ArgumentException($"Could not convert value {input} to bytes");
-        if (BitConverter.IsLittleEndian)
-            output.Reverse();
+        Debug.Assert(output.Length == sizeof(ushort));
+        BinaryPrimitives.WriteUInt16BigEndian(output, input);
     }
 
     public static T ReadBigEndian<T>(ReadOnlySpan<byte> input, bool isUnsigned)
