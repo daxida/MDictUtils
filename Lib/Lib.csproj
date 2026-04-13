@@ -6,6 +6,10 @@
     <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(AllowUnsafeBlocks)' == 'true'">
+    <DefineConstants>ALLOW_UNSAFE_BLOCKS;$(DefineConstants)</DefineConstants>
+  </PropertyGroup>
+
   <ItemGroup>
     <InternalsVisibleTo Include="Lib.Tests" />
   </ItemGroup>
