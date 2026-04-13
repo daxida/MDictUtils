@@ -356,7 +356,7 @@ public partial class MDict
                 Span<byte> message = stackalloc byte[8];
                 Span<byte> hash = stackalloc byte[16]; // RIPEMD-128 is 16 bytes
                 keyBlockInfoCompressed[4..8].CopyTo(message[..4]);
-                BitConverter.TryWriteBytes(message[4..8], 0x3695u);
+                Common.ToLittleEndian(0x3695u, message[4..8]);
 
                 var hashSize = Ripemd128.ComputeHash(message, hash);
                 var key = hash[..hashSize];
