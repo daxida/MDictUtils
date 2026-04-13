@@ -29,7 +29,7 @@ internal static class ZLibCompression
     {
         fixed (byte* pBuffer = &MemoryMarshal.GetReference(input))
         {
-            using var ms = new UnmanagedMemoryStream(pBuffer, input.Length);
+            using var ms = new UnmanagedMemoryStream(pBuffer, input.Length, input.Length, FileAccess.Read);
             using var z = new ZLibStream(ms, CompressionMode.Decompress);
 
             z.ReadExactly(output);
