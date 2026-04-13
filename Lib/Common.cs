@@ -1,6 +1,8 @@
 using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 
 namespace Lib;
 
@@ -54,7 +56,10 @@ internal static class Common
 
     public static T ReadBigEndian<T>(ReadOnlySpan<byte> input, bool isUnsigned)
         where T : unmanaged, IBinaryInteger<T>
-        => T.ReadBigEndian(input, isUnsigned);
+    {
+        Debug.Assert(input.Length == Unsafe.SizeOf<T>());
+        return T.ReadBigEndian(input, isUnsigned);
+    }
 
     public static void PrintPythonStyle(byte[] data)
     {
