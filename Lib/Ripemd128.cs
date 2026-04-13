@@ -10,6 +10,13 @@ public static class Ripemd128
     // Wrapper in case we end up implementing it ourselves
     public static int ComputeHash(ReadOnlySpan<byte> message, Span<byte> hash)
     {
+        return ComputeRipeMd128Hash(message, hash);
+    }
+
+    /// Source for <see cref="RipeMD128Digest"/>
+    /// https://github.com/bcgit/bc-csharp/blob/4b87b5e7d6b42d1028838efe356730411446a8f5/crypto/src/crypto/digests/RipeMD128Digest.cs#L11
+    private static int ComputeRipeMd128Hash(ReadOnlySpan<byte> message, Span<byte> hash)
+    {
         var ripemd128 = new RipeMD128Digest();
         ripemd128.BlockUpdate(message);
         int size = ripemd128.GetDigestSize();
