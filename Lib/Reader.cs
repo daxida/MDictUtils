@@ -467,7 +467,7 @@ public partial class MDict
     {
         Debug.Assert(input.Length >= 8, "Block too small");
 
-        uint info = BitConverter.ToUInt32(input); // little-endian
+        uint info = Common.ReadLittleEndian<uint>(input[..4], true);
         int compressionMethod = (int)(info & 0xF);
         // int encryptionMethod = (int)((info >> 4) & 0xF);
         int encryptionSize = (int)((info >> 8) & 0xFF);

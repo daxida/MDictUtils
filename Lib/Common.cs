@@ -43,6 +43,13 @@ internal static class Common
         return T.ReadBigEndian(input, isUnsigned);
     }
 
+    public static T ReadLittleEndian<T>(ReadOnlySpan<byte> input, bool isUnsigned)
+        where T : unmanaged, IBinaryInteger<T>
+    {
+        Debug.Assert(input.Length == Unsafe.SizeOf<T>());
+        return T.ReadLittleEndian(input, isUnsigned);
+    }
+
     public static void PrintPythonStyle(byte[] data)
     {
         Console.WriteLine("        " + string.Join(" ", data.Select(b => b.ToString("X2"))));
