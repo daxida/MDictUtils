@@ -290,17 +290,17 @@ public sealed record MDictMetadata
 );
 #pragma warning restore format
 
-internal sealed record KeyBlockIndex(ImmutableArray<byte> CompressedBytes, long DecompSize)
+internal readonly record struct KeyBlockIndex(ImmutableArray<byte> CompressedBytes, long DecompSize)
 {
     public int CompressedSize => CompressedBytes.Length;
 }
 
-internal sealed record RecordBlockIndex(ImmutableArray<byte> Bytes)
+internal readonly record struct RecordBlockIndex(ImmutableArray<byte> Bytes)
 {
     public int Size => Bytes.Length;
 }
 
-internal sealed record OffsetTable(ImmutableArray<OffsetTableEntry> Entries)
+internal readonly record struct OffsetTable(ImmutableArray<OffsetTableEntry> Entries)
 {
     public long TotalRecordLength => Entries.Sum(static e => e.RecordSize);
 }
