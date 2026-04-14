@@ -2,6 +2,7 @@
 using System.Buffers;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -322,8 +323,8 @@ public sealed class MDictWriter
     private readonly bool _isMdd;
 
     private readonly OffsetTable _offsetTable;
-    private List<MdxKeyBlock> _keyBlocks = [];
-    private List<MdxRecordBlock> _recordBlocks = [];
+    private readonly ReadOnlyCollection<MdxKeyBlock> _keyBlocks;
+    private readonly ReadOnlyCollection<MdxRecordBlock> _recordBlocks;
     private readonly KeyBlockIndex _keyBlockIndex;
     private readonly RecordBlockIndex _recordBlockIndex;
 
@@ -355,7 +356,7 @@ public sealed class MDictWriter
 
         _logger.LogBeginBuildingKeyBlocks();
         _blockSize = opt.KeySize;
-        BuildKeyBlocks();
+        _keyBlocks = BuildKeyBlocks().AsReadOnly();
         _logger.LogKeyBlocks(_blockSize, _keyBlocks);
 
         _blockSize = opt.BlockSize;
@@ -365,7 +366,7 @@ public sealed class MDictWriter
         _keyBlockIndex = BuildKeyBlockIndex();
         _logger.LogKeyBlockIndex(_keyBlockIndex);
 
-        BuildRecordBlocks();
+        _recordBlocks = BuildRecordBlocks().AsReadOnly();
         _logger.LogRecordBlocks(_recordBlocks);
 
         _recordBlockIndex = BuildRecordBlockIndex();
@@ -519,15 +520,15 @@ public sealed class MDictWriter
         return blocks;
     }
 
-    private void BuildKeyBlocks()
-        => _keyBlocks = SplitBlocks
+    private List<MdxKeyBlock> BuildKeyBlocks()
+        => SplitBlocks
         (
             static (entries, comp, ver) => new MdxKeyBlock(entries, comp, ver),
             static (entry) => entry.MdxKeyBlockEntryLength
         );
 
-    private void BuildRecordBlocks()
-        => _recordBlocks = SplitBlocks
+    private List<MdxRecordBlock> BuildRecordBlocks()
+        => SplitBlocks
         (
             static (entries, comp, ver) => new MdxRecordBlock(entries, comp, ver),
             static (entry) => entry.MdxRecordBlockEntryLength
