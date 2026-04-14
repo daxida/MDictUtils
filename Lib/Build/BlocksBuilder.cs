@@ -6,11 +6,11 @@ namespace Lib.Build;
 
 internal abstract partial class BlocksBuilder<T>(ILogger<BlocksBuilder<T>> logger) where T : MdxBlock
 {
-    protected abstract T BlockConstructor(ReadOnlySpan<OffsetTableEntry> entries, int compressionType);
+    protected abstract T BlockConstructor(ReadOnlySpan<OffsetTableEntry> entries);
     protected abstract long EntryLength(OffsetTableEntry entry);
     private readonly static string _typeName = typeof(T).Name;
 
-    public List<T> Build(OffsetTable offsetTable, int blockSize, int compressionType)
+    public List<T> Build(OffsetTable offsetTable, int blockSize)
     {
         LogBeginBuilding(_typeName);
 
@@ -41,7 +41,7 @@ internal abstract partial class BlocksBuilder<T>(ILogger<BlocksBuilder<T>> logge
                 // {
                 //     Console.WriteLine($"[split flush] {entry}");
                 // }
-                var block = BlockConstructor(blockEntries, compressionType);
+                var block = BlockConstructor(blockEntries);
                 blocks.Add(block);
                 curSize = 0;
                 thisBlockStart = ind;

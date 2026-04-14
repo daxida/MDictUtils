@@ -12,11 +12,8 @@ internal abstract class MdxBlock
     private readonly static ArrayPool<byte> _arrayPool = ArrayPool<byte>.Shared;
     protected readonly MdxBlockData _blockData;
 
-    protected MdxBlock(ReadOnlySpan<OffsetTableEntry> offsetTableEntries, int compressionType)
+    protected MdxBlock(ReadOnlySpan<OffsetTableEntry> offsetTableEntries)
     {
-        if (compressionType != 2)
-            throw new NotSupportedException();
-
         // Console.WriteLine("[Debug] Calling MdxBlock...");
 
         int decompDataSize = Convert.ToInt32(offsetTableEntries.Sum(BlockEntryLength));

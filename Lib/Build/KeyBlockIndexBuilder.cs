@@ -14,7 +14,7 @@ internal partial class KeyBlockIndexBuilder
 {
     private readonly static ArrayPool<byte> _arrayPool = ArrayPool<byte>.Shared;
 
-    public KeyBlockIndex Build(ReadOnlyCollection<MdxKeyBlock> keyBlocks, int compressionType)
+    public KeyBlockIndex Build(ReadOnlyCollection<MdxKeyBlock> keyBlocks)
     {
         if (keyBlocks is [])
             return new([], 0);
