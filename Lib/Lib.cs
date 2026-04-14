@@ -284,11 +284,6 @@ public sealed record MDictMetadata
 );
 #pragma warning restore format
 
-internal sealed record EncodingSettings(
-    Encoding InnerEncoding, // _python_encoding in the original
-    Encoding Encoding,
-    int EncodingLength);
-
 internal sealed record KeyBlockIndex(ImmutableArray<byte> CompressedBytes, long DecompSize)
 {
     public int CompressedSize => CompressedBytes.Length;
@@ -321,31 +316,6 @@ internal partial class OffsetTableBuilder
     MDictKeyComparer keyComparer
 )
 {
-    private static EncodingSettings GetEncodingSettings(MDictMetadata m)
-    {
-        var encoding = m.Encoding.ToLower();
-        Debug.Assert(encoding == "utf8");
-
-        if (m.IsMdd || encoding == "utf16" || encoding == "utf-16")
-        {
-            return new(
-                InnerEncoding: Encoding.Unicode,
-                Encoding: Encoding.Unicode,
-                EncodingLength: 2);
-        }
-        else if (encoding == "utf8" || encoding == "utf-8")
-        {
-            return new(
-                InnerEncoding: Encoding.UTF8,
-                Encoding: Encoding.UTF8,
-                EncodingLength: 1);
-        }
-        else
-        {
-            throw new ArgumentException("Unknown encoding. Supported: utf8, utf16");
-        }
-    }
-
     public OffsetTable Build(List<MDictEntry> entries, MDictMetadata m)
     {
         entries.Sort((a, b) => keyComparer.Compare(a.Key, b.Key, m.IsMdd));
@@ -419,6 +389,36 @@ internal partial class OffsetTableBuilder
         LogInfo(tableEntries.Length, currentOffset);
 
         return new OffsetTable(tableEntries);
+    }
+
+    private sealed record EncodingSettings(
+        Encoding InnerEncoding, // _python_encoding in the original
+        Encoding Encoding,
+        int EncodingLength);
+
+    private static EncodingSettings GetEncodingSettings(MDictMetadata m)
+    {
+        var encoding = m.Encoding.ToLower();
+        Debug.Assert(encoding == "utf8");
+
+        if (m.IsMdd || encoding == "utf16" || encoding == "utf-16")
+        {
+            return new(
+                InnerEncoding: Encoding.Unicode,
+                Encoding: Encoding.Unicode,
+                EncodingLength: 2);
+        }
+        else if (encoding == "utf8" || encoding == "utf-8")
+        {
+            return new(
+                InnerEncoding: Encoding.UTF8,
+                Encoding: Encoding.UTF8,
+                EncodingLength: 1);
+        }
+        else
+        {
+            throw new ArgumentException("Unknown encoding. Supported: utf8, utf16");
+        }
     }
 
     [LoggerMessage(LogLevel.Debug,
