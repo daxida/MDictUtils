@@ -12,7 +12,7 @@ internal interface IMDictWriterLogger
     void LogInitializationComplete();
     void LogKeyBlockIndex(KeyBlockIndex keyBlockIndex);
     void LogKeyBlocks(int blockSize, IReadOnlyList<MdxKeyBlock> keyBlocks);
-    void LogOffsetTable(IReadOnlyList<OffsetTableEntry> table, long totalRecordLen);
+    void LogOffsetTable(OffsetTable offsetTable);
     void LogRecordBlocks(IReadOnlyList<MdxRecordBlock> recordBlocks);
     void LogRecordIndex(RecordBlockIndex recordBlockIndex);
 }
@@ -25,10 +25,10 @@ internal sealed class MDictWriterLogger : IMDictWriterLogger
     private static void WriteMessage(string message)
         => Console.Error.WriteLine($"[Writer] {message}");
 
-    public void LogOffsetTable(IReadOnlyList<OffsetTableEntry> table, long totalRecordLen)
+    public void LogOffsetTable(OffsetTable table)
     {
         WriteMessage("Offset table built.");
-        WriteMessage($"Total entries: {table.Count}, record length {totalRecordLen}");
+        WriteMessage($"Total entries: {table.Entries.Length}, record length {table.TotalRecordLength}");
         WriteSeparator();
     }
 
@@ -102,7 +102,7 @@ internal sealed class MDictWriterDummyLogger : IMDictWriterLogger
     public void LogInitializationComplete() { }
     public void LogKeyBlockIndex(KeyBlockIndex _) { }
     public void LogKeyBlocks(int _, IReadOnlyList<MdxKeyBlock> __) { }
-    public void LogOffsetTable(IReadOnlyList<OffsetTableEntry> _, long __) { }
+    public void LogOffsetTable(OffsetTable _) { }
     public void LogRecordBlocks(IReadOnlyList<MdxRecordBlock> _) { }
     public void LogRecordIndex(RecordBlockIndex _) { }
 }

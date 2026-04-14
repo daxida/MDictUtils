@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Buffers;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -62,23 +63,23 @@ internal abstract class MdxBlock
     protected long _compSize;
     protected string _version;
 
-    protected MdxBlock(List<OffsetTableEntry> offsetTable, int compressionType, string version)
+    protected MdxBlock(ReadOnlySpan<OffsetTableEntry> offsetTableEntries, int compressionType, string version)
     {
         if (compressionType != 2 || version != "2.0")
             throw new NotSupportedException();
 
         // Console.WriteLine("[Debug] Calling MdxBlock...");
 
-        var decompDataSize = offsetTable.Sum(LenBlockEntry);
+        var decompDataSize = offsetTableEntries.Sum(LenBlockEntry);
         var decompData = _arrayPool.Rent(decompDataSize);
 
-        var maxBlockSize = offsetTable.Max(LenBlockEntry);
+        var maxBlockSize = offsetTableEntries.Max(LenBlockEntry);
         var blockBuffer = maxBlockSize < 256
             ? stackalloc byte[maxBlockSize]
             : new byte[maxBlockSize];
 
         int totalSize = 0;
-        foreach (var entry in offsetTable)
+        foreach (var entry in offsetTableEntries)
         {
             int blockSize = GetBlockEntry(entry, version, blockBuffer);
             // Console.WriteLine($"[Debug] BlockEntry ({blockEntry.Length} bytes): {BitConverter.ToString(blockEntry)}");
@@ -144,7 +145,7 @@ internal abstract class MdxBlock
     }
 }
 
-internal class MdxRecordBlock(List<OffsetTableEntry> offsetTable, int compressionType, string version)
+internal class MdxRecordBlock(ReadOnlySpan<OffsetTableEntry> offsetTable, int compressionType, string version)
     : MdxBlock(offsetTable, compressionType, version)
 {
     public override int IndexEntryLength => 16;
@@ -228,10 +229,10 @@ internal class MdxKeyBlock : MdxBlock
         return $"NumEntries={_numEntries}, FirstKey='{firstKeyStr}', LastKey='{lastKeyStr}'";
     }
 
-    public MdxKeyBlock(List<OffsetTableEntry> offsetTable, int compressionType, string version)
+    public MdxKeyBlock(ReadOnlySpan<OffsetTableEntry> offsetTable, int compressionType, string version)
         : base(offsetTable, compressionType, version)
     {
-        _numEntries = offsetTable.Count;
+        _numEntries = offsetTable.Length;
         Debug.Assert(version == "2.0");
 
         _firstKey = offsetTable[0].KeyNull;
@@ -298,6 +299,12 @@ internal sealed record RecordBlockIndex(byte[] Bytes)
     public int Size => Bytes.Length;
 }
 
+internal sealed record OffsetTable
+(
+    ImmutableArray<OffsetTableEntry> Entries,
+    long TotalRecordLength
+);
+
 public sealed class MDictWriter
 {
     private readonly IMDictWriterLogger _logger;
@@ -313,12 +320,12 @@ public sealed class MDictWriter
     private readonly int _encodingLength;
     private readonly bool _isMdd;
 
-    private List<OffsetTableEntry> _offsetTable = [];
+    private readonly OffsetTable _offsetTable;
     private List<MdxKeyBlock> _keyBlocks = [];
     private List<MdxRecordBlock> _recordBlocks = [];
     private readonly KeyBlockIndex _keyBlockIndex;
     private readonly RecordBlockIndex _recordBlockIndex;
-    private long _totalRecordLen;
+
 
     public MDictWriter(List<MDictEntry> entries, MDictWriterOptions? opt = null)
     {
@@ -361,8 +368,8 @@ public sealed class MDictWriter
             throw new ArgumentException("Unknown version. Supported: 2.0");
         }
 
-        BuildOffsetTable(entries);
-        _logger.LogOffsetTable(_offsetTable, _totalRecordLen);
+        _offsetTable = BuildOffsetTable(entries);
+        _logger.LogOffsetTable(_offsetTable);
 
         _logger.LogBeginBuildingKeyBlocks();
         _blockSize = opt.KeySize;
@@ -385,12 +392,13 @@ public sealed class MDictWriter
         _logger.LogInitializationComplete();
     }
 
-    private void BuildOffsetTable(List<MDictEntry> entries)
+    private OffsetTable BuildOffsetTable(List<MDictEntry> entries)
     {
         entries.Sort((a, b) => MDictKeyComparer.Compare(a.Key, b.Key, _isMdd));
 
-        _offsetTable = [];
-        long offset = 0;
+        var arrayBuilder = ImmutableArray.CreateBuilder<OffsetTableEntry>(entries.Count);
+        List<OffsetTableEntry> tableEntries = [];
+        long totalRecordLength = 0;
 
         foreach (var item in entries)
         {
@@ -407,15 +415,15 @@ public sealed class MDictWriter
                 KeyNull = keyNull,
                 KeyLen = keyLen,
                 // RecordNull = recordNull,
-                Offset = offset,
+                Offset = totalRecordLength,
                 RecordSize = item.Size,
                 RecordPos = item.Pos,
                 FilePath = item.Path,
                 IsMdd = _isMdd,
             };
-            _offsetTable.Add(tableEntry);
+            arrayBuilder.Add(tableEntry);
 
-            offset += item.Size;
+            totalRecordLength += item.Size;
         }
 
         // pretty print it here
@@ -453,21 +461,23 @@ public sealed class MDictWriter
         //     Console.WriteLine("----------------------");
         // }
 
-        _totalRecordLen = offset;
+        return new OffsetTable(
+            Entries: arrayBuilder.MoveToImmutable(),
+            TotalRecordLength: totalRecordLength);
     }
 
-    private List<T> SplitBlocks<T>(Func<List<OffsetTableEntry>, int, string, T> blockConstructor,
+    private List<T> SplitBlocks<T>(Func<ReadOnlySpan<OffsetTableEntry>, int, string, T> blockConstructor,
                                    Func<OffsetTableEntry, long> lenFunc) where T : MdxBlock
     {
         var blocks = new List<T>();
         int thisBlockStart = 0;
         long curSize = 0;
 
-        for (int ind = 0; ind <= _offsetTable.Count; ind++)
+        for (int ind = 0; ind <= _offsetTable.Entries.Length; ind++)
         {
-            var offsetTableEntry = (ind == _offsetTable.Count)
+            var offsetTableEntry = (ind == _offsetTable.Entries.Length)
                 ? null
-                : _offsetTable[ind];
+                : _offsetTable.Entries[ind];
 
             bool flush = false;
 
@@ -486,7 +496,7 @@ public sealed class MDictWriter
 
             if (flush)
             {
-                var blockEntries = _offsetTable.GetRange(thisBlockStart, ind - thisBlockStart);
+                var blockEntries = _offsetTable.Entries.AsSpan(thisBlockStart..ind);
                 // foreach (var entry in blockEntries)
                 // {
                 //     Console.WriteLine($"[split flush] {entry}");
