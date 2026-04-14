@@ -1,3 +1,4 @@
+using Lib.BuildModels;
 using Microsoft.Extensions.Logging;
 
 namespace Lib.Build;
