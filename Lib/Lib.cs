@@ -24,7 +24,7 @@ public sealed record MDictEntry(string Key, long Pos, string Path, long Size)
 internal class OffsetTableEntry
 {
     // public required byte[] Key { get; init; }
-    public required byte[] KeyNull { get; init; }
+    public required ImmutableArray<byte> KeyNull { get; init; }
     public required int KeyLen { get; init; }
     public required long Offset { get; init; }
     // public required byte[] RecordNull { get; set; }
@@ -51,7 +51,7 @@ internal class OffsetTableEntry
         sb.Append($"RecordSize={RecordSize}, ");
         sb.Append($"IsMdd='{IsMdd}', ");
         // sb.Append($"Key='{BytesToString(Key)}', ");
-        sb.Append($"KeyNull='{BytesToString(KeyNull)}', ");
+        sb.Append($"KeyNull='{BytesToString(KeyNull.AsSpan())}', ");
         // sb.Append($"RecordNull='{BytesToString(RecordNull)}'");
         sb.Append(')');
         return sb.ToString();
@@ -222,16 +222,16 @@ internal class MdxRecordBlock(ReadOnlySpan<OffsetTableEntry> offsetTable, int co
 internal class MdxKeyBlock : MdxBlock
 {
     private readonly int _numEntries;
-    private readonly byte[] _firstKey;
-    private readonly byte[] _lastKey;
+    private readonly ImmutableArray<byte> _firstKey;
+    private readonly ImmutableArray<byte> _lastKey;
     private readonly int _firstKeyLen;
     private readonly int _lastKeyLen;
 
     public override string ToString()
     {
         var _encoding = Encoding.UTF8;
-        string firstKeyStr = _encoding.GetString(_firstKey, 0, _firstKeyLen);
-        string lastKeyStr = _encoding.GetString(_lastKey, 0, _lastKeyLen);
+        string firstKeyStr = _encoding.GetString(_firstKey.AsSpan(.._firstKeyLen));
+        string lastKeyStr = _encoding.GetString(_lastKey.AsSpan(.._lastKeyLen));
         return $"NumEntries={_numEntries}, FirstKey='{firstKeyStr}', LastKey='{lastKeyStr}'";
     }
 
@@ -326,20 +326,31 @@ internal partial class OffsetTableBuilder
     MDictKeyComparer keyComparer
 )
 {
+    private static readonly ArrayPool<byte> _arrayPool = ArrayPool<byte>.Shared;
+
     public OffsetTable Build(List<MDictEntry> entries, MDictMetadata m)
     {
         entries.Sort((a, b) => keyComparer.Compare(a.Key, b.Key, m.IsMdd));
 
-        var encodingSettings = GetEncodingSettings(m);
+        byte[]? arrayFromPool = null;
+        var encoder = GetEncodingSettings(m);
         var arrayBuilder = ImmutableArray.CreateBuilder<OffsetTableEntry>(entries.Count);
         long currentOffset = 0;
+        int maxEncLength = GetMaxEncLength(entries, encoder);
+
+        var buffer = maxEncLength < 256
+            ? stackalloc byte[maxEncLength]
+            : (arrayFromPool = _arrayPool.Rent(maxEncLength));
 
         foreach (var item in entries)
         {
             // Console.WriteLine($"dict item: {item}");
-            var keyEncLength = encodingSettings.InnerEncoding.GetByteCount(item.Key);
-            var keyNull = encodingSettings.InnerEncoding.GetBytes($"{item.Key}\0");
-            var keyLen = keyEncLength / encodingSettings.EncodingLength;
+
+            var length = encoder.InnerEncoding.GetBytes($"{item.Key}\0", buffer);
+            var keyNull = ImmutableArray.Create(buffer[..length]);
+
+            // Subtract the encoding length because we appended '\0'
+            var keyLen = (length - encoder.EncodingLength) / encoder.EncodingLength;
 
             // var recordNull = encodingSettings.InnerEncoding.GetBytes(item.Path);
 
@@ -359,6 +370,9 @@ internal partial class OffsetTableBuilder
 
             currentOffset += item.Size;
         }
+
+        if (arrayFromPool is not null)
+            _arrayPool.Return(arrayFromPool);
 
         // pretty print it here
         // {
@@ -429,6 +443,18 @@ internal partial class OffsetTableBuilder
         {
             throw new ArgumentException("Unknown encoding. Supported: utf8, utf16");
         }
+    }
+
+    private static int GetMaxEncLength(List<MDictEntry> entries, EncodingSettings encoder)
+    {
+        int maxEncLength = 0;
+        foreach (var entry in entries)
+        {
+            int encLength = encoder.InnerEncoding.GetByteCount(entry.Key);
+            maxEncLength = int.Max(maxEncLength, encLength);
+        }
+        maxEncLength += encoder.EncodingLength; // Because we'll be appending an extra '\0' character.
+        return maxEncLength;
     }
 
     [LoggerMessage(LogLevel.Debug,
