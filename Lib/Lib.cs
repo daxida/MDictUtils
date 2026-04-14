@@ -710,12 +710,13 @@ public sealed class MDictWriter
         long keyBlocksTotalValue = _keyBlocks.Sum(static b => b.BlockData.Length);
 
         Span<byte> preamble = stackalloc byte[5 * 8]; // Five 8-byte buffers
+        var r = new SpanReader<byte>(preamble) { ReadSize = 8 };
 
-        Common.ToBigEndian((ulong)_keyBlocks.Count, preamble[0..8]);
-        Common.ToBigEndian((ulong)_numEntries, preamble[8..16]);
-        Common.ToBigEndian((ulong)_keyBlockIndex.DecompSize, preamble[16..24]);
-        Common.ToBigEndian((ulong)_keyBlockIndex.CompressedSize, preamble[24..32]);
-        Common.ToBigEndian((ulong)keyBlocksTotalValue, preamble[32..40]);
+        Common.ToBigEndian((ulong)_keyBlocks.Count, r.Read());
+        Common.ToBigEndian((ulong)_numEntries, r.Read());
+        Common.ToBigEndian((ulong)_keyBlockIndex.DecompSize, r.Read());
+        Common.ToBigEndian((ulong)_keyBlockIndex.CompressedSize, r.Read());
+        Common.ToBigEndian((ulong)keyBlocksTotalValue, r.Read());
 
         uint checksumValue = Common.Adler32(preamble);
         Span<byte> checksum = stackalloc byte[4];
@@ -741,11 +742,12 @@ public sealed class MDictWriter
         long recordblocksTotal = _recordBlocks.Sum(static b => b.BlockData.Length);
 
         Span<byte> preamble = stackalloc byte[4 * 8]; // Four 8-byte buffers
+        var r = new SpanReader<byte>(preamble) { ReadSize = 8 };
 
-        Common.ToBigEndian((ulong)_recordBlocks.Count, preamble[0..8]);
-        Common.ToBigEndian((ulong)_numEntries, preamble[8..16]);
-        Common.ToBigEndian((ulong)_recordBlockIndex.Size, preamble[16..24]);
-        Common.ToBigEndian((ulong)recordblocksTotal, preamble[24..32]);
+        Common.ToBigEndian((ulong)_recordBlocks.Count, r.Read());
+        Common.ToBigEndian((ulong)_numEntries, r.Read());
+        Common.ToBigEndian((ulong)_recordBlockIndex.Size, r.Read());
+        Common.ToBigEndian((ulong)recordblocksTotal, r.Read());
 
         outfile.Write(preamble);
         outfile.Write(_recordBlockIndex.Bytes.AsSpan());
