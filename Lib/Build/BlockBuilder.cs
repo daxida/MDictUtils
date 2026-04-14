@@ -13,7 +13,7 @@ internal abstract partial class BlockBuilder<T>(ILogger<BlockBuilder<T>> logger)
 
     public List<T> Build(OffsetTable offsetTable, int blockSize, int compressionType)
     {
-        LogBeginBuilding(nameof(T));
+        LogBeginBuilding(typeof(T).Name);
 
         var blocks = new List<T>();
         int thisBlockStart = 0;
