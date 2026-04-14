@@ -16,19 +16,22 @@ internal sealed class MDictDataBuilder
 {
     public MDictData BuildData(List<MDictEntry> entries, MDictMetadata m)
     {
-        var offsetTable = offsetTableBuilder.Build(entries, m);
+        var offsetTable = offsetTableBuilder
+            .Build(entries, m);
 
         var keyBlocks = keyBlockBuilder
             .Build(offsetTable, m.KeySize, m.CompressionType)
             .AsReadOnly();
 
-        var keyBlockIndex = keyBlockIndexBuilder.Build(keyBlocks, m.CompressionType);
+        var keyBlockIndex = keyBlockIndexBuilder
+            .Build(keyBlocks, m.CompressionType);
 
         var recordBlocks = recordBlockBuilder
             .Build(offsetTable, m.BlockSize, m.CompressionType)
             .AsReadOnly();
 
-        var recordBlockIndex = recordBlockIndexBuilder.Build(recordBlocks);
+        var recordBlockIndex = recordBlockIndexBuilder
+            .Build(recordBlocks);
 
         logger.LogDebug("Initialization complete.");
 
