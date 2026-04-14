@@ -312,14 +312,10 @@ internal sealed record OffsetTable(ImmutableArray<OffsetTableEntry> Entries)
 
 public sealed class MDictWriter
 {
-    private readonly IMDictWriterLogger _logger;
     private readonly int _numEntries;
-    private readonly string _title;
-    private readonly string _description;
-    private readonly int _compressionType;
-    private readonly string _version;
+    private readonly MDictWriterOptions _opt;
+    private readonly IMDictWriterLogger _logger;
     private readonly EncodingSettings _encodingSettings;
-    private readonly bool _isMdd;
 
     private readonly OffsetTable _offsetTable;
     private readonly ReadOnlyCollection<MdxKeyBlock> _keyBlocks;
@@ -327,24 +323,18 @@ public sealed class MDictWriter
     private readonly KeyBlockIndex _keyBlockIndex;
     private readonly RecordBlockIndex _recordBlockIndex;
 
-
     public MDictWriter(List<MDictEntry> entries, MDictWriterOptions? opt = null)
     {
-        opt ??= new();
+        _numEntries = entries.Count;
+        _opt = opt ?? new();
 
-        _logger = opt.Logging
+        _logger = _opt.Logging
             ? new MDictWriterLogger()
             : new MDictWriterDummyLogger();
 
-        _numEntries = entries.Count;
-        _title = opt.Title;
-        _description = opt.Description;
-        _compressionType = opt.CompressionType;
-        _version = opt.Version;
-        _isMdd = opt.IsMdd;
-        _encodingSettings = GetEncodingSettings(opt.Encoding.ToLower());
+        _encodingSettings = GetEncodingSettings();
 
-        if (opt.Version != "2.0")
+        if (_opt.Version != "2.0")
         {
             throw new ArgumentException("Unknown version. Supported: 2.0");
         }
@@ -353,14 +343,14 @@ public sealed class MDictWriter
         _logger.LogOffsetTable(_offsetTable);
 
         _logger.LogBeginBuildingKeyBlocks();
-        _keyBlocks = BuildKeyBlocks(opt.KeySize).AsReadOnly();
-        _logger.LogKeyBlocks(opt.KeySize, _keyBlocks);
+        _keyBlocks = BuildKeyBlocks().AsReadOnly();
+        _logger.LogKeyBlocks(_opt.KeySize, _keyBlocks);
 
         _logger.LogBeginBuildingKeybIndex();
         _keyBlockIndex = BuildKeyBlockIndex();
         _logger.LogKeyBlockIndex(_keyBlockIndex);
 
-        _recordBlocks = BuildRecordBlocks(opt.BlockSize).AsReadOnly();
+        _recordBlocks = BuildRecordBlocks().AsReadOnly();
         _logger.LogRecordBlocks(_recordBlocks);
 
         _recordBlockIndex = BuildRecordBlockIndex();
@@ -369,11 +359,12 @@ public sealed class MDictWriter
         _logger.LogInitializationComplete();
     }
 
-    private EncodingSettings GetEncodingSettings(string encoding)
+    private EncodingSettings GetEncodingSettings()
     {
+        var encoding = _opt.Encoding.ToLower();
         Debug.Assert(encoding == "utf8");
 
-        if (_isMdd || encoding == "utf16" || encoding == "utf-16")
+        if (_opt.IsMdd || encoding == "utf16" || encoding == "utf-16")
         {
             return new(
                 InnerEncoding: Encoding.Unicode,
@@ -395,7 +386,7 @@ public sealed class MDictWriter
 
     private OffsetTable BuildOffsetTable(List<MDictEntry> entries)
     {
-        entries.Sort((a, b) => MDictKeyComparer.Compare(a.Key, b.Key, _isMdd));
+        entries.Sort((a, b) => MDictKeyComparer.Compare(a.Key, b.Key, _opt.IsMdd));
 
         var arrayBuilder = ImmutableArray.CreateBuilder<OffsetTableEntry>(entries.Count);
         long currentOffset = 0;
@@ -419,7 +410,7 @@ public sealed class MDictWriter
                 RecordSize = item.Size,
                 RecordPos = item.Pos,
                 FilePath = item.Path,
-                IsMdd = _isMdd,
+                IsMdd = _opt.IsMdd,
             };
             arrayBuilder.Add(tableEntry);
 
@@ -500,7 +491,7 @@ public sealed class MDictWriter
                 // {
                 //     Console.WriteLine($"[split flush] {entry}");
                 // }
-                var block = blockConstructor(blockEntries, _compressionType, _version);
+                var block = blockConstructor(blockEntries, _opt.CompressionType, _opt.Version);
                 blocks.Add(block);
                 curSize = 0;
                 thisBlockStart = ind;
@@ -515,25 +506,25 @@ public sealed class MDictWriter
         return blocks;
     }
 
-    private List<MdxKeyBlock> BuildKeyBlocks(int blockSize)
+    private List<MdxKeyBlock> BuildKeyBlocks()
         => SplitBlocks
         (
             static (entries, comp, ver) => new MdxKeyBlock(entries, comp, ver),
             static (entry) => entry.MdxKeyBlockEntryLength,
-            blockSize
+            _opt.KeySize
         );
 
-    private List<MdxRecordBlock> BuildRecordBlocks(int blockSize)
+    private List<MdxRecordBlock> BuildRecordBlocks()
         => SplitBlocks
         (
             static (entries, comp, ver) => new MdxRecordBlock(entries, comp, ver),
             static (entry) => entry.MdxRecordBlockEntryLength,
-            blockSize
+            _opt.BlockSize
         );
 
     private KeyBlockIndex BuildKeyBlockIndex()
     {
-        Debug.Assert(_version == "2.0");
+        Debug.Assert(_opt.Version == "2.0");
 
         if (_keyBlocks is [])
             return new([], 0);
@@ -562,7 +553,7 @@ public sealed class MDictWriter
         }
         Debug.Assert(bytesWritten == decompDataTotalSize);
 
-        var compressedBytes = MdxBlock.MdxCompress(decompData, _compressionType);
+        var compressedBytes = MdxBlock.MdxCompress(decompData, _opt.CompressionType);
 
         KeyBlockIndex index = new(
             CompressedBytes: compressedBytes,
@@ -647,26 +638,26 @@ public sealed class MDictWriter
             sb.Append(' ');
         }
 
-        if (_isMdd)
+        if (_opt.IsMdd)
         {
             append($"""  <Library_Data                                    """);
-            append($"""  GeneratedByEngineVersion="{_version}"            """);
-            append($"""  RequiredEngineVersion="{_version}"               """);
+            append($"""  GeneratedByEngineVersion="{_opt.Version}"        """);
+            append($"""  RequiredEngineVersion="{_opt.Version}"           """);
             append($"""  Encrypted="{encrypted}"                          """);
             append($"""  Encoding=""                                      """);
             append($"""  Format=""                                        """);
             append($"""  CreationDate="{now.Year}-{now.Month}-{now.Day}"  """);
             append($"""  KeyCaseSensitive="No"                            """);
             append($"""  Stripkey="No"                                    """);
-            append($"""  Description="{EscapeHtml(_description)}"         """);
-            append($"""  Title="{EscapeHtml(_title)}"                     """);
+            append($"""  Description="{EscapeHtml(_opt.Description)}"     """);
+            append($"""  Title="{EscapeHtml(_opt.Title)}"                 """);
             append($"""  RegisterBy="{registerByStr}"                     """);
         }
         else
         {
             append($"""  <Dictionary                                      """);
-            append($"""  GeneratedByEngineVersion="{_version}"            """);
-            append($"""  RequiredEngineVersion="{_version}"               """);
+            append($"""  GeneratedByEngineVersion="{_opt.Version}"        """);
+            append($"""  RequiredEngineVersion="{_opt.Version}"           """);
             append($"""  Encrypted="{encrypted}"                          """);
             append($"""  Encoding="{encoding}"                            """);
             append($"""  Format="Html"                                    """);
@@ -675,8 +666,8 @@ public sealed class MDictWriter
             append($"""  Compact="Yes"                                    """);
             append($"""  Compat="Yes"                                     """);
             append($"""  KeyCaseSensitive="No"                            """);
-            append($"""  Description="{EscapeHtml(_description)}"         """);
-            append($"""  Title="{EscapeHtml(_title)}"                     """);
+            append($"""  Description="{EscapeHtml(_opt.Description)}"     """);
+            append($"""  Title="{EscapeHtml(_opt.Title)}"                 """);
             append($"""  DataSourceFormat="106"                           """);
             append($"""  StyleSheet=""                                    """);
             append($"""  Left2Right="Yes"                                 """);
@@ -700,7 +691,7 @@ public sealed class MDictWriter
 
     private void WriteKeySection(Stream outfile)
     {
-        if (_version != "2.0")
+        if (_opt.Version != "2.0")
         {
             throw new NotImplementedException();
         }
@@ -732,7 +723,7 @@ public sealed class MDictWriter
 
     private void WriteRecordSection(Stream outfile)
     {
-        if (_version != "2.0")
+        if (_opt.Version != "2.0")
         {
             throw new NotImplementedException();
         }
