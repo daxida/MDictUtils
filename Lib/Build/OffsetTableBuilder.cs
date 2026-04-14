@@ -3,15 +3,20 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Text;
+using Microsoft.Extensions.Logging;
 using Lib.BuildModels;
 
 namespace Lib.Build;
 
-internal sealed class OffsetTableBuilder
+internal partial class OffsetTableBuilder
+(
+    ILogger<OffsetTableBuilder> logger,
+    MDictKeyComparer keyComparer
+)
 {
     public OffsetTable Build(List<MDictEntry> entries, MDictWriterOptions opt)
     {
-        entries.Sort((a, b) => MDictKeyComparer.Compare(a.Key, b.Key, opt.IsMdd));
+        entries.Sort((a, b) => keyComparer.Compare(a.Key, b.Key, opt.IsMdd));
 
         var encodingSettings = GetEncodingSettings(opt);
         var arrayBuilder = ImmutableArray.CreateBuilder<OffsetTableEntry>(entries.Count);
@@ -78,7 +83,10 @@ internal sealed class OffsetTableBuilder
         //     Console.WriteLine("----------------------");
         // }
 
-        return new OffsetTable(arrayBuilder.MoveToImmutable());
+        var tableEntries = arrayBuilder.MoveToImmutable();
+        LogInfo(tableEntries.Length, currentOffset);
+
+        return new OffsetTable(tableEntries);
     }
 
     private sealed record EncodingSettings(
@@ -110,4 +118,8 @@ internal sealed class OffsetTableBuilder
             throw new ArgumentException("Unknown encoding. Supported: utf8, utf16");
         }
     }
+
+    [LoggerMessage(LogLevel.Debug,
+    "Total entries: {Count}, record length {RecordLength}")]
+    partial void LogInfo(int count, long RecordLength);
 }

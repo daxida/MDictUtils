@@ -39,12 +39,7 @@ public sealed class MDictWriter
         if (opt.Version != "2.0")
             throw new ArgumentException("Unknown version. Supported: 2.0");
 
-        IMDictWriterLogger logger = logging
-            ? new MDictWriterLogger()
-            : new MDictWriterDummyLogger();
-
-        // All of these new() should eventually be handled by a dependency injector.
-        var builder = new MDictDataBuilder(logger, new(), new(logger), new(), new(), new());
+        var builder = MDictDataBuilderProvider.GetDataBuilder(logging);
         _data = builder.BuildData(entries, opt);
     }
 

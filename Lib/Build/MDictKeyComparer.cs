@@ -16,7 +16,7 @@ internal partial class MDictKeyComparer
     [GeneratedRegex(@"[!\""#$%&'()*+,\-./:;<=>?@\[\\\]^_`{|}~ ]+")]
     public static partial Regex RegexStrip { get; }
 
-    public static int Compare(ReadOnlySpan<char> k1, ReadOnlySpan<char> k2, bool isMdd)
+    public int Compare(ReadOnlySpan<char> k1, ReadOnlySpan<char> k2, bool isMdd)
     {
         if (!isMdd)
         {

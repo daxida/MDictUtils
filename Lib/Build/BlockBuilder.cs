@@ -1,16 +1,20 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using Microsoft.Extensions.Logging;
 using Lib.BuildModels;
 
 namespace Lib.Build;
 
-internal abstract class BlockBuilder<T> where T : MdxBlock
+internal abstract partial class BlockBuilder<T>(ILogger<BlockBuilder<T>> logger) where T : MdxBlock
 {
     protected abstract T BlockConstructor(ReadOnlySpan<OffsetTableEntry> entries, int compressionType);
     protected abstract long EntryLength(OffsetTableEntry entry);
 
     public List<T> Build(OffsetTable offsetTable, int blockSize, int compressionType)
     {
+        LogBeginBuilding(nameof(T));
+
         var blocks = new List<T>();
         int thisBlockStart = 0;
         long curSize = 0;
@@ -55,6 +59,26 @@ internal abstract class BlockBuilder<T> where T : MdxBlock
             }
         }
 
+        LogBlocks(blockSize, blocks);
+
         return blocks;
+    }
+
+    [LoggerMessage(LogLevel.Debug, "Building blocks of type {Type}")]
+    private partial void LogBeginBuilding(string type);
+
+    [Conditional("DEBUG")]
+    public void LogBlocks(int blockSize, List<T> blocks)
+    {
+        logger.LogDebug("Block size set to {BlockSize}", blockSize);
+        logger.LogDebug("Built {Count} blocks.", blocks.Count);
+
+        if (blocks is not List<MdxKeyBlock>)
+            return;
+
+        foreach (var block in blocks)
+        {
+            logger.LogDebug("KeyBlock: {Block}", block);
+        }
     }
 }

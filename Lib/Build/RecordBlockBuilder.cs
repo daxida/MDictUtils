@@ -1,9 +1,10 @@
 using System;
+using Microsoft.Extensions.Logging;
 using Lib.BuildModels;
 
 namespace Lib.Build;
 
-internal sealed class RecordBlockBuilder : BlockBuilder<MdxRecordBlock>
+internal sealed class RecordBlockBuilder(ILogger<RecordBlockBuilder> logger) : BlockBuilder<MdxRecordBlock>(logger)
 {
     protected override MdxRecordBlock BlockConstructor(ReadOnlySpan<OffsetTableEntry> entries, int compressionType)
         => new(entries, compressionType);

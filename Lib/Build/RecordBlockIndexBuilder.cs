@@ -2,11 +2,12 @@ using System.Collections.Immutable;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
+using Microsoft.Extensions.Logging;
 using Lib.BuildModels;
 
 namespace Lib.Build;
 
-internal sealed class RecordBlockIndexBuilder
+internal partial class RecordBlockIndexBuilder(ILogger<RecordBlockIndexBuilder> logger)
 {
     public RecordBlockIndex Build(ReadOnlyCollection<MdxRecordBlock> recordBlocks)
     {
@@ -32,6 +33,11 @@ internal sealed class RecordBlockIndexBuilder
         }
         Debug.Assert(bytesWritten == indexSize);
 
+        LogIndexBuilt(bytesWritten);
+
         return new(indexBuilder.MoveToImmutable());
     }
+
+    [LoggerMessage(LogLevel.Debug, "Record index built: size={Size}")]
+    private partial void LogIndexBuilt(long size);
 }

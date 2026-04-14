@@ -1,0 +1,47 @@
+using System.Collections.Generic;
+using Microsoft.Extensions.DependencyInjection;
+using Lib.BuildModels;
+using Microsoft.Extensions.Logging;
+
+namespace Lib.Build;
+
+internal interface IMDictDataBuilder
+{
+    public MDictData BuildData(List<MDictEntry> entries, MDictWriterOptions opt);
+}
+
+internal static class MDictDataBuilderProvider
+{
+    public static IMDictDataBuilder GetDataBuilder(bool logging)
+        => new ServiceCollection()
+
+        // Offset table
+        .AddTransient<OffsetTableBuilder>()
+        .AddTransient<MDictKeyComparer>()
+
+        // Key blocks
+        .AddTransient<KeyBlockIndexBuilder>()
+        .AddTransient<KeyBlockBuilder>()
+
+        // Record blocks
+        .AddTransient<RecordBlockIndexBuilder>()
+        .AddTransient<RecordBlockBuilder>()
+
+        // Logging
+        .AddLogging(builder =>
+        {
+            if (logging) builder.SetMinimumLevel(LogLevel.Debug);
+
+            builder.AddSimpleConsole(options =>
+            {
+                options.IncludeScopes = true;
+                options.SingleLine = false;
+                options.TimestampFormat = "HH:mm:ss ";
+            });
+        })
+
+        // Build and return the builder service.
+        .AddTransient<IMDictDataBuilder, MDictDataBuilder>()
+        .BuildServiceProvider()
+        .GetRequiredService<IMDictDataBuilder>();
+}

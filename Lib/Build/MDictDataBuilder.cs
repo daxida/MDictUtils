@@ -1,42 +1,37 @@
 using System.Collections.Generic;
+using Microsoft.Extensions.Logging;
 using Lib.BuildModels;
 
 namespace Lib.Build;
 
 internal sealed class MDictDataBuilder
 (
-    IMDictWriterLogger logger,
+    ILogger<MDictDataBuilder> logger,
     OffsetTableBuilder offsetTableBuilder,
     KeyBlockIndexBuilder keyBlockIndexBuilder,
     KeyBlockBuilder keyBlockBuilder,
     RecordBlockIndexBuilder recordBlockIndexBuilder,
     RecordBlockBuilder recordBlockBuilder
 )
+    : IMDictDataBuilder
 {
     public MDictData BuildData(List<MDictEntry> entries, MDictWriterOptions opt)
     {
         var offsetTable = offsetTableBuilder.Build(entries, opt);
-        logger.LogOffsetTable(offsetTable);
 
-        logger.LogBeginBuildingKeyBlocks();
         var keyBlocks = keyBlockBuilder
             .Build(offsetTable, opt.KeySize, opt.CompressionType)
             .AsReadOnly();
-        logger.LogKeyBlocks(opt.KeySize, keyBlocks);
 
-        logger.LogBeginBuildingKeybIndex();
         var keyBlockIndex = keyBlockIndexBuilder.Build(keyBlocks, opt.CompressionType);
-        logger.LogKeyBlockIndex(keyBlockIndex);
 
         var recordBlocks = recordBlockBuilder
             .Build(offsetTable, opt.BlockSize, opt.CompressionType)
             .AsReadOnly();
-        logger.LogRecordBlocks(recordBlocks);
 
         var recordBlockIndex = recordBlockIndexBuilder.Build(recordBlocks);
-        logger.LogRecordIndex(recordBlockIndex);
 
-        logger.LogInitializationComplete();
+        logger.LogDebug("Initialization complete.");
 
         return new
         (
