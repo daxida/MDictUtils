@@ -68,7 +68,7 @@ internal abstract partial class BlockBuilder<T>(ILogger<BlockBuilder<T>> logger)
     private partial void LogBeginBuilding(string type);
 
     [Conditional("DEBUG")]
-    public void LogBlocks(int blockSize, List<T> blocks)
+    private void LogBlocks(int blockSize, List<T> blocks)
     {
         logger.LogDebug("Block size set to {BlockSize}", blockSize);
         logger.LogDebug("Built {Count} blocks.", blocks.Count);
