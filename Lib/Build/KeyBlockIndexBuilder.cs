@@ -10,15 +10,15 @@ namespace Lib.Build;
 
 internal partial class KeyBlockIndexBuilder(ILogger<KeyBlockIndexBuilder> logger)
 {
+    private readonly static ArrayPool<byte> _arrayPool = ArrayPool<byte>.Shared;
+
     public KeyBlockIndex Build(ReadOnlyCollection<MdxKeyBlock> keyBlocks, int compressionType)
     {
         if (keyBlocks is [])
             return new([], 0);
 
-        var arrayPool = ArrayPool<byte>.Shared;
-
         int decompDataTotalSize = keyBlocks.Sum(static b => b.IndexEntryLength);
-        var decompArray = arrayPool.Rent(decompDataTotalSize);
+        var decompArray = _arrayPool.Rent(decompDataTotalSize);
         var decompData = decompArray.AsSpan(..decompDataTotalSize);
 
         int maxBlockSize = keyBlocks.Max(static b => b.IndexEntryLength);
@@ -45,7 +45,7 @@ internal partial class KeyBlockIndexBuilder(ILogger<KeyBlockIndexBuilder> logger
             CompressedBytes: compressedBytes,
             DecompSize: bytesWritten);
 
-        arrayPool.Return(decompArray);
+        _arrayPool.Return(decompArray);
 
         LogIndexBuilt(index.DecompSize, index.CompressedSize);
 
