@@ -314,7 +314,11 @@ internal sealed record MDictData
     ReadOnlyCollection<MdxRecordBlock> RecordBlocks,
     KeyBlockIndex KeyBlockIndex,
     RecordBlockIndex RecordBlockIndex
-);
+)
+{
+    public int KeyBlocksSize => KeyBlocks.Sum(static b => b.BlockData.Length);
+    public int RecordBlocksSize => RecordBlocks.Sum(static b => b.BlockData.Length);
+}
 
 internal partial class OffsetTableBuilder
 (
@@ -741,8 +745,6 @@ public sealed class MDictWriter
 
     private void WriteKeySection(Stream outfile)
     {
-        long keyBlocksTotalValue = _data.KeyBlocks.Sum(static b => b.BlockData.Length);
-
         Span<byte> preamble = stackalloc byte[5 * 8]; // Five 8-byte buffers
         var r = new SpanReader<byte>(preamble) { ReadSize = 8 };
 
@@ -750,7 +752,7 @@ public sealed class MDictWriter
         Common.ToBigEndian((ulong)_data.EntryCount, r.Read());
         Common.ToBigEndian((ulong)_data.KeyBlockIndex.DecompSize, r.Read());
         Common.ToBigEndian((ulong)_data.KeyBlockIndex.CompressedSize, r.Read());
-        Common.ToBigEndian((ulong)keyBlocksTotalValue, r.Read());
+        Common.ToBigEndian((ulong)_data.KeyBlocksSize, r.Read());
 
         uint checksumValue = Common.Adler32(preamble);
         Span<byte> checksum = stackalloc byte[4];
@@ -768,15 +770,13 @@ public sealed class MDictWriter
 
     private void WriteRecordSection(Stream outfile)
     {
-        long recordblocksTotal = _data.RecordBlocks.Sum(static b => b.BlockData.Length);
-
         Span<byte> preamble = stackalloc byte[4 * 8]; // Four 8-byte buffers
         var r = new SpanReader<byte>(preamble) { ReadSize = 8 };
 
         Common.ToBigEndian((ulong)_data.RecordBlocks.Count, r.Read());
         Common.ToBigEndian((ulong)_data.EntryCount, r.Read());
         Common.ToBigEndian((ulong)_data.RecordBlockIndex.Size, r.Read());
-        Common.ToBigEndian((ulong)recordblocksTotal, r.Read());
+        Common.ToBigEndian((ulong)_data.RecordBlocksSize, r.Read());
 
         outfile.Write(preamble);
         outfile.Write(_data.RecordBlockIndex.Bytes.AsSpan());
