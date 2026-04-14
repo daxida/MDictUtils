@@ -85,7 +85,7 @@ internal abstract class MdxBlock
         int totalSize = 0;
         foreach (var entry in offsetTableEntries)
         {
-            int blockSize = GetBlockEntry(entry, version, blockBuffer);
+            int blockSize = GetBlockEntry(entry, blockBuffer);
             // Console.WriteLine($"[Debug] BlockEntry ({blockEntry.Length} bytes): {BitConverter.ToString(blockEntry)}");
             var source = blockBuffer[..blockSize];
             var destination = decompData.AsSpan(start: totalSize, length: blockSize);
@@ -110,7 +110,7 @@ internal abstract class MdxBlock
     public ReadOnlySpan<byte> BlockData => _compData.AsSpan();
 
     public abstract void GetIndexEntry(Span<byte> buffer);
-    protected abstract int GetBlockEntry(OffsetTableEntry entry, string version, Span<byte> buffer);
+    protected abstract int GetBlockEntry(OffsetTableEntry entry, Span<byte> buffer);
     public abstract long BlockEntryLength(OffsetTableEntry entry);
     public abstract int IndexEntryLength { get; }
 
@@ -175,7 +175,7 @@ internal class MdxRecordBlock(ReadOnlySpan<OffsetTableEntry> offsetTable, int co
 
     // rg: get_record_null
     // We overwrite "return entry.RecordNull"
-    protected override int GetBlockEntry(OffsetTableEntry entry, string version, Span<byte> buffer)
+    protected override int GetBlockEntry(OffsetTableEntry entry, Span<byte> buffer)
     {
         int size = ReadRecord(entry.FilePath, entry.RecordPos, (int)entry.RecordSize, entry.IsMdd, buffer);
         // entry.RecordNull = buffer[..size].ToArray();
@@ -243,7 +243,7 @@ internal class MdxKeyBlock : MdxBlock
         _lastKeyLen = offsetTable[^1].KeyLen;
     }
 
-    protected override int GetBlockEntry(OffsetTableEntry entry, string version, Span<byte> buffer)
+    protected override int GetBlockEntry(OffsetTableEntry entry, Span<byte> buffer)
     {
         Common.ToBigEndian((ulong)entry.Offset, buffer[..8]);
         entry.KeyNull.CopyTo(buffer[8..]);
