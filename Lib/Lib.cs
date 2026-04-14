@@ -629,7 +629,7 @@ public sealed class MDictWriter
         metadata ??= new();
 
         if (metadata.Version != "2.0")
-            throw new NotImplementedException("Unknown version. Supported: 2.0");
+            throw new NotSupportedException("Unknown version. Supported: 2.0");
 
         var builder = MDictDataBuilderProvider.GetDataBuilder(logging);
         _data = builder.BuildData(entries, metadata);
