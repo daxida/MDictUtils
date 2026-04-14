@@ -37,7 +37,7 @@ public sealed class MDictWriter
         metadata ??= new();
 
         if (metadata.Version != "2.0")
-            throw new ArgumentException("Unknown version. Supported: 2.0");
+            throw new NotImplementedException("Unknown version. Supported: 2.0");
 
         var builder = MDictDataBuilderProvider.GetDataBuilder(logging);
         _data = builder.BuildData(entries, metadata);
@@ -143,11 +143,6 @@ public sealed class MDictWriter
 
     private void WriteKeySection(Stream outfile)
     {
-        if (_data.Metadata.Version != "2.0")
-        {
-            throw new NotImplementedException();
-        }
-
         long keyBlocksTotalValue = _data.KeyBlocks.Sum(static b => b.BlockData.Length);
 
         Span<byte> preamble = stackalloc byte[5 * 8]; // Five 8-byte buffers
@@ -175,11 +170,6 @@ public sealed class MDictWriter
 
     private void WriteRecordSection(Stream outfile)
     {
-        if (_data.Metadata.Version != "2.0")
-        {
-            throw new NotImplementedException();
-        }
-
         long recordblocksTotal = _data.RecordBlocks.Sum(static b => b.BlockData.Length);
 
         Span<byte> preamble = stackalloc byte[4 * 8]; // Four 8-byte buffers
