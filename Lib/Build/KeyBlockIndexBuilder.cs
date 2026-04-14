@@ -6,7 +6,11 @@ using Microsoft.Extensions.Logging;
 
 namespace Lib.Build;
 
-internal partial class KeyBlockIndexBuilder(ILogger<KeyBlockIndexBuilder> logger)
+internal partial class KeyBlockIndexBuilder
+(
+    ILogger<KeyBlockIndexBuilder> logger,
+    IBlockCompressor blockCompressor
+)
 {
     private readonly static ArrayPool<byte> _arrayPool = ArrayPool<byte>.Shared;
 
@@ -41,7 +45,7 @@ internal partial class KeyBlockIndexBuilder(ILogger<KeyBlockIndexBuilder> logger
 
         Debug.Assert(bytesWritten == decompDataTotalSize);
 
-        var compressedBytes = MdxBlock.MdxCompress(decompData, compressionType);
+        var compressedBytes = blockCompressor.Compress(decompData);
         _arrayPool.Return(decompArray);
 
         KeyBlockIndex index = new(
