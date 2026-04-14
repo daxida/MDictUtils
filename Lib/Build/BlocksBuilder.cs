@@ -23,20 +23,15 @@ internal abstract partial class BlocksBuilder<T>(ILogger<BlocksBuilder<T>> logge
                 ? null
                 : offsetTable.Entries[ind];
 
-            bool flush = false;
-
+            bool flush;
             if (ind == 0)
-            {
                 flush = false;
-            }
             else if (offsetTableEntry == null)
-            {
                 flush = true;
-            }
             else if (curSize + EntryLength(offsetTableEntry) > blockSize)
-            {
                 flush = true;
-            }
+            else
+                flush = false;
 
             if (flush)
             {
@@ -51,10 +46,8 @@ internal abstract partial class BlocksBuilder<T>(ILogger<BlocksBuilder<T>> logge
                 thisBlockStart = ind;
             }
 
-            if (offsetTableEntry != null)
-            {
+            if (offsetTableEntry is not null)
                 curSize += EntryLength(offsetTableEntry);
-            }
         }
 
         LogBlocks(blockSize, blocks);
