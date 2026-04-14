@@ -323,41 +323,39 @@ internal sealed record MDictData
 public sealed class MDictWriter
 {
     private readonly MDictWriterOptions _opt;
-    private readonly IMDictWriterLogger _logger;
-    private readonly EncodingSettings _encodingSettings;
     private readonly MDictData _data;
 
     public MDictWriter(List<MDictEntry> entries, MDictWriterOptions? opt = null)
     {
         _opt = opt ?? new();
 
-        _logger = _opt.Logging
+        IMDictWriterLogger logger = _opt.Logging
             ? new MDictWriterLogger()
             : new MDictWriterDummyLogger();
 
-        _encodingSettings = GetEncodingSettings();
+        var encodingSettings = GetEncodingSettings();
 
         if (_opt.Version != "2.0")
         {
             throw new ArgumentException("Unknown version. Supported: 2.0");
         }
 
-        var offsetTable = BuildOffsetTable(entries);
-        _logger.LogOffsetTable(offsetTable);
+        var offsetTable = BuildOffsetTable(entries, encodingSettings);
+        logger.LogOffsetTable(offsetTable);
 
-        _logger.LogBeginBuildingKeyBlocks();
+        logger.LogBeginBuildingKeyBlocks();
         var keyBlocks = BuildKeyBlocks(offsetTable).AsReadOnly();
-        _logger.LogKeyBlocks(_opt.KeySize, keyBlocks);
+        logger.LogKeyBlocks(_opt.KeySize, keyBlocks);
 
-        _logger.LogBeginBuildingKeybIndex();
-        var keyBlockIndex = BuildKeyBlockIndex(keyBlocks);
-        _logger.LogKeyBlockIndex(keyBlockIndex);
+        logger.LogBeginBuildingKeybIndex();
+        var keyBlockIndex = BuildKeyBlockIndex(keyBlocks, logger);
+        logger.LogKeyBlockIndex(keyBlockIndex);
 
         var recordBlocks = BuildRecordBlocks(offsetTable).AsReadOnly();
-        _logger.LogRecordBlocks(recordBlocks);
+        logger.LogRecordBlocks(recordBlocks);
 
         var recordBlockIndex = BuildRecordBlockIndex(recordBlocks);
-        _logger.LogRecordIndex(recordBlockIndex);
+        logger.LogRecordIndex(recordBlockIndex);
 
         _data = new(
             entries.Count,
@@ -367,7 +365,7 @@ public sealed class MDictWriter
             keyBlockIndex,
             recordBlockIndex);
 
-        _logger.LogInitializationComplete();
+        logger.LogInitializationComplete();
     }
 
     private EncodingSettings GetEncodingSettings()
@@ -395,7 +393,7 @@ public sealed class MDictWriter
         }
     }
 
-    private OffsetTable BuildOffsetTable(List<MDictEntry> entries)
+    private OffsetTable BuildOffsetTable(List<MDictEntry> entries, EncodingSettings encodingSettings)
     {
         entries.Sort((a, b) => MDictKeyComparer.Compare(a.Key, b.Key, _opt.IsMdd));
 
@@ -405,11 +403,11 @@ public sealed class MDictWriter
         foreach (var item in entries)
         {
             // Console.WriteLine($"dict item: {item}");
-            var keyEnc = _encodingSettings.InnerEncoding.GetBytes(item.Key);
-            var keyNull = _encodingSettings.InnerEncoding.GetBytes($"{item.Key}\0");
-            var keyLen = keyEnc.Length / _encodingSettings.EncodingLength;
+            var keyEnc = encodingSettings.InnerEncoding.GetBytes(item.Key);
+            var keyNull = encodingSettings.InnerEncoding.GetBytes($"{item.Key}\0");
+            var keyLen = keyEnc.Length / encodingSettings.EncodingLength;
 
-            // var recordNull = _encodingSettings.InnerEncoding.GetBytes(item.Path);
+            // var recordNull = encodingSettings.InnerEncoding.GetBytes(item.Path);
 
             var tableEntry = new OffsetTableEntry
             {
@@ -536,7 +534,7 @@ public sealed class MDictWriter
             _opt.BlockSize
         );
 
-    private KeyBlockIndex BuildKeyBlockIndex(ReadOnlyCollection<MdxKeyBlock> keyBlocks)
+    private KeyBlockIndex BuildKeyBlockIndex(ReadOnlyCollection<MdxKeyBlock> keyBlocks, IMDictWriterLogger logger)
     {
         Debug.Assert(_opt.Version == "2.0");
 
@@ -559,7 +557,7 @@ public sealed class MDictWriter
         {
             var indexEntry = blockBuffer[..block.IndexEntryLength];
             block.GetIndexEntry(indexEntry);
-            _logger.LogIndexEntry(indexEntry);
+            logger.LogIndexEntry(indexEntry);
 
             var destination = decompData.Slice(bytesWritten, indexEntry.Length);
             indexEntry.CopyTo(destination);
