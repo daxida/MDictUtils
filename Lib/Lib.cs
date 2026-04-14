@@ -106,7 +106,7 @@ internal abstract class MdxBlock
         _arrayPool.Return(decompData);
     }
 
-    protected sealed record MdxBlockData(ImmutableArray<byte> CompressedBytes, long DecompSize)
+    protected readonly record struct MdxBlockData(ImmutableArray<byte> CompressedBytes, long DecompSize)
     {
         public int CompressedSize => CompressedBytes.Length;
     }
