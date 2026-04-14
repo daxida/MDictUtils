@@ -8,10 +8,11 @@ internal abstract partial class BlocksBuilder<T>(ILogger<BlocksBuilder<T>> logge
 {
     protected abstract T BlockConstructor(ReadOnlySpan<OffsetTableEntry> entries, int compressionType);
     protected abstract long EntryLength(OffsetTableEntry entry);
+    private readonly static string _typeName = typeof(T).Name;
 
     public List<T> Build(OffsetTable offsetTable, int blockSize, int compressionType)
     {
-        LogBeginBuilding(typeof(T).Name);
+        LogBeginBuilding(_typeName);
 
         var blocks = new List<T>();
         int thisBlockStart = 0;
