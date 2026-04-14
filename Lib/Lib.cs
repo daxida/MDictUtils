@@ -187,6 +187,8 @@ internal class MdxRecordBlock(ReadOnlySpan<OffsetTableEntry> offsetTable, int co
     {
         if (size < 1) throw new ArgumentException("Size must be >= 1", nameof(size));
 
+        // We're repeatedly opening these files and seeking to positions within them.
+        // That's probably very time consuming.
         using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read);
 
         fs.Seek(pos, SeekOrigin.Begin);
