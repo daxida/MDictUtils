@@ -23,7 +23,7 @@ public sealed record MDictEntry(string Key, long Pos, string Path, long Size)
 
 internal class OffsetTableEntry
 {
-    public required byte[] Key { get; init; }
+    // public required byte[] Key { get; init; }
     public required byte[] KeyNull { get; init; }
     public required int KeyLen { get; init; }
     public required long Offset { get; init; }
@@ -50,7 +50,7 @@ internal class OffsetTableEntry
         sb.Append($"RecordPos={RecordPos}, ");
         sb.Append($"RecordSize={RecordSize}, ");
         sb.Append($"IsMdd='{IsMdd}', ");
-        sb.Append($"Key='{BytesToString(Key)}', ");
+        // sb.Append($"Key='{BytesToString(Key)}', ");
         sb.Append($"KeyNull='{BytesToString(KeyNull)}', ");
         // sb.Append($"RecordNull='{BytesToString(RecordNull)}'");
         sb.Append(')');
@@ -337,15 +337,15 @@ internal partial class OffsetTableBuilder
         foreach (var item in entries)
         {
             // Console.WriteLine($"dict item: {item}");
-            var keyEnc = encodingSettings.InnerEncoding.GetBytes(item.Key);
+            var keyEncLength = encodingSettings.InnerEncoding.GetByteCount(item.Key);
             var keyNull = encodingSettings.InnerEncoding.GetBytes($"{item.Key}\0");
-            var keyLen = keyEnc.Length / encodingSettings.EncodingLength;
+            var keyLen = keyEncLength / encodingSettings.EncodingLength;
 
             // var recordNull = encodingSettings.InnerEncoding.GetBytes(item.Path);
 
             var tableEntry = new OffsetTableEntry
             {
-                Key = keyEnc,
+                // Key = keyEnc,
                 KeyNull = keyNull,
                 KeyLen = keyLen,
                 // RecordNull = recordNull,
