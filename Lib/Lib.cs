@@ -316,7 +316,6 @@ public sealed class MDictWriter
     private readonly int _numEntries;
     private readonly string _title;
     private readonly string _description;
-    private readonly int _blockSize;
     private readonly int _compressionType;
     private readonly string _version;
     private readonly EncodingSettings _encodingSettings;
@@ -340,7 +339,6 @@ public sealed class MDictWriter
         _numEntries = entries.Count;
         _title = opt.Title;
         _description = opt.Description;
-        _blockSize = opt.BlockSize;
         _compressionType = opt.CompressionType;
         _version = opt.Version;
         _isMdd = opt.IsMdd;
@@ -355,18 +353,14 @@ public sealed class MDictWriter
         _logger.LogOffsetTable(_offsetTable);
 
         _logger.LogBeginBuildingKeyBlocks();
-        _blockSize = opt.KeySize;
-        _keyBlocks = BuildKeyBlocks().AsReadOnly();
-        _logger.LogKeyBlocks(_blockSize, _keyBlocks);
-
-        _blockSize = opt.BlockSize;
-        _logger.LogBlockSizeReset(_blockSize);
+        _keyBlocks = BuildKeyBlocks(opt.KeySize).AsReadOnly();
+        _logger.LogKeyBlocks(opt.KeySize, _keyBlocks);
 
         _logger.LogBeginBuildingKeybIndex();
         _keyBlockIndex = BuildKeyBlockIndex();
         _logger.LogKeyBlockIndex(_keyBlockIndex);
 
-        _recordBlocks = BuildRecordBlocks().AsReadOnly();
+        _recordBlocks = BuildRecordBlocks(opt.BlockSize).AsReadOnly();
         _logger.LogRecordBlocks(_recordBlocks);
 
         _recordBlockIndex = BuildRecordBlockIndex();
@@ -471,7 +465,8 @@ public sealed class MDictWriter
     }
 
     private List<T> SplitBlocks<T>(Func<ReadOnlySpan<OffsetTableEntry>, int, string, T> blockConstructor,
-                                   Func<OffsetTableEntry, long> lenFunc) where T : MdxBlock
+                                   Func<OffsetTableEntry, long> lenFunc,
+                                   int blockSize) where T : MdxBlock
     {
         var blocks = new List<T>();
         int thisBlockStart = 0;
@@ -493,7 +488,7 @@ public sealed class MDictWriter
             {
                 flush = true;
             }
-            else if (curSize + lenFunc(offsetTableEntry) > _blockSize)
+            else if (curSize + lenFunc(offsetTableEntry) > blockSize)
             {
                 flush = true;
             }
@@ -520,18 +515,20 @@ public sealed class MDictWriter
         return blocks;
     }
 
-    private List<MdxKeyBlock> BuildKeyBlocks()
+    private List<MdxKeyBlock> BuildKeyBlocks(int blockSize)
         => SplitBlocks
         (
             static (entries, comp, ver) => new MdxKeyBlock(entries, comp, ver),
-            static (entry) => entry.MdxKeyBlockEntryLength
+            static (entry) => entry.MdxKeyBlockEntryLength,
+            blockSize
         );
 
-    private List<MdxRecordBlock> BuildRecordBlocks()
+    private List<MdxRecordBlock> BuildRecordBlocks(int blockSize)
         => SplitBlocks
         (
             static (entries, comp, ver) => new MdxRecordBlock(entries, comp, ver),
-            static (entry) => entry.MdxRecordBlockEntryLength
+            static (entry) => entry.MdxRecordBlockEntryLength,
+            blockSize
         );
 
     private KeyBlockIndex BuildKeyBlockIndex()

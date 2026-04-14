@@ -7,7 +7,6 @@ internal interface IMDictWriterLogger
 {
     void LogBeginBuildingKeybIndex();
     void LogBeginBuildingKeyBlocks();
-    void LogBlockSizeReset(int blockSize);
     void LogIndexEntry(ReadOnlySpan<byte> indexEntry);
     void LogInitializationComplete();
     void LogKeyBlockIndex(KeyBlockIndex keyBlockIndex);
@@ -45,12 +44,6 @@ internal sealed class MDictWriterLogger : IMDictWriterLogger
         {
             Console.Error.WriteLine($"* KeyBlock: {keyBlock}");
         }
-    }
-
-    public void LogBlockSizeReset(int blockSize)
-    {
-        WriteMessage($"Block size reset to {blockSize}");
-        WriteSeparator();
     }
 
     public void LogBeginBuildingKeybIndex()
@@ -97,7 +90,6 @@ internal sealed class MDictWriterDummyLogger : IMDictWriterLogger
 {
     public void LogBeginBuildingKeybIndex() { }
     public void LogBeginBuildingKeyBlocks() { }
-    public void LogBlockSizeReset(int _) { }
     public void LogIndexEntry(ReadOnlySpan<byte> _) { }
     public void LogInitializationComplete() { }
     public void LogKeyBlockIndex(KeyBlockIndex _) { }
