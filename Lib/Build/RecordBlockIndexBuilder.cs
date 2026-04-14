@@ -44,5 +44,5 @@ internal partial class RecordBlockIndexBuilder(ILogger<RecordBlockIndexBuilder> 
     }
 
     [LoggerMessage(LogLevel.Debug, "Record index built: size={Size}")]
-    private partial void LogIndexBuilt(long size);
+    private partial void LogIndexBuilt(int size);
 }
