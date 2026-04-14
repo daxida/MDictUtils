@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using Xunit;
+using Lib.Build;
 
 namespace Lib.Tests;
 

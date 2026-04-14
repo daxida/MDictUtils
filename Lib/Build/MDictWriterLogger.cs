@@ -1,7 +1,8 @@
 using System;
 using System.Collections.Generic;
+using Lib.BuildModels;
 
-namespace Lib;
+namespace Lib.Build;
 
 internal interface IMDictWriterLogger
 {
