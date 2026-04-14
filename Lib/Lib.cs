@@ -32,6 +32,9 @@ internal class OffsetTableEntry
     // Weird stuff from get_record_null()
     public required string FilePath { get; init; }
 
+    public long MdxKeyBlockEntryLength => 8 + KeyNull.Length;
+    public long MdxRecordBlockEntryLength => RecordSize;
+
     public override string ToString()
     {
         static string BytesToString(ReadOnlySpan<byte> bytes)
@@ -70,12 +73,13 @@ internal abstract class MdxBlock
 
         // Console.WriteLine("[Debug] Calling MdxBlock...");
 
-        var decompDataSize = offsetTableEntries.Sum(LenBlockEntry);
+        long longDecompDataSize = offsetTableEntries.Sum(BlockEntryLength);
+        int decompDataSize = Convert.ToInt32(longDecompDataSize);
         var decompData = _arrayPool.Rent(decompDataSize);
 
-        var maxBlockSize = offsetTableEntries.Max(LenBlockEntry);
+        var maxBlockSize = offsetTableEntries.Max(BlockEntryLength);
         var blockBuffer = maxBlockSize < 256
-            ? stackalloc byte[maxBlockSize]
+            ? stackalloc byte[(int)maxBlockSize]
             : new byte[maxBlockSize];
 
         int totalSize = 0;
@@ -107,7 +111,7 @@ internal abstract class MdxBlock
 
     public abstract void GetIndexEntry(Span<byte> buffer);
     protected abstract int GetBlockEntry(OffsetTableEntry entry, string version, Span<byte> buffer);
-    public abstract int LenBlockEntry(OffsetTableEntry entry);
+    public abstract long BlockEntryLength(OffsetTableEntry entry);
     public abstract int IndexEntryLength { get; }
 
     // Called in MdxBlock init
@@ -149,6 +153,9 @@ internal class MdxRecordBlock(ReadOnlySpan<OffsetTableEntry> offsetTable, int co
     : MdxBlock(offsetTable, compressionType, version)
 {
     public override int IndexEntryLength => 16;
+
+    public override long BlockEntryLength(OffsetTableEntry entry)
+        => entry.MdxRecordBlockEntryLength;
 
     public override void GetIndexEntry(Span<byte> buffer)
     {
@@ -206,11 +213,6 @@ internal class MdxRecordBlock(ReadOnlySpan<OffsetTableEntry> offsetTable, int co
             return size;
         }
     }
-
-    public override int LenBlockEntry(OffsetTableEntry entry)
-    {
-        return (int)entry.RecordSize; // TODO: fix cast
-    }
 }
 
 internal class MdxKeyBlock : MdxBlock
@@ -249,10 +251,8 @@ internal class MdxKeyBlock : MdxBlock
     }
 
     // Approximate for version 2.0
-    public override int LenBlockEntry(OffsetTableEntry entry)
-    {
-        return 8 + entry.KeyNull.Length;
-    }
+    public override long BlockEntryLength(OffsetTableEntry entry)
+        => entry.MdxKeyBlockEntryLength;
 
     public override int IndexEntryLength
         => 8 + 2 + _firstKey.Length + 2 + _lastKey.Length + 8 + 8;
@@ -523,14 +523,14 @@ public sealed class MDictWriter
         => _keyBlocks = SplitBlocks
         (
             static (entries, comp, ver) => new MdxKeyBlock(entries, comp, ver),
-            static (entry) => 8 + entry.KeyNull.Length
+            static (entry) => entry.MdxKeyBlockEntryLength
         );
 
     private void BuildRecordBlocks()
         => _recordBlocks = SplitBlocks
         (
             static (entries, comp, ver) => new MdxRecordBlock(entries, comp, ver),
-            static (entry) => entry.RecordSize
+            static (entry) => entry.MdxRecordBlockEntryLength
         );
 
     private KeyBlockIndex BuildKeyBlockIndex()
