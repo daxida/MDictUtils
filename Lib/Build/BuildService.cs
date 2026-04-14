@@ -20,11 +20,11 @@ internal static class MDictDataBuilderProvider
 
         // Key blocks
         .AddTransient<KeyBlockIndexBuilder>()
-        .AddTransient<KeyBlockBuilder>()
+        .AddTransient<KeyBlocksBuilder>()
 
         // Record blocks
         .AddTransient<RecordBlockIndexBuilder>()
-        .AddTransient<RecordBlockBuilder>()
+        .AddTransient<RecordBlocksBuilder>()
 
         // Logging
         .AddLogging(builder =>

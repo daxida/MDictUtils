@@ -436,7 +436,7 @@ internal partial class OffsetTableBuilder
     partial void LogInfo(int count, long RecordLength);
 }
 
-internal abstract partial class BlockBuilder<T>(ILogger<BlockBuilder<T>> logger) where T : MdxBlock
+internal abstract partial class BlocksBuilder<T>(ILogger<BlocksBuilder<T>> logger) where T : MdxBlock
 {
     protected abstract T BlockConstructor(ReadOnlySpan<OffsetTableEntry> entries, int compressionType);
     protected abstract long EntryLength(OffsetTableEntry entry);
@@ -513,7 +513,7 @@ internal abstract partial class BlockBuilder<T>(ILogger<BlockBuilder<T>> logger)
     }
 }
 
-internal sealed class KeyBlockBuilder(ILogger<KeyBlockBuilder> logger) : BlockBuilder<MdxKeyBlock>(logger)
+internal sealed class KeyBlocksBuilder(ILogger<KeyBlocksBuilder> logger) : BlocksBuilder<MdxKeyBlock>(logger)
 {
     protected override MdxKeyBlock BlockConstructor(ReadOnlySpan<OffsetTableEntry> entries, int compressionType)
         => new(entries, compressionType);
@@ -522,7 +522,7 @@ internal sealed class KeyBlockBuilder(ILogger<KeyBlockBuilder> logger) : BlockBu
         => entry.MdxKeyBlockEntryLength;
 }
 
-internal sealed class RecordBlockBuilder(ILogger<RecordBlockBuilder> logger) : BlockBuilder<MdxRecordBlock>(logger)
+internal sealed class RecordBlocksBuilder(ILogger<RecordBlocksBuilder> logger) : BlocksBuilder<MdxRecordBlock>(logger)
 {
     protected override MdxRecordBlock BlockConstructor(ReadOnlySpan<OffsetTableEntry> entries, int compressionType)
         => new(entries, compressionType);

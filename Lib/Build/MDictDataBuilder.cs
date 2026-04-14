@@ -8,9 +8,9 @@ internal sealed class MDictDataBuilder
     ILogger<MDictDataBuilder> logger,
     OffsetTableBuilder offsetTableBuilder,
     KeyBlockIndexBuilder keyBlockIndexBuilder,
-    KeyBlockBuilder keyBlockBuilder,
+    KeyBlocksBuilder keyBlocksBuilder,
     RecordBlockIndexBuilder recordBlockIndexBuilder,
-    RecordBlockBuilder recordBlockBuilder
+    RecordBlocksBuilder recordBlocksBuilder
 )
     : IMDictDataBuilder
 {
@@ -19,14 +19,14 @@ internal sealed class MDictDataBuilder
         var offsetTable = offsetTableBuilder
             .Build(entries, m);
 
-        var keyBlocks = keyBlockBuilder
+        var keyBlocks = keyBlocksBuilder
             .Build(offsetTable, m.KeySize, m.CompressionType)
             .AsReadOnly();
 
         var keyBlockIndex = keyBlockIndexBuilder
             .Build(keyBlocks, m.CompressionType);
 
-        var recordBlocks = recordBlockBuilder
+        var recordBlocks = recordBlocksBuilder
             .Build(offsetTable, m.BlockSize, m.CompressionType)
             .AsReadOnly();
 
