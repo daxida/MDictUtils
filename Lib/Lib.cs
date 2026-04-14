@@ -278,8 +278,7 @@ public sealed record MDictWriterOptions
     string Encoding        = "utf8",
     int    CompressionType = 2,
     string Version         = "2.0",
-    bool   IsMdd           = false,
-    bool   Logging         = true
+    bool   IsMdd           = false
 );
 #pragma warning restore format
 
@@ -592,14 +591,14 @@ public sealed class MDictWriter
 {
     private readonly MDictData _data;
 
-    public MDictWriter(List<MDictEntry> entries, MDictWriterOptions? opt = null)
+    public MDictWriter(List<MDictEntry> entries, MDictWriterOptions? opt = null, bool logging = true)
     {
         opt ??= new();
 
         if (opt.Version != "2.0")
             throw new ArgumentException("Unknown version. Supported: 2.0");
 
-        IMDictWriterLogger logger = opt.Logging
+        IMDictWriterLogger logger = logging
             ? new MDictWriterLogger()
             : new MDictWriterDummyLogger();
 
