@@ -289,6 +289,11 @@ public sealed record MDictWriterOptions
 );
 #pragma warning restore format
 
+internal sealed record EncodingSettings(
+    Encoding InnerEncoding, // _python_encoding in the original
+    Encoding Encoding,
+    int EncodingLength);
+
 internal sealed record KeyBlockIndex(ImmutableArray<byte> CompressedBytes, long DecompSize)
 {
     public int CompressedSize => CompressedBytes.Length;
@@ -313,10 +318,7 @@ public sealed class MDictWriter
     private readonly int _blockSize;
     private readonly int _compressionType;
     private readonly string _version;
-    private readonly Encoding _encoding;
-    // _python_encoding in the original
-    private readonly Encoding _innerEncoding;
-    private readonly int _encodingLength;
+    private readonly EncodingSettings _encodingSettings;
     private readonly bool _isMdd;
 
     private readonly OffsetTable _offsetTable;
@@ -341,26 +343,7 @@ public sealed class MDictWriter
         _compressionType = opt.CompressionType;
         _version = opt.Version;
         _isMdd = opt.IsMdd;
-
-        // Set encoding
-        var encoding = opt.Encoding.ToLower();
-        Debug.Assert(encoding == "utf8");
-        if (opt.IsMdd || encoding == "utf16" || encoding == "utf-16")
-        {
-            _innerEncoding = Encoding.Unicode;
-            _encoding = Encoding.Unicode;
-            _encodingLength = 2;
-        }
-        else if (encoding == "utf8" || encoding == "utf-8")
-        {
-            _innerEncoding = Encoding.UTF8;
-            _encoding = Encoding.UTF8;
-            _encodingLength = 1;
-        }
-        else
-        {
-            throw new ArgumentException("Unknown encoding. Supported: utf8, utf16");
-        }
+        _encodingSettings = GetEncodingSettings(opt.Encoding.ToLower());
 
         if (opt.Version != "2.0")
         {
@@ -391,6 +374,30 @@ public sealed class MDictWriter
         _logger.LogInitializationComplete();
     }
 
+    private EncodingSettings GetEncodingSettings(string encoding)
+    {
+        Debug.Assert(encoding == "utf8");
+
+        if (_isMdd || encoding == "utf16" || encoding == "utf-16")
+        {
+            return new(
+                InnerEncoding: Encoding.Unicode,
+                Encoding: Encoding.Unicode,
+                EncodingLength: 2);
+        }
+        else if (encoding == "utf8" || encoding == "utf-8")
+        {
+            return new(
+                InnerEncoding: Encoding.UTF8,
+                Encoding: Encoding.UTF8,
+                EncodingLength: 1);
+        }
+        else
+        {
+            throw new ArgumentException("Unknown encoding. Supported: utf8, utf16");
+        }
+    }
+
     private OffsetTable BuildOffsetTable(List<MDictEntry> entries)
     {
         entries.Sort((a, b) => MDictKeyComparer.Compare(a.Key, b.Key, _isMdd));
@@ -401,11 +408,11 @@ public sealed class MDictWriter
         foreach (var item in entries)
         {
             // Console.WriteLine($"dict item: {item}");
-            var keyEnc = _innerEncoding.GetBytes(item.Key);
-            var keyNull = _innerEncoding.GetBytes($"{item.Key}\0");
-            var keyLen = keyEnc.Length / _encodingLength;
+            var keyEnc = _encodingSettings.InnerEncoding.GetBytes(item.Key);
+            var keyNull = _encodingSettings.InnerEncoding.GetBytes($"{item.Key}\0");
+            var keyLen = keyEnc.Length / _encodingSettings.EncodingLength;
 
-            // var recordNull = _innerEncoding.GetBytes(item.Path);
+            // var recordNull = _encodingSettings.InnerEncoding.GetBytes(item.Path);
 
             var tableEntry = new OffsetTableEntry
             {
