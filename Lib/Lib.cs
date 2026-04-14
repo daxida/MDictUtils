@@ -299,11 +299,10 @@ internal sealed record RecordBlockIndex(byte[] Bytes)
     public int Size => Bytes.Length;
 }
 
-internal sealed record OffsetTable
-(
-    ImmutableArray<OffsetTableEntry> Entries,
-    long TotalRecordLength
-);
+internal sealed record OffsetTable(ImmutableArray<OffsetTableEntry> Entries)
+{
+    public long TotalRecordLength => Entries.Sum(static e => e.RecordSize);
+}
 
 public sealed class MDictWriter
 {
@@ -397,8 +396,7 @@ public sealed class MDictWriter
         entries.Sort((a, b) => MDictKeyComparer.Compare(a.Key, b.Key, _isMdd));
 
         var arrayBuilder = ImmutableArray.CreateBuilder<OffsetTableEntry>(entries.Count);
-        List<OffsetTableEntry> tableEntries = [];
-        long totalRecordLength = 0;
+        long currentOffset = 0;
 
         foreach (var item in entries)
         {
@@ -415,7 +413,7 @@ public sealed class MDictWriter
                 KeyNull = keyNull,
                 KeyLen = keyLen,
                 // RecordNull = recordNull,
-                Offset = totalRecordLength,
+                Offset = currentOffset,
                 RecordSize = item.Size,
                 RecordPos = item.Pos,
                 FilePath = item.Path,
@@ -423,7 +421,7 @@ public sealed class MDictWriter
             };
             arrayBuilder.Add(tableEntry);
 
-            totalRecordLength += item.Size;
+            currentOffset += item.Size;
         }
 
         // pretty print it here
@@ -461,9 +459,7 @@ public sealed class MDictWriter
         //     Console.WriteLine("----------------------");
         // }
 
-        return new OffsetTable(
-            Entries: arrayBuilder.MoveToImmutable(),
-            TotalRecordLength: totalRecordLength);
+        return new OffsetTable(arrayBuilder.MoveToImmutable());
     }
 
     private List<T> SplitBlocks<T>(Func<ReadOnlySpan<OffsetTableEntry>, int, string, T> blockConstructor,
