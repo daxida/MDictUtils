@@ -111,7 +111,7 @@ internal abstract class MdxBlock
         public int CompressedSize => CompressedBytes.Length;
     }
 
-    public ReadOnlySpan<byte> BlockData => _blockData.CompressedBytes.AsSpan();
+    public ImmutableArray<byte> BlockData => _blockData.CompressedBytes;
 
     public abstract void GetIndexEntry(Span<byte> buffer);
     protected abstract int GetBlockEntry(OffsetTableEntry entry, Span<byte> buffer);
@@ -762,7 +762,7 @@ public sealed class MDictWriter
 
         foreach (var block in _data.KeyBlocks)
         {
-            outfile.Write(block.BlockData);
+            outfile.Write(block.BlockData.AsSpan());
         }
     }
 
@@ -783,7 +783,7 @@ public sealed class MDictWriter
 
         foreach (var block in _data.RecordBlocks)
         {
-            outfile.Write(block.BlockData);
+            outfile.Write(block.BlockData.AsSpan());
         }
     }
 }
