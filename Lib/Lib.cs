@@ -121,8 +121,8 @@ internal abstract class MdxBlock
             throw new NotSupportedException("Only compressionType=2 (Zlib) is supported in this version.");
 
         // Compression type (little-endian)
-        Span<byte> lend = stackalloc byte[4];
-        Common.ToLittleEndian((uint)compressionType, lend); // <L in Python
+        Span<byte> compType = stackalloc byte[4];
+        Common.ToLittleEndian((uint)compressionType, compType); // <L in Python
 
         // Adler32 checksum (big-endian)
         uint adler = Common.Adler32(data);
@@ -139,7 +139,7 @@ internal abstract class MdxBlock
 
         var size = ZLibCompression.Compress(data, buffer);
 
-        ImmutableArray<byte> compressed = [.. lend, .. adlerBytes, .. buffer.AsSpan(..size)];
+        ImmutableArray<byte> compressed = [.. compType, .. adlerBytes, .. buffer.AsSpan(..size)];
         _arrayPool.Return(buffer);
 
         // Console.WriteLine($"adler: {adler}");
