@@ -64,9 +64,7 @@ internal class OffsetTableEntry
 internal abstract class MdxBlock
 {
     private readonly static ArrayPool<byte> _arrayPool = ArrayPool<byte>.Shared;
-    protected long _decompSize;
-    protected ImmutableArray<byte> _compData;
-    protected long _compSize;
+    protected readonly MdxBlockData _blockData;
 
     protected MdxBlock(ReadOnlySpan<OffsetTableEntry> offsetTableEntries, int compressionType)
     {
@@ -96,18 +94,24 @@ internal abstract class MdxBlock
         }
 
         // Console.WriteLine("[Debug] Building MdxBlock...");
-        _decompSize = totalSize;
         // Console.WriteLine($"[Debug] Decompressed array length (_decompSize): {_decompSize}");
         // Common.PrintPythonStyle(decompArray);
 
-        _compData = MdxCompress(decompData[..totalSize], compressionType);
-        _compSize = _compData.Length;
+        var compressedData = MdxCompress(decompData[..totalSize], compressionType);
+
+        _blockData = new(compressedData, DecompSize: totalSize);
+
         // Console.WriteLine($"[Debug] Compressed array length (_compSize): {_compSize}");
 
         _arrayPool.Return(decompData);
     }
 
-    public ReadOnlySpan<byte> BlockData => _compData.AsSpan();
+    protected sealed record MdxBlockData(ImmutableArray<byte> CompressedBytes, long DecompSize)
+    {
+        public int CompressedSize => CompressedBytes.Length;
+    }
+
+    public ReadOnlySpan<byte> BlockData => _blockData.CompressedBytes.AsSpan();
 
     public abstract void GetIndexEntry(Span<byte> buffer);
     protected abstract int GetBlockEntry(OffsetTableEntry entry, Span<byte> buffer);
@@ -167,8 +171,8 @@ internal class MdxRecordBlock(ReadOnlySpan<OffsetTableEntry> offsetTable, int co
         Debug.Assert(buffer.Length == IndexEntryLength);
 
         // Big-endian 64-bit values
-        Common.ToBigEndian((ulong)_compSize, buffer[..8]);
-        Common.ToBigEndian((ulong)_decompSize, buffer[8..16]);
+        Common.ToBigEndian((ulong)_blockData.CompressedSize, buffer[..8]);
+        Common.ToBigEndian((ulong)_blockData.DecompSize, buffer[8..16]);
     }
 
     // rg: get_record_null
@@ -267,8 +271,8 @@ internal class MdxKeyBlock : MdxBlock
         _firstKey.CopyTo(r.Read(_firstKey.Length));
         Common.ToBigEndian((ushort)_lastKeyLen, r.Read(2));
         _lastKey.CopyTo(r.Read(_lastKey.Length));
-        Common.ToBigEndian((ulong)_compSize, r.Read(8));
-        Common.ToBigEndian((ulong)_decompSize, r.Read(8));
+        Common.ToBigEndian((ulong)_blockData.CompressedSize, r.Read(8));
+        Common.ToBigEndian((ulong)_blockData.DecompSize, r.Read(8));
     }
 }
 
