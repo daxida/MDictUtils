@@ -21,11 +21,11 @@ public class MDictWriterTests
     public void Write_CreatesValidFile()
     {
         var entries = new List<MDictEntry>();
-        var options = new MDictWriterOptions(
+        var metadata = new MDictMetadata(
             Title: "Test Dictionary",
             Description: "A test dictionary");
 
-        var writer = new MDictWriter(entries, options);
+        var writer = new MDictWriter(entries, metadata);
         var outputPath = Path.GetTempFileName();
 
         try
@@ -162,8 +162,8 @@ public class HeaderTests
     public void GetHeaderString_ShouldNotReplaceLineEndingsInTitle()
     {
         const string title = "Title\r\n\n[2026-04-04]";
-        var opts = new MDictWriterOptions(Title: title);
-        var writer = new MDictWriter([], opts);
+        var metadata = new MDictMetadata(Title: title);
+        var writer = new MDictWriter([], metadata);
         var header = writer.GetHeaderString();
         Assert.Contains($"Title=\"{title}\"", header);
         // Should not have newlines between elements

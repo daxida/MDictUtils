@@ -14,11 +14,11 @@ internal partial class OffsetTableBuilder
     MDictKeyComparer keyComparer
 )
 {
-    public OffsetTable Build(List<MDictEntry> entries, MDictWriterOptions opt)
+    public OffsetTable Build(List<MDictEntry> entries, MDictMetadata m)
     {
-        entries.Sort((a, b) => keyComparer.Compare(a.Key, b.Key, opt.IsMdd));
+        entries.Sort((a, b) => keyComparer.Compare(a.Key, b.Key, m.IsMdd));
 
-        var encodingSettings = GetEncodingSettings(opt);
+        var encodingSettings = GetEncodingSettings(m);
         var arrayBuilder = ImmutableArray.CreateBuilder<OffsetTableEntry>(entries.Count);
         long currentOffset = 0;
 
@@ -41,7 +41,7 @@ internal partial class OffsetTableBuilder
                 RecordSize = item.Size,
                 RecordPos = item.Pos,
                 FilePath = item.Path,
-                IsMdd = opt.IsMdd,
+                IsMdd = m.IsMdd,
             };
             arrayBuilder.Add(tableEntry);
 
@@ -94,12 +94,12 @@ internal partial class OffsetTableBuilder
         Encoding Encoding,
         int EncodingLength);
 
-    private static EncodingSettings GetEncodingSettings(MDictWriterOptions opt)
+    private static EncodingSettings GetEncodingSettings(MDictMetadata m)
     {
-        var encoding = opt.Encoding.ToLower();
+        var encoding = m.Encoding.ToLower();
         Debug.Assert(encoding == "utf8");
 
-        if (opt.IsMdd || encoding == "utf16" || encoding == "utf-16")
+        if (m.IsMdd || encoding == "utf16" || encoding == "utf-16")
         {
             return new(
                 InnerEncoding: Encoding.Unicode,

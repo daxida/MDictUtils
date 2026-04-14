@@ -15,7 +15,7 @@ public sealed record MDictEntry(string Key, long Pos, string Path, long Size)
 }
 
 #pragma warning disable format
-public sealed record MDictWriterOptions
+public sealed record MDictMetadata
 (
     string Title           = "",
     string Description     = "",
@@ -32,15 +32,15 @@ public sealed class MDictWriter
 {
     private readonly MDictData _data;
 
-    public MDictWriter(List<MDictEntry> entries, MDictWriterOptions? opt = null, bool logging = true)
+    public MDictWriter(List<MDictEntry> entries, MDictMetadata? metadata = null, bool logging = true)
     {
-        opt ??= new();
+        metadata ??= new();
 
-        if (opt.Version != "2.0")
+        if (metadata.Version != "2.0")
             throw new ArgumentException("Unknown version. Supported: 2.0");
 
         var builder = MDictDataBuilderProvider.GetDataBuilder(logging);
-        _data = builder.BuildData(entries, opt);
+        _data = builder.BuildData(entries, metadata);
     }
 
     public void Write(Stream outfile)

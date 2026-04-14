@@ -7,7 +7,7 @@ namespace Lib.Build;
 
 internal interface IMDictDataBuilder
 {
-    public MDictData BuildData(List<MDictEntry> entries, MDictWriterOptions opt);
+    public MDictData BuildData(List<MDictEntry> entries, MDictMetadata metadata);
 }
 
 internal static class MDictDataBuilderProvider

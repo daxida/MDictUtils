@@ -6,7 +6,7 @@ namespace Lib.BuildModels;
 
 internal sealed record MDictData
 (
-    MDictWriterOptions Metadata,
+    MDictMetadata Metadata,
     int EntryCount,
     OffsetTable OffsetTable,
     ReadOnlyCollection<MdxKeyBlock> KeyBlocks,
