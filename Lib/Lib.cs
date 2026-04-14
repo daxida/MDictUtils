@@ -59,7 +59,7 @@ internal abstract class MdxBlock
 {
     private readonly static ArrayPool<byte> _arrayPool = ArrayPool<byte>.Shared;
     protected long _decompSize;
-    protected byte[] _compData;
+    protected ImmutableArray<byte> _compData;
     protected long _compSize;
     protected string _version;
 
@@ -103,7 +103,7 @@ internal abstract class MdxBlock
         _arrayPool.Return(decompData);
     }
 
-    public ReadOnlySpan<byte> BlockData => _compData;
+    public ReadOnlySpan<byte> BlockData => _compData.AsSpan();
 
     public abstract void GetIndexEntry(Span<byte> buffer);
     protected abstract int GetBlockEntry(OffsetTableEntry entry, string version, Span<byte> buffer);
@@ -111,7 +111,7 @@ internal abstract class MdxBlock
     public abstract int IndexEntryLength { get; }
 
     // Called in MdxBlock init
-    public static byte[] MdxCompress(ReadOnlySpan<byte> data, int compressionType)
+    public static ImmutableArray<byte> MdxCompress(ReadOnlySpan<byte> data, int compressionType)
     {
         if (compressionType != 2)
             throw new NotSupportedException("Only compressionType=2 (Zlib) is supported in this version.");
@@ -135,7 +135,7 @@ internal abstract class MdxBlock
 
         var size = ZLibCompression.Compress(data, buffer);
 
-        byte[] compressed = [.. lend, .. adlerBytes, .. buffer.AsSpan(..size)];
+        ImmutableArray<byte> compressed = [.. lend, .. adlerBytes, .. buffer.AsSpan(..size)];
         _arrayPool.Return(buffer);
 
         // Console.WriteLine($"adler: {adler}");
@@ -289,12 +289,12 @@ public sealed record MDictWriterOptions
 );
 #pragma warning restore format
 
-internal sealed record KeyBlockIndex(byte[] CompressedBytes, long DecompSize)
+internal sealed record KeyBlockIndex(ImmutableArray<byte> CompressedBytes, long DecompSize)
 {
     public int CompressedSize => CompressedBytes.Length;
 }
 
-internal sealed record RecordBlockIndex(byte[] Bytes)
+internal sealed record RecordBlockIndex(ImmutableArray<byte> Bytes)
 {
     public int Size => Bytes.Length;
 }
@@ -574,7 +574,7 @@ public sealed class MDictWriter
             return new([]);
 
         int indexSize = _recordBlocks.Sum(static b => b.IndexEntryLength);
-        var indexData = new byte[indexSize];
+        var indexBuilder = ImmutableArray.CreateBuilder<byte>(indexSize);
 
         int maxBlockSize = _recordBlocks.Max(static b => b.IndexEntryLength);
         var blockBuffer = maxBlockSize < 256
@@ -587,14 +587,12 @@ public sealed class MDictWriter
             var indexEntry = blockBuffer[..block.IndexEntryLength];
             block.GetIndexEntry(indexEntry);
 
-            var destination = indexData.AsSpan().Slice(bytesWritten, indexEntry.Length);
-            indexEntry.CopyTo(destination);
+            indexBuilder.AddRange(indexEntry);
             bytesWritten += indexEntry.Length;
         }
+        Debug.Assert(bytesWritten == indexSize);
 
-        Debug.Assert(bytesWritten == indexData.Length);
-
-        return new(indexData);
+        return new(indexBuilder.MoveToImmutable());
     }
 
     public void Write(Stream outfile)
