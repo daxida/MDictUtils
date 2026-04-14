@@ -8,6 +8,8 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using Lib.Build;
+using Microsoft.Extensions.Logging;
 
 namespace Lib;
 
@@ -269,7 +271,7 @@ internal class MdxKeyBlock : MdxBlock
 }
 
 #pragma warning disable format
-public sealed record MDictWriterOptions
+public sealed record MDictMetadata
 (
     string Title           = "",
     string Description     = "",
@@ -278,8 +280,7 @@ public sealed record MDictWriterOptions
     string Encoding        = "utf8",
     int    CompressionType = 2,
     string Version         = "2.0",
-    bool   IsMdd           = false,
-    bool   Logging         = true
+    bool   IsMdd           = false
 );
 #pragma warning restore format
 
@@ -305,7 +306,7 @@ internal sealed record OffsetTable(ImmutableArray<OffsetTableEntry> Entries)
 
 internal sealed record MDictData
 (
-    MDictWriterOptions Metadata,
+    MDictMetadata Metadata,
     int EntryCount,
     OffsetTable OffsetTable,
     ReadOnlyCollection<MdxKeyBlock> KeyBlocks,
@@ -314,58 +315,18 @@ internal sealed record MDictData
     RecordBlockIndex RecordBlockIndex
 );
 
-public sealed class MDictWriter
+internal partial class OffsetTableBuilder
+(
+    ILogger<OffsetTableBuilder> logger,
+    MDictKeyComparer keyComparer
+)
 {
-    private readonly MDictData _data;
-
-    public MDictWriter(List<MDictEntry> entries, MDictWriterOptions? opt = null)
+    private static EncodingSettings GetEncodingSettings(MDictMetadata m)
     {
-        opt ??= new();
-
-        IMDictWriterLogger logger = opt.Logging
-            ? new MDictWriterLogger()
-            : new MDictWriterDummyLogger();
-
-        if (opt.Version != "2.0")
-        {
-            throw new ArgumentException("Unknown version. Supported: 2.0");
-        }
-
-        var offsetTable = BuildOffsetTable(entries, opt);
-        logger.LogOffsetTable(offsetTable);
-
-        logger.LogBeginBuildingKeyBlocks();
-        var keyBlocks = BuildKeyBlocks(offsetTable, opt).AsReadOnly();
-        logger.LogKeyBlocks(opt.KeySize, keyBlocks);
-
-        logger.LogBeginBuildingKeybIndex();
-        var keyBlockIndex = BuildKeyBlockIndex(keyBlocks, logger, opt.CompressionType);
-        logger.LogKeyBlockIndex(keyBlockIndex);
-
-        var recordBlocks = BuildRecordBlocks(offsetTable, opt).AsReadOnly();
-        logger.LogRecordBlocks(recordBlocks);
-
-        var recordBlockIndex = BuildRecordBlockIndex(recordBlocks);
-        logger.LogRecordIndex(recordBlockIndex);
-
-        _data = new(
-            opt,
-            entries.Count,
-            offsetTable,
-            keyBlocks,
-            recordBlocks,
-            keyBlockIndex,
-            recordBlockIndex);
-
-        logger.LogInitializationComplete();
-    }
-
-    private EncodingSettings GetEncodingSettings(MDictWriterOptions opt)
-    {
-        var encoding = opt.Encoding.ToLower();
+        var encoding = m.Encoding.ToLower();
         Debug.Assert(encoding == "utf8");
 
-        if (opt.IsMdd || encoding == "utf16" || encoding == "utf-16")
+        if (m.IsMdd || encoding == "utf16" || encoding == "utf-16")
         {
             return new(
                 InnerEncoding: Encoding.Unicode,
@@ -385,11 +346,11 @@ public sealed class MDictWriter
         }
     }
 
-    private OffsetTable BuildOffsetTable(List<MDictEntry> entries, MDictWriterOptions opt)
+    public OffsetTable Build(List<MDictEntry> entries, MDictMetadata m)
     {
-        entries.Sort((a, b) => MDictKeyComparer.Compare(a.Key, b.Key, opt.IsMdd));
+        entries.Sort((a, b) => keyComparer.Compare(a.Key, b.Key, m.IsMdd));
 
-        var encodingSettings = GetEncodingSettings(opt);
+        var encodingSettings = GetEncodingSettings(m);
         var arrayBuilder = ImmutableArray.CreateBuilder<OffsetTableEntry>(entries.Count);
         long currentOffset = 0;
 
@@ -412,7 +373,7 @@ public sealed class MDictWriter
                 RecordSize = item.Size,
                 RecordPos = item.Pos,
                 FilePath = item.Path,
-                IsMdd = opt.IsMdd,
+                IsMdd = m.IsMdd,
             };
             arrayBuilder.Add(tableEntry);
 
@@ -454,15 +415,26 @@ public sealed class MDictWriter
         //     Console.WriteLine("----------------------");
         // }
 
-        return new OffsetTable(arrayBuilder.MoveToImmutable());
+        var tableEntries = arrayBuilder.MoveToImmutable();
+        LogInfo(tableEntries.Length, currentOffset);
+
+        return new OffsetTable(tableEntries);
     }
 
-    private List<T> SplitBlocks<T>(Func<ReadOnlySpan<OffsetTableEntry>, int, T> blockConstructor,
-                                   Func<OffsetTableEntry, long> lenFunc,
-                                   OffsetTable offsetTable,
-                                   int blockSize,
-                                   int compressionType) where T : MdxBlock
+    [LoggerMessage(LogLevel.Debug,
+    "Total entries: {Count}, record length {RecordLength}")]
+    partial void LogInfo(int count, long RecordLength);
+}
+
+internal abstract partial class BlockBuilder<T>(ILogger<BlockBuilder<T>> logger) where T : MdxBlock
+{
+    protected abstract T BlockConstructor(ReadOnlySpan<OffsetTableEntry> entries, int compressionType);
+    protected abstract long EntryLength(OffsetTableEntry entry);
+
+    public List<T> Build(OffsetTable offsetTable, int blockSize, int compressionType)
     {
+        LogBeginBuilding(typeof(T).Name);
+
         var blocks = new List<T>();
         int thisBlockStart = 0;
         long curSize = 0;
@@ -483,7 +455,7 @@ public sealed class MDictWriter
             {
                 flush = true;
             }
-            else if (curSize + lenFunc(offsetTableEntry) > blockSize)
+            else if (curSize + EntryLength(offsetTableEntry) > blockSize)
             {
                 flush = true;
             }
@@ -495,7 +467,7 @@ public sealed class MDictWriter
                 // {
                 //     Console.WriteLine($"[split flush] {entry}");
                 // }
-                var block = blockConstructor(blockEntries, compressionType);
+                var block = BlockConstructor(blockEntries, compressionType);
                 blocks.Add(block);
                 curSize = 0;
                 thisBlockStart = ind;
@@ -503,42 +475,63 @@ public sealed class MDictWriter
 
             if (offsetTableEntry != null)
             {
-                curSize += lenFunc(offsetTableEntry);
+                curSize += EntryLength(offsetTableEntry);
             }
         }
+
+        LogBlocks(blockSize, blocks);
 
         return blocks;
     }
 
-    private List<MdxKeyBlock> BuildKeyBlocks(OffsetTable offsetTable, MDictWriterOptions opt)
-        => SplitBlocks
-        (
-            static (entries, comp) => new MdxKeyBlock(entries, comp),
-            static (entry) => entry.MdxKeyBlockEntryLength,
-            offsetTable,
-            opt.KeySize,
-            opt.CompressionType
-        );
+    [LoggerMessage(LogLevel.Debug, "Building blocks of type {Type}")]
+    private partial void LogBeginBuilding(string type);
 
-    private List<MdxRecordBlock> BuildRecordBlocks(OffsetTable offsetTable, MDictWriterOptions opt)
-        => SplitBlocks
-        (
-            static (entries, comp) => new MdxRecordBlock(entries, comp),
-            static (entry) => entry.MdxRecordBlockEntryLength,
-            offsetTable,
-            opt.BlockSize,
-            opt.CompressionType
-        );
+    [Conditional("DEBUG")]
+    private void LogBlocks(int blockSize, List<T> blocks)
+    {
+        logger.LogDebug("Block size set to {BlockSize}", blockSize);
+        logger.LogDebug("Built {Count} blocks.", blocks.Count);
 
-    private KeyBlockIndex BuildKeyBlockIndex(ReadOnlyCollection<MdxKeyBlock> keyBlocks, IMDictWriterLogger logger, int compressionType)
+        if (blocks is not List<MdxKeyBlock>)
+            return;
+
+        foreach (var block in blocks)
+        {
+            logger.LogDebug("KeyBlock: {Block}", block);
+        }
+    }
+}
+
+internal sealed class KeyBlockBuilder(ILogger<KeyBlockBuilder> logger) : BlockBuilder<MdxKeyBlock>(logger)
+{
+    protected override MdxKeyBlock BlockConstructor(ReadOnlySpan<OffsetTableEntry> entries, int compressionType)
+        => new(entries, compressionType);
+
+    protected override long EntryLength(OffsetTableEntry entry)
+        => entry.MdxKeyBlockEntryLength;
+}
+
+internal sealed class RecordBlockBuilder(ILogger<RecordBlockBuilder> logger) : BlockBuilder<MdxRecordBlock>(logger)
+{
+    protected override MdxRecordBlock BlockConstructor(ReadOnlySpan<OffsetTableEntry> entries, int compressionType)
+        => new(entries, compressionType);
+
+    protected override long EntryLength(OffsetTableEntry entry)
+        => entry.MdxRecordBlockEntryLength;
+}
+
+internal partial class KeyBlockIndexBuilder(ILogger<KeyBlockIndexBuilder> logger)
+{
+    private readonly static ArrayPool<byte> _arrayPool = ArrayPool<byte>.Shared;
+
+    public KeyBlockIndex Build(ReadOnlyCollection<MdxKeyBlock> keyBlocks, int compressionType)
     {
         if (keyBlocks is [])
             return new([], 0);
 
-        var arrayPool = ArrayPool<byte>.Shared;
-
         int decompDataTotalSize = keyBlocks.Sum(static b => b.IndexEntryLength);
-        var decompArray = arrayPool.Rent(decompDataTotalSize);
+        var decompArray = _arrayPool.Rent(decompDataTotalSize);
         var decompData = decompArray.AsSpan(..decompDataTotalSize);
 
         int maxBlockSize = keyBlocks.Max(static b => b.IndexEntryLength);
@@ -551,12 +544,12 @@ public sealed class MDictWriter
         {
             var indexEntry = blockBuffer[..block.IndexEntryLength];
             block.GetIndexEntry(indexEntry);
-            logger.LogIndexEntry(indexEntry);
-
+            LogIndexEntry(indexEntry);
             var destination = decompData.Slice(bytesWritten, indexEntry.Length);
             indexEntry.CopyTo(destination);
             bytesWritten += indexEntry.Length;
         }
+
         Debug.Assert(bytesWritten == decompDataTotalSize);
 
         var compressedBytes = MdxBlock.MdxCompress(decompData, compressionType);
@@ -565,12 +558,36 @@ public sealed class MDictWriter
             CompressedBytes: compressedBytes,
             DecompSize: bytesWritten);
 
-        arrayPool.Return(decompArray);
+        _arrayPool.Return(decompArray);
+
+        LogIndexBuilt(index.DecompSize, index.CompressedSize);
 
         return index;
     }
 
-    private RecordBlockIndex BuildRecordBlockIndex(ReadOnlyCollection<MdxRecordBlock> recordBlocks)
+    [Conditional("DEBUG")]
+    private void LogIndexEntry(ReadOnlySpan<byte> indexEntry)
+    {
+        var bytes = new string[indexEntry.Length];
+        for (int i = 0; i < indexEntry.Length; i++)
+        {
+            bytes[i] = $"{indexEntry[i]:X2}";
+        }
+        var entryData = string.Join(" ", bytes);
+        LogEntryData(entryData);
+    }
+
+    [LoggerMessage(LogLevel.Debug, "Entry: {EntryData}")]
+    private partial void LogEntryData(string entryData);
+
+    [LoggerMessage(LogLevel.Debug,
+    "Key index built: decompressed={DecompSize}, compressed={CompSize}")]
+    private partial void LogIndexBuilt(long decompSize, int compSize);
+}
+
+internal partial class RecordBlockIndexBuilder(ILogger<RecordBlockIndexBuilder> logger)
+{
+    public RecordBlockIndex Build(ReadOnlyCollection<MdxRecordBlock> recordBlocks)
     {
         if (recordBlocks is [])
             return new([]);
@@ -594,7 +611,28 @@ public sealed class MDictWriter
         }
         Debug.Assert(bytesWritten == indexSize);
 
+        LogIndexBuilt(bytesWritten);
+
         return new(indexBuilder.MoveToImmutable());
+    }
+
+    [LoggerMessage(LogLevel.Debug, "Record index built: size={Size}")]
+    private partial void LogIndexBuilt(long size);
+}
+
+public sealed class MDictWriter
+{
+    private readonly MDictData _data;
+
+    public MDictWriter(List<MDictEntry> entries, MDictMetadata? metadata = null, bool logging = true)
+    {
+        metadata ??= new();
+
+        if (metadata.Version != "2.0")
+            throw new NotImplementedException("Unknown version. Supported: 2.0");
+
+        var builder = MDictDataBuilderProvider.GetDataBuilder(logging);
+        _data = builder.BuildData(entries, metadata);
     }
 
     public void Write(Stream outfile)
@@ -697,11 +735,6 @@ public sealed class MDictWriter
 
     private void WriteKeySection(Stream outfile)
     {
-        if (_data.Metadata.Version != "2.0")
-        {
-            throw new NotImplementedException();
-        }
-
         long keyBlocksTotalValue = _data.KeyBlocks.Sum(static b => b.BlockData.Length);
 
         Span<byte> preamble = stackalloc byte[5 * 8]; // Five 8-byte buffers
@@ -729,11 +762,6 @@ public sealed class MDictWriter
 
     private void WriteRecordSection(Stream outfile)
     {
-        if (_data.Metadata.Version != "2.0")
-        {
-            throw new NotImplementedException();
-        }
-
         long recordblocksTotal = _data.RecordBlocks.Sum(static b => b.BlockData.Length);
 
         Span<byte> preamble = stackalloc byte[4 * 8]; // Four 8-byte buffers
@@ -767,7 +795,7 @@ internal partial class MDictKeyComparer
     [GeneratedRegex(@"[!\""#$%&'()*+,\-./:;<=>?@\[\\\]^_`{|}~ ]+")]
     public static partial Regex RegexStrip { get; }
 
-    public static int Compare(ReadOnlySpan<char> k1, ReadOnlySpan<char> k2, bool isMdd)
+    public int Compare(ReadOnlySpan<char> k1, ReadOnlySpan<char> k2, bool isMdd)
     {
         if (!isMdd)
         {
