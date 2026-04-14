@@ -73,14 +73,14 @@ internal abstract class MdxBlock
 
         // Console.WriteLine("[Debug] Calling MdxBlock...");
 
-        long longDecompDataSize = offsetTableEntries.Sum(BlockEntryLength);
-        int decompDataSize = Convert.ToInt32(longDecompDataSize);
+        int decompDataSize = Convert.ToInt32(offsetTableEntries.Sum(BlockEntryLength));
         var decompData = _arrayPool.Rent(decompDataSize);
 
-        var maxBlockSize = offsetTableEntries.Max(BlockEntryLength);
+        var maxBlockSize = Convert.ToInt32(offsetTableEntries.Max(BlockEntryLength));
+        byte[]? blockArray = null;
         var blockBuffer = maxBlockSize < 256
-            ? stackalloc byte[(int)maxBlockSize]
-            : new byte[maxBlockSize];
+            ? stackalloc byte[maxBlockSize]
+            : (blockArray = _arrayPool.Rent(maxBlockSize));
 
         int totalSize = 0;
         foreach (var entry in offsetTableEntries)
@@ -92,6 +92,9 @@ internal abstract class MdxBlock
             source.CopyTo(destination);
             totalSize += blockSize;
         }
+
+        if (blockArray is not null)
+            _arrayPool.Return(blockArray);
 
         // Console.WriteLine("[Debug] Building MdxBlock...");
         // Console.WriteLine($"[Debug] Decompressed array length (_decompSize): {_decompSize}");
@@ -332,15 +335,15 @@ internal partial class OffsetTableBuilder
     {
         entries.Sort((a, b) => keyComparer.Compare(a.Key, b.Key, m.IsMdd));
 
-        byte[]? arrayFromPool = null;
         var encoder = GetEncodingSettings(m);
         var arrayBuilder = ImmutableArray.CreateBuilder<OffsetTableEntry>(entries.Count);
         long currentOffset = 0;
         int maxEncLength = GetMaxEncLength(entries, encoder);
 
+        byte[]? bufferArray = null;
         var buffer = maxEncLength < 256
             ? stackalloc byte[maxEncLength]
-            : (arrayFromPool = _arrayPool.Rent(maxEncLength));
+            : (bufferArray = _arrayPool.Rent(maxEncLength));
 
         foreach (var item in entries)
         {
@@ -371,8 +374,8 @@ internal partial class OffsetTableBuilder
             currentOffset += item.Size;
         }
 
-        if (arrayFromPool is not null)
-            _arrayPool.Return(arrayFromPool);
+        if (bufferArray is not null)
+            _arrayPool.Return(bufferArray);
 
         // pretty print it here
         // {
@@ -571,9 +574,10 @@ internal partial class KeyBlockIndexBuilder(ILogger<KeyBlockIndexBuilder> logger
         var decompData = decompArray.AsSpan(..decompDataTotalSize);
 
         int maxBlockSize = keyBlocks.Max(static b => b.IndexEntryLength);
+        byte[]? blockArray = null;
         var blockBuffer = maxBlockSize < 256
             ? stackalloc byte[maxBlockSize]
-            : new byte[maxBlockSize];
+            : (blockArray = _arrayPool.Rent(maxBlockSize));
 
         int bytesWritten = 0;
         foreach (var block in keyBlocks)
@@ -586,15 +590,17 @@ internal partial class KeyBlockIndexBuilder(ILogger<KeyBlockIndexBuilder> logger
             bytesWritten += indexEntry.Length;
         }
 
+        if (blockArray is not null)
+            _arrayPool.Return(blockArray);
+
         Debug.Assert(bytesWritten == decompDataTotalSize);
 
         var compressedBytes = MdxBlock.MdxCompress(decompData, compressionType);
+        _arrayPool.Return(decompArray);
 
         KeyBlockIndex index = new(
             CompressedBytes: compressedBytes,
             DecompSize: bytesWritten);
-
-        _arrayPool.Return(decompArray);
 
         LogIndexBuilt(index.DecompSize, index.CompressedSize);
 
@@ -623,6 +629,8 @@ internal partial class KeyBlockIndexBuilder(ILogger<KeyBlockIndexBuilder> logger
 
 internal partial class RecordBlockIndexBuilder(ILogger<RecordBlockIndexBuilder> logger)
 {
+    private readonly static ArrayPool<byte> _arrayPool = ArrayPool<byte>.Shared;
+
     public RecordBlockIndex Build(ReadOnlyCollection<MdxRecordBlock> recordBlocks)
     {
         if (recordBlocks is [])
@@ -632,9 +640,10 @@ internal partial class RecordBlockIndexBuilder(ILogger<RecordBlockIndexBuilder> 
         var indexBuilder = ImmutableArray.CreateBuilder<byte>(indexSize);
 
         int maxBlockSize = recordBlocks.Max(static b => b.IndexEntryLength);
+        byte[]? blockArray = null;
         var blockBuffer = maxBlockSize < 256
             ? stackalloc byte[maxBlockSize]
-            : new byte[maxBlockSize];
+            : (blockArray = _arrayPool.Rent(maxBlockSize));
 
         int bytesWritten = 0;
         foreach (var block in recordBlocks)
@@ -645,8 +654,11 @@ internal partial class RecordBlockIndexBuilder(ILogger<RecordBlockIndexBuilder> 
             indexBuilder.AddRange(indexEntry);
             bytesWritten += indexEntry.Length;
         }
-        Debug.Assert(bytesWritten == indexSize);
 
+        if (blockArray is not null)
+            _arrayPool.Return(blockArray);
+
+        Debug.Assert(bytesWritten == indexSize);
         LogIndexBuilt(bytesWritten);
 
         return new(indexBuilder.MoveToImmutable());
