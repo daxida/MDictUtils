@@ -12,8 +12,7 @@ internal sealed class FileStreams(int maxOpenStreams = 128) : IDisposable
 
     public MemoryMappedViewStream GetStream(string filepath)
     {
-        if (_isDisposed)
-            throw new ObjectDisposedException(nameof(FileStreams));
+        ObjectDisposedException.ThrowIf(_isDisposed, this);
 
         if (_filepathToStream.TryGetValue(filepath, out var stream))
             return stream;
