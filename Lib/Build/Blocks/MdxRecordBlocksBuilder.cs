@@ -5,22 +5,17 @@ namespace Lib.Build.Blocks;
 
 internal sealed class MdxRecordBlocksBuilder
 (
-    ILogger<MddRecordBlocksBuilder> logger,
+    ILogger<MdxRecordBlocksBuilder> logger,
     IBlockCompressor blockCompressor
 )
-    : BlocksBuilder<RecordBlock>(logger, blockCompressor), IRecordBlocksBuilder
+    : RecordBlocksBuilder(logger, blockCompressor)
 {
     private FileStreams? _fileStreams;
 
-    public override List<RecordBlock> Build(OffsetTable offsetTable, int blockSize)
-        => throw new InvalidOperationException($"""
-            Use the {nameof(IRecordBlocksBuilder.Build)} method with the {nameof(FileStreams)} parameter.
-            """);
-
-    List<RecordBlock> IRecordBlocksBuilder.Build(OffsetTable offsetTable, int blockSize, FileStreams fileStreams)
+    public override List<RecordBlock> Build(OffsetTable offsetTable, int blockSize, FileStreams fileStreams)
     {
         _fileStreams = fileStreams;
-        return base.Build(offsetTable, blockSize);
+        return BuildBlocks(offsetTable, blockSize);
     }
 
     protected override long GetByteCount(OffsetTableEntry entry)

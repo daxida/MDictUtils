@@ -10,6 +10,9 @@ internal sealed class KeyBlocksBuilder
 )
     : BlocksBuilder<KeyBlock>(logger, blockCompressor)
 {
+    public List<KeyBlock> Build(OffsetTable offsetTable, int blockSize)
+        => BuildBlocks(offsetTable, blockSize);
+
     protected override KeyBlock BlockConstructor(ReadOnlySpan<OffsetTableEntry> entries)
     {
         var block = GetCompressedBlock(entries);

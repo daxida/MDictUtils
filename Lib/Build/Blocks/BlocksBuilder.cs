@@ -19,7 +19,7 @@ internal abstract partial class BlocksBuilder<T>
     protected abstract long GetByteCount(OffsetTableEntry entry);
     protected abstract int WriteBytes(OffsetTableEntry entry, Span<byte> buffer);
 
-    public virtual List<T> Build(OffsetTable offsetTable, int blockSize)
+    protected List<T> BuildBlocks(OffsetTable offsetTable, int blockSize)
     {
         LogBeginBuilding(_typeName);
 

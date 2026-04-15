@@ -9,10 +9,10 @@ internal sealed class MddRecordBlocksBuilder
     ILogger<MddRecordBlocksBuilder> logger,
     IBlockCompressor blockCompressor
 )
-    : BlocksBuilder<RecordBlock>(logger, blockCompressor), IRecordBlocksBuilder
+    : RecordBlocksBuilder(logger, blockCompressor)
 {
-    List<RecordBlock> IRecordBlocksBuilder.Build(OffsetTable offsetTable, int blockSize, FileStreams _)
-        => Build(offsetTable, blockSize);
+    public override List<RecordBlock> Build(OffsetTable offsetTable, int blockSize, FileStreams _)
+        => BuildBlocks(offsetTable, blockSize);
 
     protected override long GetByteCount(OffsetTableEntry entry)
         => entry.RecordBlockLength;
