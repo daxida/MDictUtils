@@ -46,7 +46,10 @@ internal sealed class MDictDataBuilder
 
         return new MDictData
         (
-            Metadata: m,
+            Title: m.Title,
+            Description: m.Description,
+            Version: m.Version,
+            IsMdd: m.IsMdd,
             EntryCount: entries.Count,
             KeyBlocks: keyBlocks,
             RecordBlocks: recordBlocks,

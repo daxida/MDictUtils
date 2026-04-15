@@ -88,40 +88,40 @@ public sealed class MDictWriter
             sb.Append(' ');
         }
 
-        if (_data.Metadata.IsMdd)
+        if (_data.IsMdd)
         {
-            append($"""  <Library_Data                                           """);
-            append($"""  GeneratedByEngineVersion="{_data.Metadata.Version}"     """);
-            append($"""  RequiredEngineVersion="{_data.Metadata.Version}"        """);
-            append($"""  Encrypted="{encrypted}"                                 """);
-            append($"""  Encoding=""                                             """);
-            append($"""  Format=""                                               """);
-            append($"""  CreationDate="{now.Year}-{now.Month}-{now.Day}"         """);
-            append($"""  KeyCaseSensitive="No"                                   """);
-            append($"""  Stripkey="No"                                           """);
-            append($"""  Description="{EscapeHtml(_data.Metadata.Description)}"  """);
-            append($"""  Title="{EscapeHtml(_data.Metadata.Title)}"              """);
-            append($"""  RegisterBy="{registerByStr}"                            """);
+            append($"""  <Library_Data                                    """);
+            append($"""  GeneratedByEngineVersion="{_data.Version}"       """);
+            append($"""  RequiredEngineVersion="{_data.Version}"          """);
+            append($"""  Encrypted="{encrypted}"                          """);
+            append($"""  Encoding=""                                      """);
+            append($"""  Format=""                                        """);
+            append($"""  CreationDate="{now.Year}-{now.Month}-{now.Day}"  """);
+            append($"""  KeyCaseSensitive="No"                            """);
+            append($"""  Stripkey="No"                                    """);
+            append($"""  Description="{EscapeHtml(_data.Description)}"    """);
+            append($"""  Title="{EscapeHtml(_data.Title)}"                """);
+            append($"""  RegisterBy="{registerByStr}"                     """);
         }
         else
         {
-            append($"""  <Dictionary                                             """);
-            append($"""  GeneratedByEngineVersion="{_data.Metadata.Version}"     """);
-            append($"""  RequiredEngineVersion="{_data.Metadata.Version}"        """);
-            append($"""  Encrypted="{encrypted}"                                 """);
-            append($"""  Encoding="{encoding}"                                   """);
-            append($"""  Format="Html"                                           """);
-            append($"""  Stripkey="Yes"                                          """);
-            append($"""  CreationDate="{now.Year}-{now.Month}-{now.Day}"         """);
-            append($"""  Compact="Yes"                                           """);
-            append($"""  Compat="Yes"                                            """);
-            append($"""  KeyCaseSensitive="No"                                   """);
-            append($"""  Description="{EscapeHtml(_data.Metadata.Description)}"  """);
-            append($"""  Title="{EscapeHtml(_data.Metadata.Title)}"              """);
-            append($"""  DataSourceFormat="106"                                  """);
-            append($"""  StyleSheet=""                                           """);
-            append($"""  Left2Right="Yes"                                        """);
-            append($"""  RegisterBy="{registerByStr}"                            """);
+            append($"""  <Dictionary                                      """);
+            append($"""  GeneratedByEngineVersion="{_data.Version}"       """);
+            append($"""  RequiredEngineVersion="{_data.Version}"          """);
+            append($"""  Encrypted="{encrypted}"                          """);
+            append($"""  Encoding="{encoding}"                            """);
+            append($"""  Format="Html"                                    """);
+            append($"""  Stripkey="Yes"                                   """);
+            append($"""  CreationDate="{now.Year}-{now.Month}-{now.Day}"  """);
+            append($"""  Compact="Yes"                                    """);
+            append($"""  Compat="Yes"                                     """);
+            append($"""  KeyCaseSensitive="No"                            """);
+            append($"""  Description="{EscapeHtml(_data.Description)}"    """);
+            append($"""  Title="{EscapeHtml(_data.Title)}"                """);
+            append($"""  DataSourceFormat="106"                           """);
+            append($"""  StyleSheet=""                                    """);
+            append($"""  Left2Right="Yes"                                 """);
+            append($"""  RegisterBy="{registerByStr}"                     """);
         }
         sb.Append("/>\r\n\0");
         return sb.ToString();

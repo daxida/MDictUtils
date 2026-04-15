@@ -4,7 +4,10 @@ namespace Lib.BuildModels;
 
 internal sealed record MDictData
 (
-    MDictMetadata Metadata,
+    string Title,
+    string Description,
+    string Version,
+    bool IsMdd,
     int EntryCount,
     ReadOnlyCollection<KeyBlock> KeyBlocks,
     ReadOnlyCollection<RecordBlock> RecordBlocks,
