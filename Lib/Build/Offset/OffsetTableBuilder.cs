@@ -127,7 +127,7 @@ internal partial class OffsetTableBuilder
         }
         else
         {
-            throw new ArgumentException("Unknown encoding. Supported: utf8, utf16");
+            throw new NotSupportedException("Unknown encoding. Supported: utf8, utf16");
         }
     }
 
