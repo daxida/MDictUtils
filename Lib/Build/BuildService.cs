@@ -1,4 +1,5 @@
 using Lib.Build.Blocks;
+using Lib.Build.Compression;
 using Lib.Build.Index;
 using Lib.Build.Offset;
 using Microsoft.Extensions.DependencyInjection;

@@ -1,24 +1,20 @@
 using System.Buffers;
 
-namespace Lib.Build;
+namespace Lib.Build.Compression;
 
 internal sealed class ZLibBlockCompressor : IBlockCompressor
 {
-    public const int CompressionType = 2;
+    public const uint CompressionType = 2;
     private readonly static ArrayPool<byte> _arrayPool = ArrayPool<byte>.Shared;
 
     public ImmutableArray<byte> Compress(ReadOnlySpan<byte> data)
     {
-        // Compression type (little-endian)
-        Span<byte> compType = stackalloc byte[4];
-        Common.ToLittleEndian((uint)CompressionType, compType); // <L in Python
+        Span<byte> compressionTypeBytes = stackalloc byte[4];
+        Common.ToLittleEndian(CompressionType, compressionTypeBytes);
 
-        // Adler32 checksum (big-endian)
-        uint adler = Common.Adler32(data);
-        Span<byte> adlerBytes = stackalloc byte[4];
-        Common.ToBigEndian(adler, adlerBytes); // Python uses >L
-
-        // byte[] header = [.. lend, .. adlerBytes];
+        uint checksum = Common.Adler32(data);
+        Span<byte> checksumBytes = stackalloc byte[4];
+        Common.ToBigEndian(checksum, checksumBytes);
 
         // It's possible for compressed data to be larger than the uncompressed.
         // See: https://zlib.net/zlib_tech.html
@@ -28,11 +24,14 @@ internal sealed class ZLibBlockCompressor : IBlockCompressor
 
         var size = ZLibCompression.Compress(data, buffer);
 
-        ImmutableArray<byte> compressed = [.. compType, .. adlerBytes, .. buffer.AsSpan(..size)];
-        _arrayPool.Return(buffer);
+        ImmutableArray<byte> compressed =
+        [
+            .. compressionTypeBytes,
+            .. checksumBytes,
+            .. buffer.AsSpan(..size),
+        ];
 
-        // Console.WriteLine($"adler: {adler}");
-        // Console.WriteLine($"header: {BitConverter.ToString(header)}");
+        _arrayPool.Return(buffer);
 
         return compressed;
     }
