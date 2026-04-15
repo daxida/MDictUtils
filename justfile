@@ -89,7 +89,7 @@ jitendex-py:
       -a build1/jitendex.mdx.txt \
       --title build1/jitendex.mdx.title.html \
       --description build1/jitendex.mdx.description.html \
-      build2/out/jitendex.mdx
+      build1/out/jitendex.mdx
   mdict \
       -a build1/media \
       --title build1/jitendex.mdx.title.html \
