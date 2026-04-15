@@ -76,11 +76,11 @@ public class MDictSorterTests
     public void TestMDictRegexStrip()
     {
         const string expected = "cc100";
-        char[] punctuationChars = [.. MDictKeyComparer.PunctuationChars, ' '];
+        char[] punctuationChars = [.. KeyComparer.PunctuationChars, ' '];
         foreach (var punctuation in punctuationChars)
         {
             var test = expected.Insert(3, punctuation.ToString());
-            var actual = MDictKeyComparer.RegexStrip.Replace(test, "");
+            var actual = KeyComparer.RegexStrip.Replace(test, "");
             Assert.Equal(expected, actual);
         }
     }

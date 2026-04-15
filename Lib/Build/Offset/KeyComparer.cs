@@ -2,7 +2,7 @@ using System.Text.RegularExpressions;
 
 namespace Lib.Build.Offset;
 
-internal abstract partial class MDictKeyComparer : IKeyComparer
+internal abstract partial class KeyComparer : IKeyComparer
 {
     /// <summary>
     /// https://docs.python.org/3/library/string.html#string.punctuation

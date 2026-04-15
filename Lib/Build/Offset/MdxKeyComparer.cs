@@ -1,6 +1,6 @@
 namespace Lib.Build.Offset;
 
-internal class MdxKeyComparer : MDictKeyComparer
+internal class MdxKeyComparer : KeyComparer
 {
     public override int Compare(ReadOnlySpan<char> k1, ReadOnlySpan<char> k2)
     {
