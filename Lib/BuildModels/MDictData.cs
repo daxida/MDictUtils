@@ -6,7 +6,6 @@ internal sealed record MDictData
 (
     MDictMetadata Metadata,
     int EntryCount,
-    OffsetTable OffsetTable,
     ReadOnlyCollection<KeyBlock> KeyBlocks,
     ReadOnlyCollection<RecordBlock> RecordBlocks,
     CompressedBlock KeyBlockIndex,

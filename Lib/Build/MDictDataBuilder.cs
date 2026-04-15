@@ -48,7 +48,6 @@ internal sealed class MDictDataBuilder
         (
             Metadata: m,
             EntryCount: entries.Count,
-            OffsetTable: offsetTable,
             KeyBlocks: keyBlocks,
             RecordBlocks: recordBlocks,
             KeyBlockIndex: keyBlockIndex,
