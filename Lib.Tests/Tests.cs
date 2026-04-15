@@ -2,8 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
-using Lib.Build;
 using Xunit;
+using Lib.Build.Offset;
 
 namespace Lib.Tests;
 

@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using Lib.Build;
 using Lib.BuildModels;
 
@@ -147,7 +147,7 @@ public sealed class MDictWriter
         Common.ToBigEndian((ulong)_data.KeyBlocks.Count, r.Read());
         Common.ToBigEndian((ulong)_data.EntryCount, r.Read());
         Common.ToBigEndian((ulong)_data.KeyBlockIndex.DecompSize, r.Read());
-        Common.ToBigEndian((ulong)_data.KeyBlockIndex.CompressedSize, r.Read());
+        Common.ToBigEndian((ulong)_data.KeyBlockIndex.Size, r.Read());
         Common.ToBigEndian((ulong)_data.KeyBlocksSize, r.Read());
 
         uint checksumValue = Common.Adler32(preamble);
@@ -156,11 +156,11 @@ public sealed class MDictWriter
 
         outfile.Write(preamble);
         outfile.Write(checksum);
-        outfile.Write(_data.KeyBlockIndex.CompressedBytes.AsSpan());
+        outfile.Write(_data.KeyBlockIndex.Bytes.AsSpan());
 
         foreach (var block in _data.KeyBlocks)
         {
-            outfile.Write(block.BlockData.AsSpan());
+            outfile.Write(block.Bytes.AsSpan());
         }
     }
 
@@ -179,7 +179,7 @@ public sealed class MDictWriter
 
         foreach (var block in _data.RecordBlocks)
         {
-            outfile.Write(block.BlockData.AsSpan());
+            outfile.Write(block.Bytes.AsSpan());
         }
     }
 }

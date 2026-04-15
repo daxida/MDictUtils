@@ -1,18 +1,10 @@
-using Lib.BuildModels;
+using Lib.Build.Blocks;
+using Lib.Build.Index;
+using Lib.Build.Offset;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Lib.Build;
-
-internal interface IMDictDataBuilder
-{
-    public MDictData BuildData(List<MDictEntry> entries, MDictMetadata metadata);
-}
-
-internal interface IBlockCompressor
-{
-    ImmutableArray<byte> Compress(ReadOnlySpan<byte> data);
-}
 
 internal static class MDictDataBuilderProvider
 {
@@ -30,7 +22,10 @@ internal static class MDictDataBuilderProvider
 
         // Record blocks
         s.AddTransient<RecordBlockIndexBuilder>();
-        s.AddTransient<RecordBlocksBuilder>();
+        if (metadata.IsMdd)
+            s.AddTransient<IRecordBlocksBuilder, MddRecordBlocksBuilder>();
+        else
+            s.AddTransient<IRecordBlocksBuilder, MdxRecordBlocksBuilder>();
 
         // Compression
         if (metadata.CompressionType == ZLibBlockCompressor.CompressionType)

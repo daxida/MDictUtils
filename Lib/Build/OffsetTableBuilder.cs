@@ -4,7 +4,7 @@ using System.Text;
 using Lib.BuildModels;
 using Microsoft.Extensions.Logging;
 
-namespace Lib.Build;
+namespace Lib.Build.Offset;
 
 internal partial class OffsetTableBuilder
 (
@@ -50,7 +50,7 @@ internal partial class OffsetTableBuilder
                 RecordSize = item.Size,
                 RecordPos = item.Pos,
                 FilePath = item.Path,
-                IsMdd = m.IsMdd,
+                // IsMdd = m.IsMdd,
             };
             arrayBuilder.Add(tableEntry);
 

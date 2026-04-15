@@ -1,16 +1,25 @@
+using System.Buffers;
 using System.Diagnostics;
 using Lib.BuildModels;
 using Microsoft.Extensions.Logging;
 
-namespace Lib.Build;
+namespace Lib.Build.Blocks;
 
-internal abstract partial class BlocksBuilder<T>(ILogger<BlocksBuilder<T>> logger) where T : MdxBlock
+internal abstract partial class BlocksBuilder<T>
+(
+    ILogger<BlocksBuilder<T>> logger,
+    IBlockCompressor blockCompressor
+)
+    where T : MDictBlock
 {
-    protected abstract T BlockConstructor(ReadOnlySpan<OffsetTableEntry> entries);
-    protected abstract long EntryLength(OffsetTableEntry entry);
+    private readonly static ArrayPool<byte> _arrayPool = ArrayPool<byte>.Shared;
     private readonly static string _typeName = typeof(T).Name;
 
-    public List<T> Build(OffsetTable offsetTable, int blockSize)
+    protected abstract T BlockConstructor(ReadOnlySpan<OffsetTableEntry> entries);
+    protected abstract long GetByteCount(OffsetTableEntry entry);
+    protected abstract int WriteBytes(OffsetTableEntry entry, Span<byte> buffer);
+
+    public virtual List<T> Build(OffsetTable offsetTable, int blockSize)
     {
         LogBeginBuilding(_typeName);
 
@@ -29,7 +38,7 @@ internal abstract partial class BlocksBuilder<T>(ILogger<BlocksBuilder<T>> logge
                 flush = false;
             else if (offsetTableEntry == null)
                 flush = true;
-            else if (curSize + EntryLength(offsetTableEntry) > blockSize)
+            else if (curSize + GetByteCount(offsetTableEntry) > blockSize)
                 flush = true;
             else
                 flush = false;
@@ -48,12 +57,52 @@ internal abstract partial class BlocksBuilder<T>(ILogger<BlocksBuilder<T>> logge
             }
 
             if (offsetTableEntry is not null)
-                curSize += EntryLength(offsetTableEntry);
+                curSize += GetByteCount(offsetTableEntry);
         }
 
         LogBlocks(blockSize, blocks);
 
         return blocks;
+    }
+
+    protected CompressedBlock GetCompressedBlock(ReadOnlySpan<OffsetTableEntry> offsetTableEntries)
+    {
+        // Console.WriteLine("[Debug] Calling MdxBlock...");
+
+        int decompDataSize = Convert.ToInt32(offsetTableEntries.Sum(GetByteCount));
+        var decompData = _arrayPool.Rent(decompDataSize);
+
+        var maxBlockSize = Convert.ToInt32(offsetTableEntries.Max(GetByteCount));
+        byte[]? blockArray = null;
+        var blockBuffer = maxBlockSize < 256
+            ? stackalloc byte[maxBlockSize]
+            : (blockArray = _arrayPool.Rent(maxBlockSize));
+
+        int totalSize = 0;
+        foreach (var entry in offsetTableEntries)
+        {
+            int blockSize = WriteBytes(entry, blockBuffer);
+            // Console.WriteLine($"[Debug] BlockEntry ({blockEntry.Length} bytes): {BitConverter.ToString(blockEntry)}");
+            var source = blockBuffer[..blockSize];
+            var destination = decompData.AsSpan(start: totalSize, length: blockSize);
+            source.CopyTo(destination);
+            totalSize += blockSize;
+        }
+
+        if (blockArray is not null)
+            _arrayPool.Return(blockArray);
+
+        // Console.WriteLine("[Debug] Building MdxBlock...");
+        // Console.WriteLine($"[Debug] Decompressed array length (_decompSize): {_decompSize}");
+        // Common.PrintPythonStyle(decompArray);
+
+        var compressedBytes = blockCompressor.Compress(decompData[..totalSize]);
+
+        // Console.WriteLine($"[Debug] Compressed array length (_compSize): {_compSize}");
+
+        _arrayPool.Return(decompData);
+
+        return new(compressedBytes, DecompSize: totalSize);
     }
 
     [LoggerMessage(LogLevel.Debug, "Building blocks of type {Type}")]
@@ -65,7 +114,7 @@ internal abstract partial class BlocksBuilder<T>(ILogger<BlocksBuilder<T>> logge
         logger.LogDebug("Block size set to {BlockSize}", blockSize);
         logger.LogDebug("Built {Count} blocks.", blocks.Count);
 
-        if (blocks is not List<MdxKeyBlock>)
+        if (blocks is not List<KeyBlock>)
             return;
 
         foreach (var block in blocks)

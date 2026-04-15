@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 
-namespace Lib.Build;
+namespace Lib.Build.Offset;
 
 internal partial class MDictKeyComparer
 {
