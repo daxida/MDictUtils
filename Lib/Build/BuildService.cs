@@ -15,7 +15,10 @@ internal static class MDictDataBuilderProvider
 
         // Offset table
         s.AddTransient<OffsetTableBuilder>();
-        s.AddTransient<MDictKeyComparer>();
+        if (metadata.IsMdd)
+            s.AddTransient<IKeyComparer, MddKeyComparer>();
+        else
+            s.AddTransient<IKeyComparer, MdxKeyComparer>();
 
         // Key blocks
         s.AddTransient<KeyBlockIndexBuilder>();

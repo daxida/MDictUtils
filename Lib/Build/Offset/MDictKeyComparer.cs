@@ -2,7 +2,7 @@ using System.Text.RegularExpressions;
 
 namespace Lib.Build.Offset;
 
-internal partial class MDictKeyComparer
+internal abstract partial class MDictKeyComparer : IKeyComparer
 {
     /// <summary>
     /// https://docs.python.org/3/library/string.html#string.punctuation
@@ -15,35 +15,26 @@ internal partial class MDictKeyComparer
     [GeneratedRegex(@"[!\""#$%&'()*+,\-./:;<=>?@\[\\\]^_`{|}~ ]+")]
     public static partial Regex RegexStrip { get; }
 
-    public int Compare(ReadOnlySpan<char> k1, ReadOnlySpan<char> k2, bool isMdd)
+    public abstract int Compare(ReadOnlySpan<char> k1, ReadOnlySpan<char> k2);
+}
+
+internal class MdxKeyComparer : MDictKeyComparer
+{
+    public override int Compare(ReadOnlySpan<char> k1, ReadOnlySpan<char> k2)
     {
-        if (!isMdd)
-        {
-            if (RegexStrip.IsMatch(k1))
-                k1 = StripPunctuation(k1);
+        if (RegexStrip.IsMatch(k1))
+            k1 = StripPunctuation(k1);
 
-            if (RegexStrip.IsMatch(k2))
-                k2 = StripPunctuation(k2);
-        }
+        if (RegexStrip.IsMatch(k2))
+            k2 = StripPunctuation(k2);
 
-        // key1 = locale.strxfrm(key1) ??
-        // this was locale dependent in py, but then we don't pass our tests,
-        // and it shouldn't matter anyway as long as the internal mapping works
         int cmp = k1.CompareTo(k2, StringComparison.OrdinalIgnoreCase);
-
         if (cmp != 0)
             return cmp;
 
         // reverse length (longer first) - compare on current k1/k2
         if (k1.Length != k2.Length)
             return k2.Length.CompareTo(k1.Length);
-
-        // trim punctuation (already stripped if this is not MDD)
-        if (isMdd)
-        {
-            k1 = k1.TrimEnd(PunctuationChars);
-            k2 = k2.TrimEnd(PunctuationChars);
-        }
 
         return k2.CompareTo(k1, StringComparison.OrdinalIgnoreCase);
     }
@@ -66,5 +57,25 @@ internal partial class MDictKeyComparer
         charsWritten += text.Length - lastIndex;
 
         return buffer[..charsWritten];
+    }
+}
+
+internal class MddKeyComparer : MDictKeyComparer
+{
+    public override int Compare(ReadOnlySpan<char> k1, ReadOnlySpan<char> k2)
+    {
+        int cmp = k1.CompareTo(k2, StringComparison.OrdinalIgnoreCase);
+        if (cmp != 0)
+            return cmp;
+
+        // reverse length (longer first) - compare on current k1/k2
+        if (k1.Length != k2.Length)
+            return k2.Length.CompareTo(k1.Length);
+
+        // trim punctuation
+        k1 = k1.TrimEnd(PunctuationChars);
+        k2 = k2.TrimEnd(PunctuationChars);
+
+        return k2.CompareTo(k1, StringComparison.OrdinalIgnoreCase);
     }
 }

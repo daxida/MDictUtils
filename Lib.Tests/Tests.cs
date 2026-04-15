@@ -99,8 +99,8 @@ public class MDictSorterTests
         var expected = new List<(string Key, int ExpectedIndex)>(items);
         expected.Sort((a, b) => a.ExpectedIndex.CompareTo(b.ExpectedIndex));
 
-        var comparer = new MDictKeyComparer();
-        items.Sort((a, b) => comparer.Compare(a.Key, b.Key, isMdd: false));
+        var comparer = new MdxKeyComparer();
+        items.Sort((a, b) => comparer.Compare(a.Key, b.Key));
 
         for (int i = 0; i < items.Count; i++)
         {

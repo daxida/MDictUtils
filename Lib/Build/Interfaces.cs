@@ -16,3 +16,8 @@ internal interface IRecordBlocksBuilder
 {
     List<RecordBlock> Build(OffsetTable offsetTable, int blockSize, FileStreams fileStreams);
 }
+
+internal interface IKeyComparer
+{
+    int Compare(ReadOnlySpan<char> k1, ReadOnlySpan<char> k2);
+}
