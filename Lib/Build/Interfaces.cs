@@ -14,7 +14,7 @@ internal interface IBlockCompressor
 
 internal interface IRecordBlocksBuilder
 {
-    List<RecordBlock> Build(OffsetTable offsetTable, int blockSize, FileStreams fileStreams);
+    List<RecordBlock> Build(OffsetTable offsetTable, int blockSize);
 }
 
 internal interface IKeyComparer

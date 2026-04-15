@@ -12,8 +12,9 @@ internal sealed class MdxRecordBlocksBuilder
 {
     private FileStreams? _fileStreams;
 
-    public override List<RecordBlock> Build(OffsetTable offsetTable, int blockSize, FileStreams fileStreams)
+    public override List<RecordBlock> Build(OffsetTable offsetTable, int blockSize)
     {
+        using var fileStreams = new FileStreams();
         _fileStreams = fileStreams;
         return BuildBlocks(offsetTable, blockSize);
     }

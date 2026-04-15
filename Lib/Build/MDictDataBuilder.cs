@@ -30,13 +30,9 @@ internal sealed class MDictDataBuilder
         var keyBlockIndex = keyBlockIndexBuilder
             .Build(keyBlocks);
 
-        ReadOnlyCollection<RecordBlock> recordBlocks;
-        using (var fileStreams = new FileStreams())
-        {
-            recordBlocks = recordBlocksBuilder
-                .Build(offsetTable, m.BlockSize, fileStreams)
-                .AsReadOnly();
-        }
+        var recordBlocks = recordBlocksBuilder
+            .Build(offsetTable, m.BlockSize)
+            .AsReadOnly();
 
         var recordBlockIndex = recordBlockIndexBuilder
             .Build(recordBlocks);
