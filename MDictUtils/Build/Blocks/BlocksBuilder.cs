@@ -102,7 +102,7 @@ internal abstract partial class BlocksBuilder<T>
             position += blockSize;
         }
 
-        var compressed = blockCompressor.Compress(uncompressed[..position]);
+        var compressed = blockCompressor.Compress(uncompressed.AsSpan(..position));
         _arrayPool.Return(uncompressed);
         Debug.Assert(totalSize == position);
 
