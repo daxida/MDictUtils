@@ -2,7 +2,7 @@ using MDictUtils.BuildModels;
 
 namespace MDictUtils.Build;
 
-internal interface IMDictDataBuilder
+internal interface IDataBuilder
 {
     public MDictData BuildData(List<MDictEntry> entries, MDictMetadata metadata);
 }
