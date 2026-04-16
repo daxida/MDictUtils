@@ -1,5 +1,3 @@
-using System.Collections.ObjectModel;
-
 namespace MDictUtils.BuildModels;
 
 internal sealed record MDictData
@@ -10,9 +8,9 @@ internal sealed record MDictData
     bool IsMdd,
     int EntryCount,
     CompressedBlock KeyBlockIndex,
-    ReadOnlyCollection<KeyBlock> KeyBlocks,
+    ImmutableArray<KeyBlock> KeyBlocks,
     Block RecordBlockIndex,
-    ReadOnlyCollection<RecordBlock> RecordBlocks
+    ImmutableArray<RecordBlock> RecordBlocks
 )
 {
     public int KeyBlocksSize => KeyBlocks.Sum(static b => b.Bytes.Length);

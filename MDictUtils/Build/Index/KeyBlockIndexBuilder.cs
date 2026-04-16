@@ -1,5 +1,4 @@
 using System.Buffers;
-using System.Collections.ObjectModel;
 using System.Diagnostics;
 using MDictUtils.BuildModels;
 using MDictUtils.Extensions;
@@ -15,7 +14,7 @@ internal partial class KeyBlockIndexBuilder
 {
     private readonly static ArrayPool<byte> _arrayPool = ArrayPool<byte>.Shared;
 
-    public CompressedBlock Build(ReadOnlyCollection<KeyBlock> keyBlocks)
+    public CompressedBlock Build(ImmutableArray<KeyBlock> keyBlocks)
     {
         if (keyBlocks is [])
             return new([], 0);

@@ -22,7 +22,7 @@ internal abstract partial class BlocksBuilder<T>
     protected abstract long GetByteCount(OffsetTableEntry entry);
     protected abstract int WriteBytes(OffsetTableEntry entry, Span<byte> buffer);
 
-    protected List<T> BuildBlocks(OffsetTable offsetTable, int desiredBlockSize)
+    protected ImmutableArray<T> BuildBlocks(OffsetTable offsetTable, int desiredBlockSize)
     {
         LogBeginBuilding(_typeName);
 
@@ -39,8 +39,13 @@ internal abstract partial class BlocksBuilder<T>
             results.Add(block);
         });
 
-        var blocks = results.ToList();
-        blocks.Sort(static (x, y) => x.SortOrder.CompareTo(y.SortOrder));
+        var blocksBuilder = ImmutableArray.CreateBuilder<T>(partitionCount);
+        foreach (var result in results)
+        {
+            blocksBuilder.Add(result);
+        }
+        blocksBuilder.Sort(static (x, y) => x.SortOrder.CompareTo(y.SortOrder));
+        var blocks = blocksBuilder.MoveToImmutable();
 
         _rangePool.Return(ranges);
         LogBlocks(desiredBlockSize, blocks);
@@ -108,12 +113,12 @@ internal abstract partial class BlocksBuilder<T>
     private partial void LogBeginBuilding(string type);
 
     [Conditional("DEBUG")]
-    private void LogBlocks(int desiredBlockSize, List<T> blocks)
+    private void LogBlocks(int desiredBlockSize, IList<T> blocks)
     {
         logger.LogDebug("Desired block size set to {BlockSize}", desiredBlockSize);
         logger.LogDebug("Built {Count} blocks.", blocks.Count);
 
-        if (blocks is not List<KeyBlock>)
+        if (blocks is not IList<KeyBlock>)
             return;
 
         foreach (var block in blocks)

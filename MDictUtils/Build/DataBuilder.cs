@@ -23,15 +23,13 @@ internal sealed class DataBuilder
             .Build(entries, m);
 
         var keyBlocks = keyBlocksBuilder
-            .Build(offsetTable, m.KeySize)
-            .AsReadOnly();
+            .Build(offsetTable, m.KeySize);
 
         var keyBlockIndex = keyBlockIndexBuilder
             .Build(keyBlocks);
 
         var recordBlocks = recordBlocksBuilder
-            .Build(offsetTable, m.BlockSize)
-            .AsReadOnly();
+            .Build(offsetTable, m.BlockSize);
 
         var recordBlockIndex = recordBlockIndexBuilder
             .Build(recordBlocks);
