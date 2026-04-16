@@ -27,7 +27,7 @@ internal partial class OffsetTableBuilder
         byte[]? bufferArray = null;
         var buffer = maxEncLength < 256
             ? stackalloc byte[maxEncLength]
-            : _arrayPool.Rent(maxEncLength).AlsoAssignTo(ref bufferArray);
+            : _arrayPool.Rent(maxEncLength, ref bufferArray);
 
         foreach (var item in entries)
         {

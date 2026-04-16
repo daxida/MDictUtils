@@ -28,7 +28,7 @@ internal partial class KeyBlockIndexBuilder
         byte[]? blockArray = null;
         var blockBuffer = maxBlockSize < 256
             ? stackalloc byte[maxBlockSize]
-            : _arrayPool.Rent(maxBlockSize).AlsoAssignTo(ref blockArray);
+            : _arrayPool.Rent(maxBlockSize, ref blockArray);
 
         int bytesWritten = 0;
         foreach (var block in keyBlocks)
