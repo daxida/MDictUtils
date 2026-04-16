@@ -15,7 +15,7 @@ internal sealed class MddRecordBlocksBuilder
         => BuildBlocks(offsetTable, blockSize);
 
     protected override long GetByteCount(OffsetTableEntry entry)
-        => entry.RecordBlockLength;
+        => entry.RecordSize;
 
     protected override RecordBlock BlockConstructor(ReadOnlySpan<OffsetTableEntry> entries)
     {

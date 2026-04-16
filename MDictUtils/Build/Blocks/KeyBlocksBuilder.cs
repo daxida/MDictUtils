@@ -26,6 +26,6 @@ internal sealed class KeyBlocksBuilder
     {
         Common.ToBigEndian((ulong)entry.Offset, buffer[..8]);
         entry.KeyNull.CopyTo(buffer[8..]);
-        return 8 + entry.KeyNull.Length;
+        return entry.KeyBlockLength;
     }
 }
