@@ -12,16 +12,23 @@ internal sealed class FileStreams(Dictionary<string, int> pathToTotalEntryCount)
     private readonly ConcurrentDictionary<(string Filepath, int ThreadId), MemoryMappedViewStream> _filepathIdToStream = [];
     private bool _isDisposed = false;
 
+    /// <summary>
+    /// Get a thread-safe, memory-mapped view stream for a file.
+    /// </summary>
     public MemoryMappedViewStream GetStream(string filepath)
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
 
+        // Different threads cannot share the same view stream.
         var key = (filepath, Environment.CurrentManagedThreadId);
 
         return _filepathIdToStream
             .GetOrAdd(key, InitializeStream);
     }
 
+    /// <summary>
+    /// Update the number of entries read from a file. Dispose of the file if all entries are read.
+    /// </summary>
     public void UpdateEntryCount(string filepath)
     {
         var count = _pathToEntryCount.AddOrUpdate
@@ -32,24 +39,21 @@ internal sealed class FileStreams(Dictionary<string, int> pathToTotalEntryCount)
         );
         if (count == _pathToTotalEntryCount[filepath])
         {
-            DisposePath(filepath);
+            DisposeFile(filepath);
         }
     }
 
-    private MemoryMappedViewStream InitializeStream((string, int) key)
+    private MemoryMappedViewStream InitializeStream((string Filepath, int ThreadId) key)
     {
-        var file = _filepathToFile.GetOrAdd(key.Item1, InitializeFile);
+        var file = _filepathToFile.GetOrAdd(key.Filepath, InitializeFile);
         return file.CreateViewStream(0, 0, MemoryMappedFileAccess.Read);
     }
 
     private MemoryMappedFile InitializeFile(string filepath)
-    {
-        var file = MemoryMappedFile
+        => MemoryMappedFile
             .CreateFromFile(filepath, FileMode.Open, null, 0, MemoryMappedFileAccess.Read);
-        return file;
-    }
 
-    private void DisposePath(string filepath)
+    private void DisposeFile(string filepath)
     {
         foreach (var (key, stream) in _filepathIdToStream)
         {
