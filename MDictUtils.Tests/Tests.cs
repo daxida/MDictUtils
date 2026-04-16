@@ -30,11 +30,7 @@ public class MDictWriterTests
 
         try
         {
-            using (var outFile = File.Open(outputPath, FileMode.Create))
-            {
-                writer.Write(outFile);
-            }
-
+            writer.Write(outputPath);
             Assert.True(File.Exists(outputPath));
             var fileInfo = new FileInfo(outputPath);
             Assert.True(fileInfo.Length > 0, "File should not be empty");
@@ -55,11 +51,7 @@ public class MDictWriterTests
 
         try
         {
-            using (var outFile = File.Open(outputPath, FileMode.Create))
-            {
-                writer.Write(outFile);
-            }
-
+            writer.Write(outputPath);
             Assert.True(File.Exists(outputPath));
         }
         finally
@@ -216,10 +208,7 @@ public class DoUndoTests
             // Pack stub.txt into out1.mdd
             var packedEntries = MDictPacker.PackMdxTxt(originalStubPath);
             var writer = new MDictWriter(packedEntries, new(IsMdd: isMdd));
-            using (var outFile = File.Open(outMdxPath, FileMode.Create))
-            {
-                writer.Write(outFile);
-            }
+            writer.Write(outMdxPath);
 
             File.Delete(originalStubPath);
 
@@ -259,10 +248,7 @@ public class DoUndoTests
             // Pack stub.txt into out1.mdd
             var packedEntries = MDictPacker.PackMddFile(originalStubPath);
             var writer = new MDictWriter(packedEntries, new(IsMdd: isMdd));
-            using (var outFile = File.Open(outMddPath, FileMode.Create))
-            {
-                writer.Write(outFile);
-            }
+            writer.Write(outMddPath);
 
             File.Delete(originalStubPath);
 

@@ -39,11 +39,12 @@ public sealed class MDictWriter
         _data = builder.BuildData(entries, metadata);
     }
 
-    public void Write(Stream outfile)
+    public void Write(string filepath)
     {
-        WriteHeader(outfile);
-        WriteKeySection(outfile);
-        WriteRecordSection(outfile);
+        using var stream = new FileStream(filepath, FileMode.Create, FileAccess.Write, FileShare.None);
+        WriteHeader(stream);
+        WriteKeySection(stream);
+        WriteRecordSection(stream);
     }
 
     private void WriteHeader(Stream stream)
