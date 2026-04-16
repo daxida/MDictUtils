@@ -4,13 +4,13 @@ namespace MDictUtils.Extensions;
 
 internal static class SpanExtensions
 {
-    public static TNumber Sum<TItem, TNumber>(this ReadOnlySpan<TItem> items, Func<TItem, TNumber> summer)
+    public static TNumber Sum<TItem, TNumber>(this ReadOnlySpan<TItem> items, Func<TItem, TNumber> selector)
         where TNumber : IBinaryInteger<TNumber>
     {
         TNumber sum = TNumber.Zero;
         foreach (var item in items)
         {
-            sum += summer(item);
+            sum += selector(item);
         }
         return sum;
     }
