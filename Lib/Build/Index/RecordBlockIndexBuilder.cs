@@ -2,6 +2,7 @@ using System.Buffers;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using Lib.BuildModels;
+using Lib.Extensions;
 using Microsoft.Extensions.Logging;
 
 namespace Lib.Build.Index;
@@ -22,7 +23,7 @@ internal partial class RecordBlockIndexBuilder(ILogger<RecordBlockIndexBuilder> 
         byte[]? blockArray = null;
         var blockBuffer = maxBlockSize < 256
             ? stackalloc byte[maxBlockSize]
-            : (blockArray = _arrayPool.Rent(maxBlockSize));
+            : _arrayPool.Rent(maxBlockSize).AlsoAssignTo(ref blockArray);
 
         int bytesWritten = 0;
         foreach (var block in recordBlocks)

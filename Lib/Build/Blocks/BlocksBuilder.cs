@@ -1,6 +1,7 @@
 using System.Buffers;
 using System.Diagnostics;
 using Lib.BuildModels;
+using Lib.Extensions;
 using Microsoft.Extensions.Logging;
 
 namespace Lib.Build.Blocks;
@@ -76,7 +77,7 @@ internal abstract partial class BlocksBuilder<T>
         byte[]? blockArray = null;
         var blockBuffer = maxBlockSize < 256
             ? stackalloc byte[maxBlockSize]
-            : (blockArray = _arrayPool.Rent(maxBlockSize));
+            : _arrayPool.Rent(maxBlockSize).AlsoAssignTo(ref blockArray);
 
         int totalSize = 0;
         foreach (var entry in offsetTableEntries)

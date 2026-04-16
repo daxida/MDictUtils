@@ -2,6 +2,7 @@ using System.Buffers;
 using System.Diagnostics;
 using System.Text;
 using Lib.BuildModels;
+using Lib.Extensions;
 using Microsoft.Extensions.Logging;
 
 namespace Lib.Build.Offset;
@@ -26,7 +27,7 @@ internal partial class OffsetTableBuilder
         byte[]? bufferArray = null;
         var buffer = maxEncLength < 256
             ? stackalloc byte[maxEncLength]
-            : (bufferArray = _arrayPool.Rent(maxEncLength));
+            : _arrayPool.Rent(maxEncLength).AlsoAssignTo(ref bufferArray);
 
         foreach (var item in entries)
         {
