@@ -22,30 +22,17 @@ internal partial class KeyBlockIndexBuilder
 
         int decompDataTotalSize = keyBlocks.Sum(static b => b.IndexEntryLength);
         var decompArray = _arrayPool.Rent(decompDataTotalSize);
-        var decompData = decompArray.AsSpan(..decompDataTotalSize);
-
-        int maxBlockSize = keyBlocks.Max(static b => b.IndexEntryLength);
-        byte[]? blockArray = null;
-        var blockBuffer = maxBlockSize < 256
-            ? stackalloc byte[maxBlockSize]
-            : _arrayPool.Rent(maxBlockSize, ref blockArray);
 
         int bytesWritten = 0;
         foreach (var block in keyBlocks)
         {
-            var indexEntry = blockBuffer[..block.IndexEntryLength];
-            block.CopyIndexEntryTo(indexEntry);
-            LogIndexEntry(indexEntry);
-            var destination = decompData.Slice(bytesWritten, indexEntry.Length);
-            indexEntry.CopyTo(destination);
-            bytesWritten += indexEntry.Length;
+            var buffer = decompArray.AsSpan(bytesWritten, block.IndexEntryLength);
+            block.CopyIndexEntryTo(buffer);
+            LogIndexEntry(buffer);
+            bytesWritten += block.IndexEntryLength;
         }
 
-        if (blockArray is not null)
-            _arrayPool.Return(blockArray);
-
-        Debug.Assert(bytesWritten == decompDataTotalSize);
-
+        var decompData = decompArray.AsSpan(..bytesWritten);
         var compressedBytes = blockCompressor.Compress(decompData);
         _arrayPool.Return(decompArray);
 
@@ -53,6 +40,7 @@ internal partial class KeyBlockIndexBuilder
             Bytes: compressedBytes,
             DecompSize: bytesWritten);
 
+        Debug.Assert(bytesWritten == decompDataTotalSize);
         LogIndexBuilt(index.DecompSize, index.Size);
 
         return index;
