@@ -14,9 +14,10 @@ internal abstract partial class BlocksBuilder<T>
     where T : MDictBlock
 {
     private readonly static ArrayPool<byte> _arrayPool = ArrayPool<byte>.Shared;
+    private readonly static ArrayPool<Range> _rangePool = ArrayPool<Range>.Shared;
     private readonly static string _typeName = typeof(T).Name;
 
-    protected abstract T BlockConstructor(ReadOnlySpan<OffsetTableEntry> entries);
+    protected abstract T BlockConstructor(int index, ReadOnlySpan<OffsetTableEntry> entries);
     protected abstract long GetByteCount(OffsetTableEntry entry);
     protected abstract int WriteBytes(OffsetTableEntry entry, Span<byte> buffer);
 
@@ -24,9 +25,35 @@ internal abstract partial class BlocksBuilder<T>
     {
         LogBeginBuilding(_typeName);
 
-        var blocks = new List<T>();
+        var rangePool = ArrayPool<Range>.Shared;
+        var ranges = rangePool.Rent(offsetTable.Length);
+        var totalBlockCount = ComputeBlockRanges(offsetTable, blockSize, ranges);
+
+        // var results = new ConcurrentBag<T>();
+        var blocks = new List<T>(totalBlockCount);
+
+        // TODO: Compress these blocks in parallel.
+        for (int i = 0; i < totalBlockCount; i++)
+        {
+            var range = ranges[i];
+            var blockEntries = offsetTable.AsSpan(range);
+            var block = BlockConstructor(i, blockEntries);
+            blocks.Add(block);
+        }
+
+        // blocks.Sort(static (x, y) => x.SortOrder.CompareTo(y.SortOrder));
+
+        rangePool.Return(ranges);
+        LogBlocks(blockSize, blocks);
+
+        return blocks;
+    }
+
+    private int ComputeBlockRanges(OffsetTable offsetTable, int blockSize, Span<Range> ranges)
+    {
         int thisBlockStart = 0;
         long curSize = 0;
+        int curRange = 0;
 
         for (int ind = 0; ind <= offsetTable.Length; ind++)
         {
@@ -46,9 +73,7 @@ internal abstract partial class BlocksBuilder<T>
 
             if (flush)
             {
-                var blockEntries = offsetTable.AsSpan(thisBlockStart..ind);
-                var block = BlockConstructor(blockEntries);
-                blocks.Add(block);
+                ranges[curRange++] = thisBlockStart..ind;
                 curSize = 0;
                 thisBlockStart = ind;
             }
@@ -57,9 +82,7 @@ internal abstract partial class BlocksBuilder<T>
                 curSize += GetByteCount(offsetTableEntry);
         }
 
-        LogBlocks(blockSize, blocks);
-
-        return blocks;
+        return curRange;
     }
 
     protected CompressedBlock GetCompressedBlock(ReadOnlySpan<OffsetTableEntry> offsetTableEntries)

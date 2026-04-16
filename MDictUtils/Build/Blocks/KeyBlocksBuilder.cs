@@ -13,10 +13,10 @@ internal sealed class KeyBlocksBuilder
     public List<KeyBlock> Build(OffsetTable offsetTable, int blockSize)
         => BuildBlocks(offsetTable, blockSize);
 
-    protected override KeyBlock BlockConstructor(ReadOnlySpan<OffsetTableEntry> entries)
+    protected override KeyBlock BlockConstructor(int order, ReadOnlySpan<OffsetTableEntry> entries)
     {
         var block = GetCompressedBlock(entries);
-        return new(block, entries);
+        return new(order, block, entries);
     }
 
     protected override long GetByteCount(OffsetTableEntry entry)

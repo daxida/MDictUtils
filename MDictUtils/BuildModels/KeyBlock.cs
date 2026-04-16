@@ -9,7 +9,7 @@ internal sealed class KeyBlock : MDictBlock
     private readonly OffsetEntryKey _firstKey;
     private readonly OffsetEntryKey _lastKey;
 
-    public KeyBlock(CompressedBlock block, ReadOnlySpan<OffsetTableEntry> offsetTable) : base(block)
+    public KeyBlock(int order, CompressedBlock block, ReadOnlySpan<OffsetTableEntry> offsetTable) : base(order, block)
     {
         _numEntries = offsetTable.Length;
         _firstKey = new(offsetTable[0]);
