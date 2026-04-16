@@ -10,7 +10,6 @@ internal sealed class FileStreams(Dictionary<string, int> pathToTotalEntryCount)
     private readonly ConcurrentDictionary<string, int> _pathToEntryCount = [];
     private readonly ConcurrentDictionary<string, MemoryMappedFile> _filepathToFile = [];
     private readonly ConcurrentDictionary<(string Filepath, int ThreadId), MemoryMappedViewStream> _filepathIdToStream = [];
-    private readonly List<MemoryMappedFile> _files = [];
     private bool _isDisposed = false;
 
     public MemoryMappedViewStream GetStream(string filepath)
@@ -47,7 +46,6 @@ internal sealed class FileStreams(Dictionary<string, int> pathToTotalEntryCount)
     {
         var file = MemoryMappedFile
             .CreateFromFile(filepath, FileMode.Open, null, 0, MemoryMappedFileAccess.Read);
-        _files.Add(file);
         return file;
     }
 
@@ -71,7 +69,7 @@ internal sealed class FileStreams(Dictionary<string, int> pathToTotalEntryCount)
 
         foreach (var stream in _filepathIdToStream.Values)
             stream.Dispose();
-        foreach (var file in _files)
+        foreach (var file in _filepathToFile.Values)
             file.Dispose();
 
         _isDisposed = true;
