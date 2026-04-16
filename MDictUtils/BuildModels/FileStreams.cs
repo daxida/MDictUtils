@@ -45,13 +45,10 @@ internal sealed class FileStreams(int maxOpenStreams = 128) : IDisposable
 
     private void DisposeStreams()
     {
-        foreach (var stream in _filepathToFile.Values)
+        foreach (var stream in _filepathIdToStream.Values)
             stream.Dispose();
         foreach (var file in _files)
             file.Dispose();
-
-        _filepathToFile.Clear();
-        _files.Clear();
     }
 
     void IDisposable.Dispose()
