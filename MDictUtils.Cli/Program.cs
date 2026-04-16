@@ -95,7 +95,7 @@ static class Program
             descriptionPath,
             extractFlag,
             extractDirPath,
-            metaFlag
+            metaFlag,
         };
 
         rootCommand.SetAction(parseResult =>
