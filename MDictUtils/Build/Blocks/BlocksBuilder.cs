@@ -98,8 +98,8 @@ internal abstract partial class BlocksBuilder<T>
         foreach (var entry in offsetTableEntries)
         {
             var buffer = uncompressed.AsSpan(start: position);
-            int blockSize = WriteBytes(entry, buffer);
-            position += blockSize;
+            int size = WriteBytes(entry, buffer);
+            position += size;
         }
 
         var compressed = blockCompressor.Compress(uncompressed.AsSpan(..position));

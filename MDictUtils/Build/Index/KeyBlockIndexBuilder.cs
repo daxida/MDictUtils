@@ -19,27 +19,29 @@ internal partial class KeyBlockIndexBuilder
         if (keyBlocks is [])
             return new([], 0);
 
-        int decompDataTotalSize = keyBlocks.Sum(static b => b.IndexEntryLength);
-        var decompArray = _arrayPool.Rent(decompDataTotalSize);
+        int totalSize = keyBlocks.Sum(static b => b.IndexEntryLength);
+        var uncompressed = _arrayPool.Rent(totalSize);
 
-        int bytesWritten = 0;
+        int position = 0;
         foreach (var block in keyBlocks)
         {
-            var buffer = decompArray.AsSpan(bytesWritten, block.IndexEntryLength);
+            var size = block.IndexEntryLength;
+            var buffer = uncompressed.AsSpan(position, size);
             block.CopyIndexEntryTo(buffer);
             LogIndexEntry(buffer);
-            bytesWritten += block.IndexEntryLength;
+            position += size;
         }
 
-        var decompData = decompArray.AsSpan(..bytesWritten);
-        var compressedBytes = blockCompressor.Compress(decompData);
-        _arrayPool.Return(decompArray);
+        var compressed = blockCompressor
+            .Compress(uncompressed.AsSpan(..position));
+
+        _arrayPool.Return(uncompressed);
 
         CompressedBlock index = new(
-            Bytes: compressedBytes,
-            DecompSize: bytesWritten);
+            Bytes: compressed,
+            DecompSize: position);
 
-        Debug.Assert(bytesWritten == decompDataTotalSize);
+        Debug.Assert(position == totalSize);
         LogIndexBuilt(index.DecompSize, index.Size);
 
         return index;
