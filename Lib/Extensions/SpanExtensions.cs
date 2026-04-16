@@ -1,6 +1,6 @@
 using System.Numerics;
 
-namespace Lib;
+namespace Lib.Extensions;
 
 internal static class SpanExtensions
 {
