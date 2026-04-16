@@ -28,9 +28,9 @@ internal abstract partial class BlocksBuilder<T>
         int thisBlockStart = 0;
         long curSize = 0;
 
-        for (int ind = 0; ind <= offsetTable.Entries.Length; ind++)
+        for (int ind = 0; ind <= offsetTable.Length; ind++)
         {
-            var offsetTableEntry = (ind == offsetTable.Entries.Length)
+            var offsetTableEntry = (ind == offsetTable.Length)
                 ? null
                 : offsetTable.Entries[ind];
 
@@ -46,7 +46,7 @@ internal abstract partial class BlocksBuilder<T>
 
             if (flush)
             {
-                var blockEntries = offsetTable.Entries.AsSpan(thisBlockStart..ind);
+                var blockEntries = offsetTable.AsSpan(thisBlockStart..ind);
                 var block = BlockConstructor(blockEntries);
                 blocks.Add(block);
                 curSize = 0;
