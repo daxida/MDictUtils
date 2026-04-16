@@ -42,8 +42,8 @@ internal sealed class MddRecordBlocksBuilder
             if (bytesRead == 0)
                 break;
         }
+        Debug.Assert(totalRead == GetByteCount(entry));
 
-        // For MDD, apparently fewer bytes than the expected size might be read?
         return totalRead;
     }
 }

@@ -87,21 +87,22 @@ internal abstract partial class BlocksBuilder<T>
 
     protected CompressedBlock GetCompressedBlock(ReadOnlySpan<OffsetTableEntry> offsetTableEntries)
     {
-        int decompDataSize = Convert.ToInt32(offsetTableEntries.Sum(GetByteCount));
-        var decompData = _arrayPool.Rent(decompDataSize);
+        int totalSize = Convert.ToInt32(offsetTableEntries.Sum(GetByteCount));
+        var uncompressed = _arrayPool.Rent(totalSize);
 
-        int totalSize = 0;
+        int position = 0;
         foreach (var entry in offsetTableEntries)
         {
-            var buffer = decompData.AsSpan(start: totalSize);
+            var buffer = uncompressed.AsSpan(start: position);
             int blockSize = WriteBytes(entry, buffer);
-            totalSize += blockSize;
+            position += blockSize;
         }
 
-        var compressedBytes = blockCompressor.Compress(decompData[..totalSize]);
-        _arrayPool.Return(decompData);
+        var compressed = blockCompressor.Compress(uncompressed[..position]);
+        _arrayPool.Return(uncompressed);
+        Debug.Assert(totalSize == position);
 
-        return new(compressedBytes, DecompSize: totalSize);
+        return new(compressed, DecompSize: position);
     }
 
     [LoggerMessage(LogLevel.Debug, "Building blocks of type {Type}")]
