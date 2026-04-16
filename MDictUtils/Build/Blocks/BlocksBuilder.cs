@@ -26,8 +26,7 @@ internal abstract partial class BlocksBuilder<T>
     {
         LogBeginBuilding(_typeName);
 
-        var rangePool = ArrayPool<Range>.Shared;
-        var ranges = rangePool.Rent(offsetTable.Length);
+        var ranges = _rangePool.Rent(offsetTable.Length);
         var partitionCount = PartitionTable(offsetTable, desiredBlockSize, ranges);
 
         var results = new ConcurrentBag<T>();
@@ -43,7 +42,7 @@ internal abstract partial class BlocksBuilder<T>
         var blocks = results.ToList();
         blocks.Sort(static (x, y) => x.SortOrder.CompareTo(y.SortOrder));
 
-        rangePool.Return(ranges);
+        _rangePool.Return(ranges);
         LogBlocks(desiredBlockSize, blocks);
 
         return blocks;
