@@ -28,11 +28,11 @@ internal abstract partial class BlocksBuilder<T>
 
         var rangePool = ArrayPool<Range>.Shared;
         var ranges = rangePool.Rent(offsetTable.Length);
-        var totalBlockCount = ComputeBlockRanges(offsetTable, blockSize, ranges);
+        var partitionCount = PartitionTable(offsetTable, blockSize, ranges);
 
         var results = new ConcurrentBag<T>();
 
-        Parallel.For(0, totalBlockCount, i =>
+        Parallel.For(0, partitionCount, i =>
         {
             var range = ranges[i];
             var blockEntries = offsetTable.AsSpan(range);
@@ -49,40 +49,40 @@ internal abstract partial class BlocksBuilder<T>
         return blocks;
     }
 
-    private int ComputeBlockRanges(OffsetTable offsetTable, int blockSize, Span<Range> ranges)
+    private int PartitionTable(OffsetTable offsetTable, int minimumBlockSize, Span<Range> ranges)
     {
-        int thisBlockStart = 0;
-        long curSize = 0;
-        int curRange = 0;
+        int partitionCount = 0;
+        int start = 0;
+        long blockSize = 0;
 
-        for (int ind = 0; ind <= offsetTable.Length; ind++)
+        for (int end = 0; end <= offsetTable.Length; end++)
         {
-            var offsetTableEntry = (ind == offsetTable.Length)
+            var offsetTableEntry = (end == offsetTable.Length)
                 ? null
-                : offsetTable.Entries[ind];
+                : offsetTable.Entries[end];
 
             bool flush;
-            if (ind == 0)
+            if (end == 0)
                 flush = false;
             else if (offsetTableEntry == null)
                 flush = true;
-            else if (curSize + GetByteCount(offsetTableEntry) > blockSize)
+            else if (blockSize + GetByteCount(offsetTableEntry) > minimumBlockSize)
                 flush = true;
             else
                 flush = false;
 
             if (flush)
             {
-                ranges[curRange++] = thisBlockStart..ind;
-                curSize = 0;
-                thisBlockStart = ind;
+                ranges[partitionCount++] = start..end;
+                blockSize = 0;
+                start = end;
             }
 
             if (offsetTableEntry is not null)
-                curSize += GetByteCount(offsetTableEntry);
+                blockSize += GetByteCount(offsetTableEntry);
         }
 
-        return curRange;
+        return partitionCount;
     }
 
     protected CompressedBlock GetCompressedBlock(ReadOnlySpan<OffsetTableEntry> offsetTableEntries)
