@@ -4,8 +4,6 @@ using MDictUtils.BuildModels;
 
 namespace MDictUtils;
 
-// Tbh this is the Writer part
-
 public sealed record MDictEntry(string Key, long Pos, string Path, long Size)
 {
     public override string ToString()
