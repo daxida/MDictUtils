@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using MDictUtils.BuildModels;
 using MDictUtils.Extensions;
@@ -29,19 +30,18 @@ internal abstract partial class BlocksBuilder<T>
         var ranges = rangePool.Rent(offsetTable.Length);
         var totalBlockCount = ComputeBlockRanges(offsetTable, blockSize, ranges);
 
-        // var results = new ConcurrentBag<T>();
-        var blocks = new List<T>(totalBlockCount);
+        var results = new ConcurrentBag<T>();
 
-        // TODO: Compress these blocks in parallel.
-        for (int i = 0; i < totalBlockCount; i++)
+        Parallel.For(0, totalBlockCount, i =>
         {
             var range = ranges[i];
             var blockEntries = offsetTable.AsSpan(range);
             var block = BlockConstructor(i, blockEntries);
-            blocks.Add(block);
-        }
+            results.Add(block);
+        });
 
-        // blocks.Sort(static (x, y) => x.SortOrder.CompareTo(y.SortOrder));
+        var blocks = results.ToList();
+        blocks.Sort(static (x, y) => x.SortOrder.CompareTo(y.SortOrder));
 
         rangePool.Return(ranges);
         LogBlocks(blockSize, blocks);
