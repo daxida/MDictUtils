@@ -46,10 +46,10 @@ internal sealed class DataBuilder
             m.Version,
             m.IsMdd,
             entries.Count,
-            keyBlocks,
-            recordBlocks,
             keyBlockIndex,
-            recordBlockIndex
+            keyBlocks,
+            recordBlockIndex,
+            recordBlocks
         );
     }
 }

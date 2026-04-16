@@ -9,10 +9,10 @@ internal sealed record MDictData
     string Version,
     bool IsMdd,
     int EntryCount,
-    ReadOnlyCollection<KeyBlock> KeyBlocks,
-    ReadOnlyCollection<RecordBlock> RecordBlocks,
     CompressedBlock KeyBlockIndex,
-    Block RecordBlockIndex
+    ReadOnlyCollection<KeyBlock> KeyBlocks,
+    Block RecordBlockIndex,
+    ReadOnlyCollection<RecordBlock> RecordBlocks
 )
 {
     public int KeyBlocksSize => KeyBlocks.Sum(static b => b.Bytes.Length);
