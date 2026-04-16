@@ -47,10 +47,6 @@ internal abstract partial class BlocksBuilder<T>
             if (flush)
             {
                 var blockEntries = offsetTable.Entries.AsSpan(thisBlockStart..ind);
-                // foreach (var entry in blockEntries)
-                // {
-                //     Console.WriteLine($"[split flush] {entry}");
-                // }
                 var block = BlockConstructor(blockEntries);
                 blocks.Add(block);
                 curSize = 0;
@@ -68,8 +64,6 @@ internal abstract partial class BlocksBuilder<T>
 
     protected CompressedBlock GetCompressedBlock(ReadOnlySpan<OffsetTableEntry> offsetTableEntries)
     {
-        // Console.WriteLine("[Debug] Calling MdxBlock...");
-
         int decompDataSize = Convert.ToInt32(offsetTableEntries.Sum(GetByteCount));
         var decompData = _arrayPool.Rent(decompDataSize);
 
@@ -83,7 +77,6 @@ internal abstract partial class BlocksBuilder<T>
         foreach (var entry in offsetTableEntries)
         {
             int blockSize = WriteBytes(entry, blockBuffer);
-            // Console.WriteLine($"[Debug] BlockEntry ({blockEntry.Length} bytes): {BitConverter.ToString(blockEntry)}");
             var source = blockBuffer[..blockSize];
             var destination = decompData.AsSpan(start: totalSize, length: blockSize);
             source.CopyTo(destination);
@@ -93,13 +86,7 @@ internal abstract partial class BlocksBuilder<T>
         if (blockArray is not null)
             _arrayPool.Return(blockArray);
 
-        // Console.WriteLine("[Debug] Building MdxBlock...");
-        // Console.WriteLine($"[Debug] Decompressed array length (_decompSize): {_decompSize}");
-        // Common.PrintPythonStyle(decompArray);
-
         var compressedBytes = blockCompressor.Compress(decompData[..totalSize]);
-
-        // Console.WriteLine($"[Debug] Compressed array length (_compSize): {_compSize}");
 
         _arrayPool.Return(decompData);
 

@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using MDictUtils.Build.Blocks;
 using MDictUtils.Build.Index;
 using MDictUtils.Build.Offset;

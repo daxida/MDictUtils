@@ -31,27 +31,20 @@ internal partial class OffsetTableBuilder
 
         foreach (var item in entries)
         {
-            // Console.WriteLine($"dict item: {item}");
-
             var length = encoder.InnerEncoding.GetBytes($"{item.Key}\0", buffer);
             var keyNull = ImmutableArray.Create(buffer[..length]);
 
             // Subtract the encoding length because we appended '\0'
             var keyLen = (length - encoder.EncodingLength) / encoder.EncodingLength;
 
-            // var recordNull = encodingSettings.InnerEncoding.GetBytes(item.Path);
-
             var tableEntry = new OffsetTableEntry
             {
-                // Key = keyEnc,
                 KeyNull = keyNull,
                 KeyLen = keyLen,
-                // RecordNull = recordNull,
                 Offset = currentOffset,
                 RecordSize = item.Size,
                 RecordPos = item.Pos,
                 FilePath = item.Path,
-                // IsMdd = m.IsMdd,
             };
             arrayBuilder.Add(tableEntry);
 
@@ -60,41 +53,6 @@ internal partial class OffsetTableBuilder
 
         if (bufferArray is not null)
             _arrayPool.Return(bufferArray);
-
-        // pretty print it here
-        // {
-        //     Console.WriteLine("---- Offset Table ----");
-        //
-        //     int index = 0;
-        //     foreach (var entry in _offsetTable)
-        //     {
-        //         string key = _encoding.GetString(entry.Key);
-        //         string keyNull = _encoding.GetString(entry.KeyNull);
-        //         string recordNull = _encoding.GetString(entry.RecordNull);
-        //         string valuePreview = _encoding.GetString(entry.RecordNull)
-        //             .TrimEnd('\0')
-        //             .Replace("\r", "")
-        //             .Replace("\n", " ");
-        //
-        //         valuePreview = $"{valuePreview[..40]}...";
-        //
-        //         Console.WriteLine(
-        //             $"[{index}] " +
-        //             $"Key=\"{key}\", " +
-        //             $"Offset={entry.Offset}, " +
-        //             $"KeyNull=\"{keyNull}\", " +
-        //             $"KeyLen={entry.KeyLen}, " +
-        //             $"RecordNull={recordNull}, " +
-        //             $"RecordPos={entry.RecordPos}, " +
-        //             $"RecordSize={entry.RecordSize}, " +
-        //             $"Path=\"{valuePreview}\""
-        //         );
-        //
-        //         index++;
-        //     }
-        //
-        //     Console.WriteLine("----------------------");
-        // }
 
         var tableEntries = arrayBuilder.MoveToImmutable();
         LogInfo(tableEntries.Length, currentOffset);
