@@ -22,13 +22,13 @@ internal abstract partial class BlocksBuilder<T>
     protected abstract long GetByteCount(OffsetTableEntry entry);
     protected abstract int WriteBytes(OffsetTableEntry entry, Span<byte> buffer);
 
-    protected List<T> BuildBlocks(OffsetTable offsetTable, int blockSize)
+    protected List<T> BuildBlocks(OffsetTable offsetTable, int desiredBlockSize)
     {
         LogBeginBuilding(_typeName);
 
         var rangePool = ArrayPool<Range>.Shared;
         var ranges = rangePool.Rent(offsetTable.Length);
-        var partitionCount = PartitionTable(offsetTable, blockSize, ranges);
+        var partitionCount = PartitionTable(offsetTable, desiredBlockSize, ranges);
 
         var results = new ConcurrentBag<T>();
 
@@ -44,12 +44,12 @@ internal abstract partial class BlocksBuilder<T>
         blocks.Sort(static (x, y) => x.SortOrder.CompareTo(y.SortOrder));
 
         rangePool.Return(ranges);
-        LogBlocks(blockSize, blocks);
+        LogBlocks(desiredBlockSize, blocks);
 
         return blocks;
     }
 
-    private int PartitionTable(OffsetTable offsetTable, int minimumBlockSize, Span<Range> ranges)
+    private int PartitionTable(OffsetTable offsetTable, int desiredBlockSize, Span<Range> ranges)
     {
         int partitionCount = 0;
         int start = 0;
@@ -66,7 +66,7 @@ internal abstract partial class BlocksBuilder<T>
                 flush = false;
             else if (offsetTableEntry == null)
                 flush = true;
-            else if (blockSize + GetByteCount(offsetTableEntry) > minimumBlockSize)
+            else if (blockSize + GetByteCount(offsetTableEntry) > desiredBlockSize)
                 flush = true;
             else
                 flush = false;
@@ -120,9 +120,9 @@ internal abstract partial class BlocksBuilder<T>
     private partial void LogBeginBuilding(string type);
 
     [Conditional("DEBUG")]
-    private void LogBlocks(int blockSize, List<T> blocks)
+    private void LogBlocks(int desiredBlockSize, List<T> blocks)
     {
-        logger.LogDebug("Block size set to {BlockSize}", blockSize);
+        logger.LogDebug("Desired block size set to {BlockSize}", desiredBlockSize);
         logger.LogDebug("Built {Count} blocks.", blocks.Count);
 
         if (blocks is not List<KeyBlock>)

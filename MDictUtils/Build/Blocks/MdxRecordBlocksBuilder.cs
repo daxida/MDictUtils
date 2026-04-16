@@ -12,12 +12,12 @@ internal sealed class MdxRecordBlocksBuilder
 {
     private FileStreams? _fileStreams;
 
-    public override List<RecordBlock> Build(OffsetTable offsetTable, int blockSize)
+    public override List<RecordBlock> Build(OffsetTable offsetTable, int desiredBlockSize)
     {
         var pathToTotalEntryCount = offsetTable.GetFilePathToTotalEntryCount();
         using var fileStreams = new FileStreams(pathToTotalEntryCount);
         _fileStreams = fileStreams;
-        return BuildBlocks(offsetTable, blockSize);
+        return BuildBlocks(offsetTable, desiredBlockSize);
     }
 
     protected override long GetByteCount(OffsetTableEntry entry)
