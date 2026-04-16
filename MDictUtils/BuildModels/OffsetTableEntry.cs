@@ -7,7 +7,7 @@ internal class OffsetTableEntry
     /// <summary>
     /// Bytes of the null-appended entry key.
     /// Written immediately after this entry's "offset" value in the MDX/MDD file.
-    /// For example, the key "apple" would have 6 bytes in UTF-8 (one for each character + the null character).
+    /// For example, the key "apple" would have 6 bytes in UTF-8 (5 character bytes + 1 null character byte).
     /// In UTF-16, it would have twice as many (12) bytes.
     /// </summary>
     public required ImmutableArray<byte> KeyNull { get; init; }
