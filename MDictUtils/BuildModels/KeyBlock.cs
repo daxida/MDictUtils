@@ -17,21 +17,19 @@ internal sealed class KeyBlock : MDictBlock
     }
 
     public override int IndexEntryLength
-        => 8 + 2 + _firstKey.KNull.Length + 2 + _lastKey.KNull.Length + 8 + 8;
+        => 8 + _firstKey.Size + _lastKey.Size + 8 + 8;
 
     public override void CopyIndexEntryTo(Span<byte> buffer)
     {
         Debug.Assert(buffer.Length == IndexEntryLength);
 
-        var r = new SpanReader<byte>(buffer);
+        var reader = new SpanReader<byte>(buffer);
 
-        Common.ToBigEndian((ulong)_numEntries, r.Read(8));
-        Common.ToBigEndian((ushort)_firstKey.KLength, r.Read(2));
-        _firstKey.KNull.CopyTo(r.Read(_firstKey.KNull.Length));
-        Common.ToBigEndian((ushort)_lastKey.KLength, r.Read(2));
-        _lastKey.KNull.CopyTo(r.Read(_lastKey.KNull.Length));
-        Common.ToBigEndian((ulong)_block.Size, r.Read(8));
-        Common.ToBigEndian((ulong)_block.DecompSize, r.Read(8));
+        Common.ToBigEndian((ulong)_numEntries, reader.Read(8));
+        _firstKey.CopyTo(ref reader);
+        _lastKey.CopyTo(ref reader);
+        Common.ToBigEndian((ulong)_block.Size, reader.Read(8));
+        Common.ToBigEndian((ulong)_block.DecompSize, reader.Read(8));
     }
 
     public override string ToString()
@@ -39,16 +37,26 @@ internal sealed class KeyBlock : MDictBlock
 
     private readonly record struct OffsetEntryKey
     {
-        public readonly ImmutableArray<byte> KNull { get; }
-        public readonly int KLength { get; }
+        public readonly int CharacterCount { get; }
+        public readonly ImmutableArray<byte> NullAppendedBytes { get; }
 
         public OffsetEntryKey(OffsetTableEntry entry)
         {
-            KNull = entry.KeyNull;
-            KLength = entry.KeyLen;
+            CharacterCount = entry.KeyLen;
+            NullAppendedBytes = entry.KeyNull;
+        }
+
+        // Two bytes to store the character count.
+        public int Size => 2 + NullAppendedBytes.Length;
+
+        public void CopyTo(ref SpanReader<byte> reader)
+        {
+            Common.ToBigEndian((ushort)CharacterCount, reader.Read(2));
+            NullAppendedBytes.CopyTo(reader.Read(NullAppendedBytes.Length));
         }
 
         public override string ToString()
-            => Encoding.UTF8.GetString(KNull.AsSpan(..KLength));
+            => Encoding.UTF8
+                .GetString(NullAppendedBytes.AsSpan(..CharacterCount));
     }
 }
