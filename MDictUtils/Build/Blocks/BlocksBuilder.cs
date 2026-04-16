@@ -90,27 +90,15 @@ internal abstract partial class BlocksBuilder<T>
         int decompDataSize = Convert.ToInt32(offsetTableEntries.Sum(GetByteCount));
         var decompData = _arrayPool.Rent(decompDataSize);
 
-        var maxBlockSize = Convert.ToInt32(offsetTableEntries.Max(GetByteCount));
-        byte[]? blockArray = null;
-        var blockBuffer = maxBlockSize < 256
-            ? stackalloc byte[maxBlockSize]
-            : _arrayPool.Rent(maxBlockSize, ref blockArray);
-
         int totalSize = 0;
         foreach (var entry in offsetTableEntries)
         {
-            int blockSize = WriteBytes(entry, blockBuffer);
-            var source = blockBuffer[..blockSize];
-            var destination = decompData.AsSpan(start: totalSize, length: blockSize);
-            source.CopyTo(destination);
+            var buffer = decompData.AsSpan(start: totalSize);
+            int blockSize = WriteBytes(entry, buffer);
             totalSize += blockSize;
         }
 
-        if (blockArray is not null)
-            _arrayPool.Return(blockArray);
-
         var compressedBytes = blockCompressor.Compress(decompData[..totalSize]);
-
         _arrayPool.Return(decompData);
 
         return new(compressedBytes, DecompSize: totalSize);
