@@ -31,6 +31,7 @@ internal sealed class FileStreams(Dictionary<string, int> pathToTotalEntryCount)
     /// </summary>
     public void UpdateEntryCount(string filepath)
     {
+        ObjectDisposedException.ThrowIf(_isDisposed, this);
         var count = _pathToEntryCount.AddOrUpdate
         (
             key: filepath,
