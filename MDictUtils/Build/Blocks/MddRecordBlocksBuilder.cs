@@ -42,6 +42,9 @@ internal sealed class MddRecordBlocksBuilder
             if (bytesRead == 0)
                 break;
         }
+
+        // Unless somebody changed the file since we last checked it,
+        // we should have read the expected amount of bytes.
         Debug.Assert(totalRead == GetByteCount(entry));
 
         return totalRead;
