@@ -1,14 +1,15 @@
 using System.Collections.Concurrent;
-using System.Diagnostics;
+using System.Collections.Frozen;
 using System.IO.MemoryMappedFiles;
 
 namespace MDictUtils.BuildModels;
 
-internal sealed class FileStreams(int maxOpenStreams = 128) : IDisposable
+internal sealed class FileStreams(Dictionary<string, int> pathToTotalEntryCount) : IDisposable
 {
-    private readonly int _maxOpenStreams = maxOpenStreams;
+    private readonly FrozenDictionary<string, int> _pathToTotalEntryCount = pathToTotalEntryCount.ToFrozenDictionary();
+    private readonly ConcurrentDictionary<string, int> _pathToEntryCount = [];
     private readonly ConcurrentDictionary<string, MemoryMappedFile> _filepathToFile = [];
-    private readonly ConcurrentDictionary<(string, int), MemoryMappedViewStream> _filepathIdToStream = [];
+    private readonly ConcurrentDictionary<(string Filepath, int ThreadId), MemoryMappedViewStream> _filepathIdToStream = [];
     private readonly List<MemoryMappedFile> _files = [];
     private bool _isDisposed = false;
 
@@ -22,15 +23,22 @@ internal sealed class FileStreams(int maxOpenStreams = 128) : IDisposable
             .GetOrAdd(key, InitializeStream);
     }
 
+    public void UpdateEntryCount(string filepath)
+    {
+        var count = _pathToEntryCount.AddOrUpdate
+        (
+            key: filepath,
+            addValue: 1,
+            updateValueFactory: static (key, current) => current + 1
+        );
+        if (count == _pathToTotalEntryCount[filepath])
+        {
+            DisposePath(filepath);
+        }
+    }
+
     private MemoryMappedViewStream InitializeStream((string, int) key)
     {
-        // Debug.Assert(!_filepathToStream.ContainsKey(filepath));
-        // Debug.Assert(_filepathToStream.Count == _files.Count);
-
-        // Sanity check. Please don't use this many files.
-        // if (_files.Count >= _maxOpenStreams)
-        //     DisposeStreams();
-
         var file = _filepathToFile.GetOrAdd(key.Item1, InitializeFile);
         return file.CreateViewStream(0, 0, MemoryMappedFileAccess.Read);
     }
@@ -43,12 +51,17 @@ internal sealed class FileStreams(int maxOpenStreams = 128) : IDisposable
         return file;
     }
 
-    private void DisposeStreams()
+    private void DisposePath(string filepath)
     {
-        foreach (var stream in _filepathIdToStream.Values)
-            stream.Dispose();
-        foreach (var file in _files)
-            file.Dispose();
+        foreach (var (key, stream) in _filepathIdToStream)
+        {
+            if (filepath.Equals(key.Filepath, StringComparison.Ordinal))
+            {
+                stream.Dispose();
+            }
+        }
+        var file = _filepathToFile[filepath];
+        file.Dispose();
     }
 
     void IDisposable.Dispose()
@@ -56,7 +69,11 @@ internal sealed class FileStreams(int maxOpenStreams = 128) : IDisposable
         if (_isDisposed)
             return;
 
-        DisposeStreams();
+        foreach (var stream in _filepathIdToStream.Values)
+            stream.Dispose();
+        foreach (var file in _files)
+            file.Dispose();
+
         _isDisposed = true;
     }
 }
