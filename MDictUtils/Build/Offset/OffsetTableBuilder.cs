@@ -29,9 +29,9 @@ internal partial class OffsetTableBuilder
             ? stackalloc byte[maxEncLength]
             : _arrayPool.Rent(maxEncLength, ref bufferArray);
 
-        foreach (var item in entries)
+        foreach (var entry in entries)
         {
-            var length = encoder.Encoding.GetBytes($"{item.Key}\0", buffer);
+            var length = encoder.Encoding.GetBytes($"{entry.Key}\0", buffer);
             var keyNull = ImmutableArray.Create(buffer[..length]);
 
             // Subtract the encoding length because we appended '\0'
@@ -42,13 +42,13 @@ internal partial class OffsetTableBuilder
                 NullTerminatedKeyBytes = keyNull,
                 KeyCharacterCount = keyLen,
                 Offset = currentOffset,
-                RecordSize = item.Size,
-                RecordPos = item.Pos,
-                FilePath = item.Path,
+                RecordSize = entry.Size,
+                RecordPos = entry.Pos,
+                FilePath = entry.Path,
             };
             arrayBuilder.Add(tableEntry);
 
-            currentOffset += item.Size;
+            currentOffset += entry.Size;
         }
 
         if (bufferArray is not null)
