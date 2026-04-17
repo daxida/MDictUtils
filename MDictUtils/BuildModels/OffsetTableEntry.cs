@@ -42,7 +42,7 @@ internal class OffsetTableEntry
     /// <summary>
     /// Size of the uncompressed key data for this entry ("offset" value + null-appended key).
     /// </summary>
-    public int KeyBlockLength => 8 + KeyNull.Length;
+    public int KeyDataLength => 8 + KeyNull.Length;
 
     public override string ToString()
     {
