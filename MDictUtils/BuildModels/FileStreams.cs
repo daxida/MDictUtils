@@ -51,7 +51,7 @@ internal sealed class FileStreams(Dictionary<string, int> pathToTotalEntryCount)
         return file.CreateViewStream(0, 0, MemoryMappedFileAccess.Read);
     }
 
-    private MemoryMappedFile InitializeFile(string filepath)
+    private static MemoryMappedFile InitializeFile(string filepath)
         => MemoryMappedFile
             .CreateFromFile(filepath, FileMode.Open, null, 0, MemoryMappedFileAccess.Read);
 
