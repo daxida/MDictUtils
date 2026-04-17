@@ -34,16 +34,15 @@ The unsafe block is implemented to avoid allocations when zipping, and remains t
 - The skeleton of this repo was from [unit testing tutorial](https://docs.microsoft.com/dotnet/core/testing/unit-testing-with-dotnet-test)
 
 ### TODO
-- [x] Update justfile with the cmd to build jitendex
-- [x] Remove some non-version-2.0 branches because noise
-- [ ] Doc generator? [this](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/xmldoc/) or [this](https://github.com/dotnet/docfx)
-- [ ] Rename things for clarity
 - [ ] Do decryption (?)
   - [x] Done for level=2
 - [ ] Release binaries (?)
 - [ ] Explore how to use as a library (writing a glossary from memory instead of disk)
 - [ ] How does one use perf in c#?
-- [ ] CI run on bigendian
+
+### WONTDO
+- CI run on bigendian: GH doesn't support it easily
+- Doc generator: Tried [docfx](https://github.com/dotnet/docfx) but it requires either a very specific file tree, or some noisy extra md files. And the doc is bloated...
 
 ### Others
 - [ ] How good is [pyglossary](https://github.com/ilius/pyglossary) for wty/Jitendex? Test in goldendict
