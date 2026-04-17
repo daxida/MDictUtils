@@ -28,12 +28,9 @@ internal sealed class MddRecordBlocksBuilder
         fs.Seek(entry.RecordPos, SeekOrigin.Begin);
 
         int totalRead = 0;
-        while (true)
+        while (fs.Read(buffer[totalRead..]) is int bytesRead and not 0)
         {
-            int bytesRead = fs.Read(buffer[totalRead..]);
             totalRead += bytesRead;
-            if (bytesRead == 0)
-                break;
         }
 
         // Unless somebody changed the file since we last checked it,
