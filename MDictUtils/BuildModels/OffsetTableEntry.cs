@@ -2,7 +2,7 @@ using System.Text;
 
 namespace MDictUtils.BuildModels;
 
-internal class OffsetTableEntry
+internal sealed class OffsetTableEntry
 {
     /// <summary>
     /// Bytes of the null-terminated entry key.
