@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Frozen;
 using System.IO.MemoryMappedFiles;
+using ThreadKey = (string Filepath, int ThreadId);
 
 namespace MDictUtils.BuildModels;
 
@@ -9,7 +10,7 @@ internal sealed class FileStreams(Dictionary<string, int> pathToTotalEntryCount)
     private readonly FrozenDictionary<string, int> _pathToTotalEntryCount = pathToTotalEntryCount.ToFrozenDictionary();
     private readonly ConcurrentDictionary<string, int> _pathToEntryCount = [];
     private readonly ConcurrentDictionary<string, MemoryMappedFile> _filepathToFile = [];
-    private readonly ConcurrentDictionary<(string Filepath, int ThreadId), MemoryMappedViewStream> _filepathIdToStream = [];
+    private readonly ConcurrentDictionary<ThreadKey, MemoryMappedViewStream> _filepathIdToStream = [];
     private bool _isDisposed = false;
 
     /// <summary>
@@ -20,7 +21,7 @@ internal sealed class FileStreams(Dictionary<string, int> pathToTotalEntryCount)
         ObjectDisposedException.ThrowIf(_isDisposed, this);
 
         // Different threads cannot share the same view stream.
-        var key = (filepath, Environment.CurrentManagedThreadId);
+        ThreadKey key = (filepath, Environment.CurrentManagedThreadId);
 
         return _filepathIdToStream
             .GetOrAdd(key, InitializeStream);
@@ -44,7 +45,7 @@ internal sealed class FileStreams(Dictionary<string, int> pathToTotalEntryCount)
         }
     }
 
-    private MemoryMappedViewStream InitializeStream((string Filepath, int ThreadId) key)
+    private MemoryMappedViewStream InitializeStream(ThreadKey key)
     {
         var file = _filepathToFile.GetOrAdd(key.Filepath, InitializeFile);
         return file.CreateViewStream(0, 0, MemoryMappedFileAccess.Read);
