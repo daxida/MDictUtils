@@ -34,8 +34,8 @@ internal abstract partial class BlocksBuilder<T>
         Parallel.For(0, partitionCount, i =>
         {
             var range = ranges[i];
-            var blockEntries = offsetTable.AsSpan(range);
-            var block = BlockConstructor(i, blockEntries);
+            var entries = offsetTable.AsSpan(range);
+            var block = BlockConstructor(i, entries);
             results.Add(block);
         });
 
@@ -89,20 +89,22 @@ internal abstract partial class BlocksBuilder<T>
         return partitionCount;
     }
 
-    protected CompressedBlock GetCompressedBlock(ReadOnlySpan<OffsetTableEntry> offsetTableEntries)
+    protected CompressedBlock GetCompressedBlock(ReadOnlySpan<OffsetTableEntry> entries)
     {
-        int totalSize = Convert.ToInt32(offsetTableEntries.Sum(GetByteCount));
+        int totalSize = Convert.ToInt32(entries.Sum(GetByteCount));
         var uncompressed = _arrayPool.Rent(totalSize);
 
         int position = 0;
-        foreach (var entry in offsetTableEntries)
+        foreach (var entry in entries)
         {
             var buffer = uncompressed.AsSpan(start: position);
             int size = WriteBytes(entry, buffer);
             position += size;
         }
 
-        var compressed = blockCompressor.Compress(uncompressed.AsSpan(..position));
+        var compressed = blockCompressor
+            .Compress(uncompressed.AsSpan(..position));
+
         _arrayPool.Return(uncompressed);
         Debug.Assert(totalSize == position);
 
