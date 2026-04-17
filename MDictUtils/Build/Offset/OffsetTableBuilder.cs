@@ -39,8 +39,8 @@ internal partial class OffsetTableBuilder
 
             var tableEntry = new OffsetTableEntry
             {
-                KeyNull = keyNull,
-                KeyLen = keyLen,
+                NullTerminatedKeyBytes = keyNull,
+                KeyCharacterCount = keyLen,
                 Offset = currentOffset,
                 RecordSize = item.Size,
                 RecordPos = item.Pos,

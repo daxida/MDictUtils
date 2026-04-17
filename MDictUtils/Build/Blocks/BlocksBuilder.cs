@@ -46,8 +46,8 @@ internal abstract partial class BlocksBuilder<T>
 
     private int PartitionTable(OffsetTable offsetTable, int desiredBlockSize, Span<Range> ranges)
     {
-        int partitionCount = 0;
         int start = 0;
+        int blockCount = 0;
         long blockSize = 0;
 
         for (int end = 0; end <= offsetTable.Length; end++)
@@ -68,7 +68,7 @@ internal abstract partial class BlocksBuilder<T>
 
             if (flush)
             {
-                ranges[partitionCount++] = start..end;
+                ranges[blockCount++] = start..end;
                 blockSize = 0;
                 start = end;
             }
@@ -77,7 +77,7 @@ internal abstract partial class BlocksBuilder<T>
                 blockSize += GetByteCount(offsetTableEntry);
         }
 
-        return partitionCount;
+        return blockCount;
     }
 
     protected CompressedBlock GetCompressedBlock(ReadOnlySpan<OffsetTableEntry> entries)
