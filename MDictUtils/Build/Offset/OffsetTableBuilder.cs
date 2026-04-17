@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 
 namespace MDictUtils.Build.Offset;
 
-internal partial class OffsetTableBuilder
+internal sealed partial class OffsetTableBuilder
 (
     ILogger<OffsetTableBuilder> logger,
     IKeyComparer keyComparer
