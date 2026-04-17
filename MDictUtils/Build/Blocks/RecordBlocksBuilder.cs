@@ -11,4 +11,13 @@ internal abstract class RecordBlocksBuilder
     : BlocksBuilder<RecordBlock>(logger, blockCompressor), IRecordBlocksBuilder
 {
     public abstract ImmutableArray<RecordBlock> Build(OffsetTable offsetTable, int desiredBlockSize);
+
+    protected override long GetByteCount(OffsetTableEntry entry)
+        => entry.RecordSize;
+
+    protected override RecordBlock BlockConstructor(ReadOnlySpan<OffsetTableEntry> entries)
+    {
+        var block = GetCompressedBlock(entries);
+        return new(block);
+    }
 }

@@ -14,15 +14,6 @@ internal sealed class MddRecordBlocksBuilder
     public override ImmutableArray<RecordBlock> Build(OffsetTable offsetTable, int desiredBlockSize)
         => BuildBlocks(offsetTable, desiredBlockSize);
 
-    protected override long GetByteCount(OffsetTableEntry entry)
-        => entry.RecordSize;
-
-    protected override RecordBlock BlockConstructor(ReadOnlySpan<OffsetTableEntry> entries)
-    {
-        var block = GetCompressedBlock(entries);
-        return new(block);
-    }
-
     protected override int WriteBytes(OffsetTableEntry entry, Span<byte> buffer)
     {
         Debug.Assert(entry.RecordPos == 0);
