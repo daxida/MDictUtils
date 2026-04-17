@@ -10,7 +10,7 @@ internal sealed class FileStreams(Dictionary<string, int> pathToTotalEntryCount)
     private readonly FrozenDictionary<string, int> _pathToTotalEntryCount = pathToTotalEntryCount.ToFrozenDictionary();
     private readonly ConcurrentDictionary<string, int> _pathToEntryCount = [];
     private readonly ConcurrentDictionary<string, MemoryMappedFile> _filepathToFile = [];
-    private readonly ConcurrentDictionary<ThreadKey, MemoryMappedViewStream> _filepathIdToStream = [];
+    private readonly ConcurrentDictionary<ThreadKey, MemoryMappedViewStream> _threadKeyToStream = [];
     private bool _isDisposed = false;
 
     /// <summary>
@@ -23,7 +23,7 @@ internal sealed class FileStreams(Dictionary<string, int> pathToTotalEntryCount)
         // Different threads cannot share the same view stream.
         ThreadKey key = (filepath, Environment.CurrentManagedThreadId);
 
-        return _filepathIdToStream
+        return _threadKeyToStream
             .GetOrAdd(key, InitializeStream);
     }
 
@@ -57,7 +57,7 @@ internal sealed class FileStreams(Dictionary<string, int> pathToTotalEntryCount)
 
     private void DisposeFile(string filepath)
     {
-        foreach (var (key, stream) in _filepathIdToStream)
+        foreach (var (key, stream) in _threadKeyToStream)
         {
             if (filepath.Equals(key.Filepath, StringComparison.Ordinal))
             {
@@ -73,7 +73,7 @@ internal sealed class FileStreams(Dictionary<string, int> pathToTotalEntryCount)
         if (_isDisposed)
             return;
 
-        foreach (var stream in _filepathIdToStream.Values)
+        foreach (var stream in _threadKeyToStream.Values)
             stream.Dispose();
         foreach (var file in _filepathToFile.Values)
             file.Dispose();
