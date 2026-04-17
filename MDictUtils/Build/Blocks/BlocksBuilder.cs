@@ -26,10 +26,10 @@ internal abstract partial class BlocksBuilder<T>
         LogBeginBuilding(_typeName);
 
         var ranges = _rangePool.Rent(offsetTable.Length);
-        var partitionCount = PartitionTable(offsetTable, desiredBlockSize, ranges);
-        var blocksBuilder = new T[partitionCount];
+        var blockCount = PartitionTable(offsetTable, desiredBlockSize, ranges);
+        var blocksBuilder = new T[blockCount];
 
-        Parallel.For(0, partitionCount, i =>
+        Parallel.For(0, blockCount, i =>
         {
             var range = ranges[i];
             var entries = offsetTable.AsSpan(range);
