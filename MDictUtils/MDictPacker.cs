@@ -140,7 +140,7 @@ public static class MDictPacker
             string relpath = source;
             foreach (var fpath in Directory.GetFiles(source, "*", SearchOption.AllDirectories))
             {
-                var info = new FileInfo(source);
+                var info = new FileInfo(fpath);
 
                 /// TODO: An error will be thrown later if this length is equal to zero.
                 /// <see cref="Build.Blocks.MddRecordBlocksBuilder.WriteBytes"/>
