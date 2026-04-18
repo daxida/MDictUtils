@@ -1,10 +1,36 @@
+using System.Diagnostics;
 using System.Text;
 
 namespace MDictUtils.BuildModels;
 
 internal sealed record DesiredKeyBlockSize(int Value);
 internal sealed record DesiredRecordBlockSize(int Value);
-internal sealed record EncodingSettings(Encoding Encoding, int EncodingLength);
+
+internal sealed record EncodingSettings
+{
+    public Encoding Encoding { get; }
+    public int EncodingLength { get; }
+    public EncodingSettings(string encoding, bool isMdd)
+    {
+        encoding = encoding.ToLower();
+        Debug.Assert(encoding == "utf8");
+
+        if (isMdd || encoding == "utf16" || encoding == "utf-16")
+        {
+            Encoding = Encoding.Unicode;
+            EncodingLength = 2;
+        }
+        else if (encoding == "utf8" || encoding == "utf-8")
+        {
+            Encoding = Encoding.UTF8;
+            EncodingLength = 1;
+        }
+        else
+        {
+            throw new NotSupportedException("Unknown encoding. Supported: utf8, utf16");
+        }
+    }
+}
 
 internal sealed record KeyData
 (

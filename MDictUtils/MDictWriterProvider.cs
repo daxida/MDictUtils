@@ -1,5 +1,3 @@
-using System.Diagnostics;
-using System.Text;
 using MDictUtils.Build;
 using MDictUtils.Build.Blocks;
 using MDictUtils.Build.Compression;
@@ -19,14 +17,13 @@ public interface IMDictWriter
 
 public sealed record MDictWriterOptions
 {
-    public int CompressionType { get; set; } = 2;
-    public int DesiredRecordBlockSize { get; set; } = 65_536;
+    public uint CompressionType { get; set; } = 2;
     public int DesiredKeyBlockSize { get; set; } = 32_768;
+    public int DesiredRecordBlockSize { get; set; } = 65_536;
     public bool EnableLogging { get; set; } = true;
     public string Encoding { get; set; } = "utf8";
     public bool IsMdd { get; set; } = false;
 }
-
 
 public static class MDictWriterProvider
 {
@@ -39,47 +36,19 @@ public static class MDictWriterProvider
 
         var s = new ServiceCollection();
 
-        #region Writer services
+        /// Inject <see cref="Write"> namespace types.
+        s.AddWriterServices();
 
-        s.AddTransient<IMDictWriter, Writer>();
-        s.AddTransient<HeaderWriter>();
-        s.AddTransient<KeysWriter>();
-        s.AddTransient<RecordsWriter>();
-
-        #endregion
-
-        #region Builder services
-
-        s.AddTransient<IDataBuilder, DataBuilder>();
-
-        // Offset table
-        s.AddTransient<OffsetTableBuilder>();
+        /// Inject <see cref="Build"> namespace types.
         if (options.IsMdd)
-            s.AddTransient<IKeyComparer, MddKeyComparer>();
+            s.AddMddBuilderServices(options.CompressionType);
         else
-            s.AddTransient<IKeyComparer, MdxKeyComparer>();
-        s.AddTransient(_ => GetEncodingSettings(options.Encoding, options.IsMdd));
+            s.AddMdxBuilderServices(options.CompressionType);
 
-        // Key blocks
-        s.AddTransient<KeyBlockIndexBuilder>();
-        s.AddTransient<KeyBlocksBuilder>();
+        // Inject option wrapper objects.
         s.AddTransient(_ => new DesiredKeyBlockSize(options.DesiredKeyBlockSize));
-
-        // Record blocks
-        s.AddTransient<RecordBlockIndexBuilder>();
-        if (options.IsMdd)
-            s.AddTransient<IRecordBlocksBuilder, MddRecordBlocksBuilder>();
-        else
-            s.AddTransient<IRecordBlocksBuilder, MdxRecordBlocksBuilder>();
         s.AddTransient(_ => new DesiredRecordBlockSize(options.DesiredRecordBlockSize));
-
-        // Compression
-        if (options.CompressionType == ZLibBlockCompressor.CompressionType)
-            s.AddTransient<IBlockCompressor, ZLibBlockCompressor>();
-        else
-            throw new NotSupportedException($"Unsupported compression type `{options.CompressionType}`");
-
-        #endregion
+        s.AddTransient(_ => new EncodingSettings(options.Encoding, options.IsMdd));
 
         // Logging
         s.AddLogging(builder =>
@@ -100,22 +69,41 @@ public static class MDictWriterProvider
         return provider.GetRequiredService<IMDictWriter>();
     }
 
-    private static EncodingSettings GetEncodingSettings(string encoding, bool isMdd)
-    {
-        encoding = encoding.ToLower();
-        Debug.Assert(encoding == "utf8");
+    private static IServiceCollection AddWriterServices(this IServiceCollection services)
+        => services
+            .AddTransient<IMDictWriter, Writer>()
+            .AddTransient<HeaderWriter>()
+            .AddTransient<KeysWriter>()
+            .AddTransient<RecordsWriter>();
 
-        if (isMdd || encoding == "utf16" || encoding == "utf-16")
+    private static IServiceCollection AddMdxBuilderServices(this IServiceCollection services, uint compressionType)
+        => services
+            .AddTransient<IDataBuilder, DataBuilder>()
+            .AddTransient<IKeyComparer, MdxKeyComparer>()
+            .AddTransient<OffsetTableBuilder>()
+            .AddTransient<KeyBlockIndexBuilder>()
+            .AddTransient<KeyBlocksBuilder>()
+            .AddTransient<RecordBlockIndexBuilder>()
+            .AddTransient<IRecordBlocksBuilder, MdxRecordBlocksBuilder>()
+            .AddBlockCompressor(compressionType);
+
+    private static IServiceCollection AddMddBuilderServices(this IServiceCollection services, uint compressionType)
+        => services
+            .AddTransient<IDataBuilder, DataBuilder>()
+            .AddTransient<IKeyComparer, MddKeyComparer>()
+            .AddTransient<OffsetTableBuilder>()
+            .AddTransient<KeyBlockIndexBuilder>()
+            .AddTransient<KeyBlocksBuilder>()
+            .AddTransient<RecordBlockIndexBuilder>()
+            .AddTransient<IRecordBlocksBuilder, MddRecordBlocksBuilder>()
+            .AddBlockCompressor(compressionType);
+
+    private static IServiceCollection AddBlockCompressor(this IServiceCollection services, uint compressionType)
+        => compressionType switch
         {
-            return new(Encoding.Unicode, EncodingLength: 2);
-        }
-        else if (encoding == "utf8" || encoding == "utf-8")
-        {
-            return new(Encoding.UTF8, EncodingLength: 1);
-        }
-        else
-        {
-            throw new NotSupportedException("Unknown encoding. Supported: utf8, utf16");
-        }
-    }
+            ZLibBlockCompressor.CompressionType
+                => services.AddTransient<IBlockCompressor, ZLibBlockCompressor>(),
+            _ // Default
+                => throw new NotSupportedException($"Unsupported compression type `{compressionType}`")
+        };
 }
