@@ -1,11 +1,10 @@
 using System.Text;
-using MDictUtils.BuildModels;
 
 namespace MDictUtils.Write;
 
 internal sealed class MdxHeaderWriter : HeaderWriter
 {
-    protected internal override string GetHeaderString(HeaderFields fields)
+    protected internal override string GetHeaderString(MDictMetadata fields)
     {
         var now = DateTime.Today;
         var sb = new StringBuilder();

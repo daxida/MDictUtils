@@ -153,7 +153,7 @@ public class HeaderTests
         const string title = "Title\r\n\n[2026-04-04]";
         const string version = "2.0";
 
-        var headerFields = new HeaderFields(version, title, "");
+        var headerFields = new MDictMetadata(Title: title, Description: "", Version: version);
         var mdxHeaderWriter = new MdxHeaderWriter();
         var header = mdxHeaderWriter.GetHeaderString(headerFields);
 

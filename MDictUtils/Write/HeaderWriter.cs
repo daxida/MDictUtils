@@ -1,11 +1,10 @@
 using System.Text;
-using MDictUtils.BuildModels;
 
 namespace MDictUtils.Write;
 
 internal abstract class HeaderWriter
 {
-    public int WriteHeader(Stream stream, HeaderFields fields)
+    public int WriteHeader(Stream stream, MDictMetadata fields)
     {
         var header = GetHeaderString(fields);
 
@@ -32,7 +31,7 @@ internal abstract class HeaderWriter
             + checksumBytes.Length;
     }
 
-    protected internal abstract string GetHeaderString(HeaderFields fields);
+    protected internal abstract string GetHeaderString(MDictMetadata fields);
 
     // Same as python: escape(self._description, quote=True),
     // System.Web.HttpUtility.HtmlAttributeEncode(s) doesn't do the trick...

@@ -21,8 +21,7 @@ internal sealed class Writer
 
         using var stream = new FileStream(outputFile, FileMode.Create, FileAccess.Write, FileShare.None);
 
-        var headerFields = new HeaderFields(metadata.Version, metadata.Title, metadata.Description);
-        int bytesWritten = headerWriter.WriteHeader(stream, headerFields);
+        int bytesWritten = headerWriter.WriteHeader(stream, metadata);
 
         var keyData = dataBuilder.BuildKeyData(entries, metadata);
         bytesWritten += keysWriter.Write(stream, keyData);

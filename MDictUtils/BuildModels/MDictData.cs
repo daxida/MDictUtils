@@ -6,13 +6,6 @@ internal sealed record DesiredKeyBlockSize(int Value);
 internal sealed record DesiredRecordBlockSize(int Value);
 internal sealed record EncodingSettings(Encoding Encoding, int EncodingLength);
 
-internal sealed record HeaderFields
-(
-    string Version,
-    string Title,
-    string Description
-);
-
 internal sealed record KeyData
 (
     int EntryCount,
