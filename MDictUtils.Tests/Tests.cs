@@ -3,20 +3,13 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using MDictUtils.Build.Offset;
+using MDictUtils.BuildModels;
 using Xunit;
 
 namespace MDictUtils.Tests;
 
 public class MDictWriterTests
 {
-    [Fact]
-    public void Constructor_WithEmptyDictionary_Succeeds()
-    {
-        var entries = new List<MDictEntry>();
-        var writer = new MDictWriter(entries);
-        Assert.NotNull(writer);
-    }
-
     [Fact]
     public void Write_CreatesValidFile()
     {
@@ -25,12 +18,12 @@ public class MDictWriterTests
             Title: "Test Dictionary",
             Description: "A test dictionary");
 
-        var writer = new MDictWriter(entries, metadata);
+        var writer = MDictWriterProvider.GetWriter();
         var outputPath = Path.GetTempFileName();
 
         try
         {
-            writer.Write(outputPath);
+            writer.Write(entries, outputPath, metadata);
             Assert.True(File.Exists(outputPath));
             var fileInfo = new FileInfo(outputPath);
             Assert.True(fileInfo.Length > 0, "File should not be empty");
@@ -46,12 +39,15 @@ public class MDictWriterTests
     public void Write_WithUTF8Encoding_CreatesFile()
     {
         var entries = new List<MDictEntry>();
-        var writer = new MDictWriter(entries, new(Encoding: "utf8"));
+        var writer = MDictWriterProvider.GetWriter(options =>
+        {
+            options.Encoding = "utf8";
+        });
         var outputPath = Path.GetTempFileName();
 
         try
         {
-            writer.Write(outputPath);
+            writer.Write(entries, outputPath);
             Assert.True(File.Exists(outputPath));
         }
         finally
@@ -154,9 +150,12 @@ public class HeaderTests
     public void GetHeaderString_ShouldNotReplaceLineEndingsInTitle()
     {
         const string title = "Title\r\n\n[2026-04-04]";
-        var metadata = new MDictMetadata(Title: title);
-        var writer = new MDictWriter([], metadata);
-        var header = writer.GetHeaderString();
+        const string version = "2.0";
+
+        var headerFields = new HeaderFields(version, title, "");
+        var mdxHeaderWriter = new MdxHeaderWriter();
+        var header = mdxHeaderWriter.GetHeaderString(headerFields);
+
         Assert.Contains($"Title=\"{title}\"", header);
         // Should not have newlines between elements
         Assert.Contains("<Dictionary GeneratedByEngineVersion=\"2.0\" RequiredEngineVersion=\"2.0\"", header);
@@ -214,8 +213,11 @@ public class DoUndoTests
 
             // Pack it into out.mdx
             var packedEntries = MDictPacker.PackMdxTxt(originalDictPath);
-            var writer = new MDictWriter(packedEntries, new(IsMdd: isMdd));
-            writer.Write(outMdxPath);
+            var writer = MDictWriterProvider.GetWriter(options =>
+            {
+                options.IsMdd = isMdd;
+            });
+            writer.Write(packedEntries, outMdxPath);
 
             // Unpack out1.mdx to tempDir and compare normalized
             MDictPacker.Unpack(tempDir, outMdxPath, isMdd: isMdd);
@@ -249,8 +251,11 @@ public class DoUndoTests
 
             // Pack it into out.mdd
             var packedEntries = MDictPacker.PackMddFile(originalStubPath);
-            var writer = new MDictWriter(packedEntries, new(IsMdd: isMdd));
-            writer.Write(outMddPath);
+            var writer = MDictWriterProvider.GetWriter(options =>
+            {
+                options.IsMdd = isMdd;
+            });
+            writer.Write(packedEntries, outMddPath);
 
             // Unpack out1.mdd to tempDir and compare normalized
             MDictPacker.Unpack(tempDir, outMddPath, isMdd: isMdd);
@@ -333,8 +338,11 @@ public class DoUndoTests
 
             // Pack the entire source directory into out.mdx
             var packedEntries = MDictPacker.PackMdxTxt(sourceDir);
-            var writer = new MDictWriter(packedEntries, new(IsMdd: isMdd));
-            writer.Write(outMdxPath);
+            var writer = MDictWriterProvider.GetWriter(options =>
+            {
+                options.IsMdd = isMdd;
+            });
+            writer.Write(packedEntries, outMdxPath);
 
             // Unpack out.mdx and compare normalized
             MDictPacker.Unpack(tempDir, outMdxPath, isMdd: isMdd);

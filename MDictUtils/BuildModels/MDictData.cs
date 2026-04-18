@@ -1,21 +1,40 @@
+using System.Text;
+
 namespace MDictUtils.BuildModels;
 
-internal sealed record MDictData
+internal sealed record EncodingSettings
 (
-    string Title,
-    string Description,
+    Encoding Encoding,
+    int EncodingLength
+);
+
+internal sealed record HeaderFields
+(
     string Version,
-    bool IsMdd,
+    string Title,
+    string Description
+);
+
+internal sealed record KeyData
+(
     int EntryCount,
     CompressedBlock KeyBlockIndex,
-    ImmutableArray<KeyBlock> KeyBlocks,
+    ImmutableArray<KeyBlock> KeyBlocks
+)
+{
+    public int KeyBlocksSize => KeyBlocks.Sum(static b => b.Bytes.Length);
+}
+
+internal sealed record RecordData
+(
+    int EntryCount,
     Block RecordBlockIndex,
     ImmutableArray<RecordBlock> RecordBlocks
 )
 {
-    public int KeyBlocksSize => KeyBlocks.Sum(static b => b.Bytes.Length);
     public int RecordBlocksSize => RecordBlocks.Sum(static b => b.Bytes.Length);
 }
+
 
 internal readonly record struct Block(ImmutableArray<byte> Bytes)
 {

@@ -2,13 +2,11 @@ using MDictUtils.Build.Blocks;
 using MDictUtils.Build.Index;
 using MDictUtils.Build.Offset;
 using MDictUtils.BuildModels;
-using Microsoft.Extensions.Logging;
 
 namespace MDictUtils.Build;
 
 internal sealed class DataBuilder
 (
-    ILogger<DataBuilder> logger,
     OffsetTableBuilder offsetTableBuilder,
     KeyBlockIndexBuilder keyBlockIndexBuilder,
     KeyBlocksBuilder keyBlocksBuilder,
@@ -17,35 +15,41 @@ internal sealed class DataBuilder
 )
     : IDataBuilder
 {
-    public MDictData BuildData(List<MDictEntry> entries, MDictMetadata m)
+    private OffsetTable? _offsetTable;
+
+    public KeyData BuildKeyData(List<MDictEntry> entries, MDictMetadata m)
     {
-        var offsetTable = offsetTableBuilder
-            .Build(entries, m);
+        _offsetTable = offsetTableBuilder
+            .Build(entries);
 
         var keyBlocks = keyBlocksBuilder
-            .Build(offsetTable, m.KeySize);
+            .Build(_offsetTable.Value, m.KeySize);
 
         var keyBlockIndex = keyBlockIndexBuilder
             .Build(keyBlocks);
 
+        return new KeyData
+        (
+            entries.Count,
+            keyBlockIndex,
+            keyBlocks
+        );
+    }
+
+    public RecordData BuildRecordData(List<MDictEntry> entries, MDictMetadata m)
+    {
+        if (_offsetTable is null)
+            throw new InvalidOperationException("Must build key data before record data.");
+
         var recordBlocks = recordBlocksBuilder
-            .Build(offsetTable, m.BlockSize);
+            .Build(_offsetTable.Value, m.BlockSize);
 
         var recordBlockIndex = recordBlockIndexBuilder
             .Build(recordBlocks);
 
-        if (logger.IsEnabled(LogLevel.Debug))
-            logger.LogDebug("Initialization complete.");
-
-        return new MDictData
+        return new RecordData
         (
-            m.Title,
-            m.Description,
-            m.Version,
-            m.IsMdd,
             entries.Count,
-            keyBlockIndex,
-            keyBlocks,
             recordBlockIndex,
             recordBlocks
         );
