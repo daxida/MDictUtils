@@ -30,7 +30,6 @@ internal sealed class MddRecordBlocksBuilder
 
         // Unless somebody changed the file since we last checked it,
         // we should read exactly the expected amount of bytes.
-        var size = GetByteCount(entry);
-        fs.ReadExactly(buffer[..size]);
+        fs.ReadExactly(buffer);
     }
 }
