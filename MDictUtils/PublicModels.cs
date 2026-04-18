@@ -16,3 +16,11 @@ public sealed record MDictMetadata
     int    BlockSize   = 65536
 );
 #pragma warning restore format
+
+public sealed record MDictWriterOptions
+{
+    public int CompressionType { get; set; } = 2;
+    public bool IsMdd { get; set; } = false;
+    public string Encoding { get; set; } = "utf8";
+    public bool EnableLogging { get; set; } = true;
+}

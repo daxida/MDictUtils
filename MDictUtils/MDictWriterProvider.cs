@@ -12,14 +12,6 @@ using Microsoft.Extensions.Logging;
 
 namespace MDictUtils;
 
-public sealed record MDictWriterOptions
-{
-    public int CompressionType { get; set; } = 2;
-    public bool IsMdd { get; set; } = false;
-    public string Encoding { get; set; } = "utf8";
-    public bool EnableLogging { get; set; } = true;
-}
-
 public static class MDictWriterProvider
 {
     public static IMDictWriter GetWriter(Action<MDictWriterOptions>? configure = null)
