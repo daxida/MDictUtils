@@ -6,6 +6,7 @@ using MDictUtils.Build.Compression;
 using MDictUtils.Build.Index;
 using MDictUtils.Build.Offset;
 using MDictUtils.BuildModels;
+using MDictUtils.Write;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
