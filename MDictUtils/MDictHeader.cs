@@ -7,6 +7,7 @@ public abstract record MDictHeader
     public string Title { get; init; } = "";
     public string Description { get; init; } = "";
     public string Version { get; init; } = "2.0";
+    public DateOnly CreationDate { get; init; } = DateOnly.FromDateTime(DateTime.Today);
 
     // Same as python: escape(self._description, quote=True),
     // System.Web.HttpUtility.HtmlAttributeEncode(s) doesn't do the trick...
@@ -25,7 +26,7 @@ public sealed record MdxHeader : MDictHeader
 {
     public override string ToString()
     {
-        var now = DateTime.Today;
+        var now = CreationDate;
         var sb = new StringBuilder();
 
         void append(ReadOnlySpan<char> val)
@@ -61,7 +62,7 @@ public sealed record MddHeader : MDictHeader
 {
     public override string ToString()
     {
-        var now = DateTime.Today;
+        var now = CreationDate;
         var sb = new StringBuilder();
 
         void append(ReadOnlySpan<char> val)
