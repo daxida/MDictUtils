@@ -4,12 +4,12 @@ namespace MDictUtils.Write;
 
 internal sealed class HeaderWriter
 {
-    public int WriteHeader(Stream stream, MDictHeader fields)
+    public int WriteHeader(Stream stream, MDictHeader header)
     {
-        var header = fields.ToString();
+        var headerString = header.ToString();
 
         // Encode header to little-endian UTF-16
-        ReadOnlySpan<byte> headerBytes = Encoding.Unicode.GetBytes(header);
+        ReadOnlySpan<byte> headerBytes = Encoding.Unicode.GetBytes(headerString);
 
         // Write header length (big-endian)
         Span<byte> lengthBytes = stackalloc byte[4];
