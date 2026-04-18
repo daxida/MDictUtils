@@ -27,7 +27,7 @@ internal sealed class OffsetTableEntry
     /// <summary>
     /// Size of this entry's data in the file from which it is sourced.
     /// </summary>
-    public required long RecordSize { get; init; }
+    public required int RecordSize { get; init; }
 
     /// <summary>
     /// Position of this entry's data in the file from which this entry is sourced.

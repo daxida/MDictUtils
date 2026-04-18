@@ -19,7 +19,7 @@ internal sealed class KeyBlocksBuilder
         return new(block, entries);
     }
 
-    protected override long GetByteCount(OffsetTableEntry entry)
+    protected override int GetByteCount(OffsetTableEntry entry)
         => entry.KeyDataSize;
 
     protected override int WriteBytes(OffsetTableEntry entry, Span<byte> buffer)

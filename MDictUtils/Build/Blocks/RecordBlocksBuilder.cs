@@ -12,7 +12,7 @@ internal abstract class RecordBlocksBuilder
 {
     public abstract ImmutableArray<RecordBlock> Build(OffsetTable offsetTable, int desiredBlockSize);
 
-    protected sealed override long GetByteCount(OffsetTableEntry entry)
+    protected sealed override int GetByteCount(OffsetTableEntry entry)
         => entry.RecordSize;
 
     protected sealed override RecordBlock BlockConstructor(ReadOnlySpan<OffsetTableEntry> entries)

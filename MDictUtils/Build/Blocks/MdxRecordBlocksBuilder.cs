@@ -22,7 +22,7 @@ internal sealed class MdxRecordBlocksBuilder
 
     protected override int WriteBytes(OffsetTableEntry entry, Span<byte> buffer)
     {
-        int size = Convert.ToInt32(GetByteCount(entry));
+        int size = GetByteCount(entry);
         if (size < 1)
             throw new InvalidDataException("Size must be >= 1");
 

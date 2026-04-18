@@ -30,7 +30,6 @@ internal readonly record struct CompressedBlock(ImmutableArray<byte> Bytes, long
 internal readonly record struct OffsetTable(ImmutableArray<OffsetTableEntry> Entries)
 {
     public int Length => Entries.Length;
-    public long TotalRecordLength => Entries.Sum(static e => e.RecordSize);
     public ReadOnlySpan<OffsetTableEntry> AsSpan(Range range) => Entries.AsSpan(range);
     public Dictionary<string, int> GetFilePathToTotalEntryCount()
     {
