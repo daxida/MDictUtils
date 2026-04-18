@@ -4,7 +4,7 @@ namespace MDictUtils.Write;
 
 internal sealed class HeaderWriter
 {
-    public int WriteHeader(Stream stream, MDictHeader header)
+    public int Write(Stream stream, MDictHeader header)
     {
         var headerString = header.ToString();
 
