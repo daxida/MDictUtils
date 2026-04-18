@@ -17,7 +17,7 @@ internal sealed class DataBuilder
 {
     private OffsetTable? _offsetTable;
 
-    public KeyData BuildKeyData(List<MDictEntry> entries, MDictMetadata m)
+    public KeyData BuildKeyData(List<MDictEntry> entries)
     {
         _offsetTable = offsetTableBuilder
             .Build(entries);
@@ -36,7 +36,7 @@ internal sealed class DataBuilder
         );
     }
 
-    public RecordData BuildRecordData(List<MDictEntry> entries, MDictMetadata m)
+    public RecordData BuildRecordData(List<MDictEntry> entries)
     {
         if (_offsetTable is null)
             throw new InvalidOperationException("Must build key data before record data.");

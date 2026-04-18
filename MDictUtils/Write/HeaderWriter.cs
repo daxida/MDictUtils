@@ -2,11 +2,11 @@ using System.Text;
 
 namespace MDictUtils.Write;
 
-internal abstract class HeaderWriter
+internal sealed class HeaderWriter
 {
-    public int WriteHeader(Stream stream, MDictMetadata fields)
+    public int WriteHeader(Stream stream, MDictHeader fields)
     {
-        var header = GetHeaderString(fields);
+        var header = fields.ToString();
 
         // Encode header to little-endian UTF-16
         ReadOnlySpan<byte> headerBytes = Encoding.Unicode.GetBytes(header);
@@ -29,19 +29,5 @@ internal abstract class HeaderWriter
         return lengthBytes.Length
             + headerBytes.Length
             + checksumBytes.Length;
-    }
-
-    protected internal abstract string GetHeaderString(MDictMetadata fields);
-
-    // Same as python: escape(self._description, quote=True),
-    // System.Web.HttpUtility.HtmlAttributeEncode(s) doesn't do the trick...
-    protected static string EscapeHtml(string s)
-    {
-        return s
-            .Replace("&", "&amp;")   // Must be first
-            .Replace("<", "&lt;")
-            .Replace(">", "&gt;")
-            .Replace("\"", "&quot;")
-            .Replace("'", "&#x27;");
     }
 }

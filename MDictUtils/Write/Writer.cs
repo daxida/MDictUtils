@@ -1,5 +1,4 @@
 using MDictUtils.Build;
-using MDictUtils.BuildModels;
 
 namespace MDictUtils.Write;
 
@@ -12,21 +11,19 @@ internal sealed class Writer
 )
     : IMDictWriter
 {
-    public void Write(List<MDictEntry> entries, string outputFile, MDictMetadata? metadata = null)
+    public void Write(List<MDictEntry> entries, string outputFile, MDictHeader header)
     {
-        metadata ??= new();
-
-        if (metadata.Version != "2.0")
+        if (header.Version != "2.0")
             throw new NotSupportedException("Unknown version. Supported: 2.0");
 
         using var stream = new FileStream(outputFile, FileMode.Create, FileAccess.Write, FileShare.None);
 
-        int bytesWritten = headerWriter.WriteHeader(stream, metadata);
+        int bytesWritten = headerWriter.WriteHeader(stream, header);
 
-        var keyData = dataBuilder.BuildKeyData(entries, metadata);
+        var keyData = dataBuilder.BuildKeyData(entries);
         bytesWritten += keysWriter.Write(stream, keyData);
 
-        var recordData = dataBuilder.BuildRecordData(entries, metadata);
+        var recordData = dataBuilder.BuildRecordData(entries);
         recordsWriter.Write(stream, recordData);
     }
 }

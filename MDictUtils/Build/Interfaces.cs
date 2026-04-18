@@ -4,8 +4,8 @@ namespace MDictUtils.Build;
 
 internal interface IDataBuilder
 {
-    public KeyData BuildKeyData(List<MDictEntry> entries, MDictMetadata metadata);
-    public RecordData BuildRecordData(List<MDictEntry> entries, MDictMetadata metadata);
+    public KeyData BuildKeyData(List<MDictEntry> entries);
+    public RecordData BuildRecordData(List<MDictEntry> entries);
 }
 
 internal interface IBlockCompressor

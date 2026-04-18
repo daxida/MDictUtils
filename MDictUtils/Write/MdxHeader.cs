@@ -2,9 +2,9 @@ using System.Text;
 
 namespace MDictUtils.Write;
 
-internal sealed class MdxHeaderWriter : HeaderWriter
+public sealed record MdxHeader : MDictHeader
 {
-    protected internal override string GetHeaderString(MDictMetadata fields)
+    public override string ToString()
     {
         var now = DateTime.Today;
         var sb = new StringBuilder();
@@ -16,8 +16,8 @@ internal sealed class MdxHeaderWriter : HeaderWriter
         }
 
         append($"""  <Dictionary                                      """);
-        append($"""  GeneratedByEngineVersion="{fields.Version}"      """);
-        append($"""  RequiredEngineVersion="{fields.Version}"         """);
+        append($"""  GeneratedByEngineVersion="{Version}"             """);
+        append($"""  RequiredEngineVersion="{Version}"                """);
         append($"""  Encrypted="No"                                   """);
         append($"""  Encoding="UTF-8"                                 """);
         append($"""  Format="Html"                                    """);
@@ -26,8 +26,8 @@ internal sealed class MdxHeaderWriter : HeaderWriter
         append($"""  Compact="Yes"                                    """);
         append($"""  Compat="Yes"                                     """);
         append($"""  KeyCaseSensitive="No"                            """);
-        append($"""  Description="{EscapeHtml(fields.Description)}"   """);
-        append($"""  Title="{EscapeHtml(fields.Title)}"               """);
+        append($"""  Description="{EscapeHtml(Description)}"          """);
+        append($"""  Title="{EscapeHtml(Title)}"                      """);
         append($"""  DataSourceFormat="106"                           """);
         append($"""  StyleSheet=""                                    """);
         append($"""  Left2Right="Yes"                                 """);

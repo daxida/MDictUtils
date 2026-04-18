@@ -2,9 +2,9 @@ using System.Text;
 
 namespace MDictUtils.Write;
 
-internal sealed class MddHeaderWriter : HeaderWriter
+public sealed record MddHeader : MDictHeader
 {
-    protected internal override string GetHeaderString(MDictMetadata fields)
+    public override string ToString()
     {
         var now = DateTime.Today;
         var sb = new StringBuilder();
@@ -16,16 +16,16 @@ internal sealed class MddHeaderWriter : HeaderWriter
         }
 
         append($"""  <Library_Data                                    """);
-        append($"""  GeneratedByEngineVersion="{fields.Version}"      """);
-        append($"""  RequiredEngineVersion="{fields.Version}"         """);
+        append($"""  GeneratedByEngineVersion="{Version}"             """);
+        append($"""  RequiredEngineVersion="{Version}"                """);
         append($"""  Encrypted="No"                                   """);
         append($"""  Encoding=""                                      """);
         append($"""  Format=""                                        """);
         append($"""  CreationDate="{now.Year}-{now.Month}-{now.Day}"  """);
         append($"""  KeyCaseSensitive="No"                            """);
         append($"""  Stripkey="No"                                    """);
-        append($"""  Description="{EscapeHtml(fields.Description)}"   """);
-        append($"""  Title="{EscapeHtml(fields.Title)}"               """);
+        append($"""  Description="{EscapeHtml(Description)}"          """);
+        append($"""  Title="{EscapeHtml(Title)}"                      """);
         append($"""  RegisterBy=""                                    """);
 
         sb.Append("/>\r\n\0");

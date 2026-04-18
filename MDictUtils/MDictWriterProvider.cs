@@ -14,7 +14,7 @@ namespace MDictUtils;
 
 public interface IMDictWriter
 {
-    public void Write(List<MDictEntry> entries, string outputFile, MDictMetadata? metadata = null);
+    public void Write(List<MDictEntry> entries, string outputFile, MDictHeader header);
 }
 
 public static class MDictWriterProvider
@@ -31,10 +31,7 @@ public static class MDictWriterProvider
         #region Writer services
 
         s.AddTransient<IMDictWriter, Writer>();
-        if (options.IsMdd)
-            s.AddTransient<HeaderWriter, MddHeaderWriter>();
-        else
-            s.AddTransient<HeaderWriter, MdxHeaderWriter>();
+        s.AddTransient<HeaderWriter>();
         s.AddTransient<KeysWriter>();
         s.AddTransient<RecordsWriter>();
 

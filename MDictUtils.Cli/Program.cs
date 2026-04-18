@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Text;
+using MDictUtils.Write;
 
 namespace MDictUtils.Cli;
 
@@ -210,9 +211,9 @@ static class Program
                 description = File.ReadAllText(args.DescriptionPath, Encoding.UTF8).Trim();
             }
 
-            var metadata = new MDictMetadata(
-                Title: title,
-                Description: description);
+            MDictHeader header = args.IsMdd
+                ? new MddHeader() { Title = title, Description = description }
+                : new MdxHeader() { Title = title, Description = description };
 
             var writer = MDictWriterProvider.GetWriter(options =>
             {
@@ -228,7 +229,7 @@ static class Program
             {
                 Directory.CreateDirectory(directory);
             }
-            writer.Write(packed, args.MdictPath, metadata);
+            writer.Write(packed, args.MdictPath, header);
         }
         else if (args.ExtractFlag)
         {

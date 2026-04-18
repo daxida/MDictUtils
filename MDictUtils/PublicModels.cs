@@ -6,12 +6,24 @@ public sealed record MDictEntry(string Key, long Pos, string Path, int Size)
         => $"Key=\"{Key}\", Pos={Pos}, Size={Size}";
 }
 
-public sealed record MDictMetadata
-(
-    string Title = "",
-    string Description = "",
-    string Version = "2.0"
-);
+public abstract record MDictHeader
+{
+    public string Title { get; init; } = "";
+    public string Description { get; init; } = "";
+    public string Version { get; init; } = "2.0";
+
+    // Same as python: escape(self._description, quote=True),
+    // System.Web.HttpUtility.HtmlAttributeEncode(s) doesn't do the trick...
+    protected static string EscapeHtml(string s)
+    {
+        return s
+            .Replace("&", "&amp;")   // Must be first
+            .Replace("<", "&lt;")
+            .Replace(">", "&gt;")
+            .Replace("\"", "&quot;")
+            .Replace("'", "&#x27;");
+    }
+}
 
 public sealed record MDictWriterOptions
 {
