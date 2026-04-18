@@ -2,11 +2,9 @@ using System.Text;
 
 namespace MDictUtils.BuildModels;
 
-internal sealed record EncodingSettings
-(
-    Encoding Encoding,
-    int EncodingLength
-);
+internal sealed record DesiredKeyBlockSize(int Value);
+internal sealed record DesiredRecordBlockSize(int Value);
+internal sealed record EncodingSettings(Encoding Encoding, int EncodingLength);
 
 internal sealed record HeaderFields
 (

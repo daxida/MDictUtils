@@ -20,7 +20,7 @@ internal interface IBlockCompressor
 
 internal interface IRecordBlocksBuilder
 {
-    ImmutableArray<RecordBlock> Build(OffsetTable offsetTable, int desiredBlockSize);
+    ImmutableArray<RecordBlock> Build(OffsetTable offsetTable);
 }
 
 internal interface IKeyComparer

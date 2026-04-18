@@ -7,12 +7,13 @@ namespace MDictUtils.Build.Blocks;
 internal sealed class MddRecordBlocksBuilder
 (
     ILogger<MddRecordBlocksBuilder> logger,
-    IBlockCompressor blockCompressor
+    IBlockCompressor blockCompressor,
+    DesiredRecordBlockSize desiredRecordBlockSize
 )
     : RecordBlocksBuilder(logger, blockCompressor)
 {
-    public override ImmutableArray<RecordBlock> Build(OffsetTable offsetTable, int desiredBlockSize)
-        => BuildBlocks(offsetTable, desiredBlockSize);
+    public override ImmutableArray<RecordBlock> Build(OffsetTable offsetTable)
+        => BuildBlocks(offsetTable, desiredRecordBlockSize.Value);
 
     protected override void WriteBytes(OffsetTableEntry entry, Span<byte> buffer)
     {

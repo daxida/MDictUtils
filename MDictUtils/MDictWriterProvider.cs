@@ -50,6 +50,7 @@ public static class MDictWriterProvider
         // Key blocks
         s.AddTransient<KeyBlockIndexBuilder>();
         s.AddTransient<KeyBlocksBuilder>();
+        s.AddTransient(_ => new DesiredKeyBlockSize(options.DesiredKeyBlockSize));
 
         // Record blocks
         s.AddTransient<RecordBlockIndexBuilder>();
@@ -57,6 +58,7 @@ public static class MDictWriterProvider
             s.AddTransient<IRecordBlocksBuilder, MddRecordBlocksBuilder>();
         else
             s.AddTransient<IRecordBlocksBuilder, MdxRecordBlocksBuilder>();
+        s.AddTransient(_ => new DesiredRecordBlockSize(options.DesiredRecordBlockSize));
 
         // Compression
         if (options.CompressionType == ZLibBlockCompressor.CompressionType)

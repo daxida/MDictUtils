@@ -6,12 +6,13 @@ namespace MDictUtils.Build.Blocks;
 internal sealed class KeyBlocksBuilder
 (
     ILogger<KeyBlocksBuilder> logger,
-    IBlockCompressor blockCompressor
+    IBlockCompressor blockCompressor,
+    DesiredKeyBlockSize desiredKeyBlockSize
 )
     : BlocksBuilder<KeyBlock>(logger, blockCompressor)
 {
-    public ImmutableArray<KeyBlock> Build(OffsetTable offsetTable, int desiredBlockSize)
-        => BuildBlocks(offsetTable, desiredBlockSize);
+    public ImmutableArray<KeyBlock> Build(OffsetTable offsetTable)
+        => BuildBlocks(offsetTable, desiredKeyBlockSize.Value);
 
     protected override KeyBlock BlockConstructor(ReadOnlySpan<OffsetTableEntry> entries)
     {

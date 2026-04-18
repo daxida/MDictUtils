@@ -6,18 +6,19 @@ namespace MDictUtils.Build.Blocks;
 internal sealed class MdxRecordBlocksBuilder
 (
     ILogger<MdxRecordBlocksBuilder> logger,
-    IBlockCompressor blockCompressor
+    IBlockCompressor blockCompressor,
+    DesiredRecordBlockSize desiredRecordBlockSize
 )
     : RecordBlocksBuilder(logger, blockCompressor)
 {
     private FileStreams? _fileStreams;
 
-    public override ImmutableArray<RecordBlock> Build(OffsetTable offsetTable, int desiredBlockSize)
+    public override ImmutableArray<RecordBlock> Build(OffsetTable offsetTable)
     {
         var pathToTotalEntryCount = offsetTable.GetFilePathToTotalEntryCount();
         using var fileStreams = new FileStreams(pathToTotalEntryCount);
         _fileStreams = fileStreams;
-        return BuildBlocks(offsetTable, desiredBlockSize);
+        return BuildBlocks(offsetTable, desiredRecordBlockSize.Value);
     }
 
     protected override void WriteBytes(OffsetTableEntry entry, Span<byte> buffer)

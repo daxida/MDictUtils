@@ -23,7 +23,7 @@ internal sealed class DataBuilder
             .Build(entries);
 
         var keyBlocks = keyBlocksBuilder
-            .Build(_offsetTable.Value, m.KeySize);
+            .Build(_offsetTable.Value);
 
         var keyBlockIndex = keyBlockIndexBuilder
             .Build(keyBlocks);
@@ -42,7 +42,7 @@ internal sealed class DataBuilder
             throw new InvalidOperationException("Must build key data before record data.");
 
         var recordBlocks = recordBlocksBuilder
-            .Build(_offsetTable.Value, m.BlockSize);
+            .Build(_offsetTable.Value);
 
         var recordBlockIndex = recordBlockIndexBuilder
             .Build(recordBlocks);

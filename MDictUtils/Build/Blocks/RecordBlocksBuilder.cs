@@ -10,7 +10,7 @@ internal abstract class RecordBlocksBuilder
 )
     : BlocksBuilder<RecordBlock>(logger, blockCompressor), IRecordBlocksBuilder
 {
-    public abstract ImmutableArray<RecordBlock> Build(OffsetTable offsetTable, int desiredBlockSize);
+    public abstract ImmutableArray<RecordBlock> Build(OffsetTable offsetTable);
 
     protected sealed override int GetByteCount(OffsetTableEntry entry)
         => entry.RecordSize;
