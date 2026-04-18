@@ -2,11 +2,6 @@ using MDictUtils.BuildModels;
 
 namespace MDictUtils.Build;
 
-public interface IMDictWriter
-{
-    public void Write(List<MDictEntry> entries, string outputFile, MDictMetadata? metadata = null);
-}
-
 internal interface IDataBuilder
 {
     public KeyData BuildKeyData(List<MDictEntry> entries, MDictMetadata metadata);

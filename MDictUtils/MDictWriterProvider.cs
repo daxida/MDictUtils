@@ -12,6 +12,11 @@ using Microsoft.Extensions.Logging;
 
 namespace MDictUtils;
 
+public interface IMDictWriter
+{
+    public void Write(List<MDictEntry> entries, string outputFile, MDictMetadata? metadata = null);
+}
+
 public static class MDictWriterProvider
 {
     public static IMDictWriter GetWriter(Action<MDictWriterOptions>? configure = null)
