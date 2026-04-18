@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using MDictUtils.Build.Offset;
-using MDictUtils.BuildModels;
-using MDictUtils.Write;
 using Xunit;
 
 namespace MDictUtils.Tests;

@@ -1,6 +1,4 @@
 using System.Buffers;
-using System.Diagnostics;
-using System.Text;
 using MDictUtils.BuildModels;
 using MDictUtils.Extensions;
 using Microsoft.Extensions.Logging;

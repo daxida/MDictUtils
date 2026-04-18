@@ -1,6 +1,5 @@
 using System.Text;
 using BenchmarkDotNet.Attributes;
-using MDictUtils.Write;
 
 namespace MDictUtils.Benchmark;
 

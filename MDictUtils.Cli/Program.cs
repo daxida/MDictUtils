@@ -5,7 +5,6 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Text;
-using MDictUtils.Write;
 
 namespace MDictUtils.Cli;
 
