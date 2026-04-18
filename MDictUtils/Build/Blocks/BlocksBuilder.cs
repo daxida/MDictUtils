@@ -19,7 +19,7 @@ internal abstract partial class BlocksBuilder<T>
 
     protected abstract T BlockConstructor(ReadOnlySpan<OffsetTableEntry> entries);
     protected abstract int GetByteCount(OffsetTableEntry entry);
-    protected abstract int WriteBytes(OffsetTableEntry entry, Span<byte> buffer);
+    protected abstract void WriteBytes(OffsetTableEntry entry, Span<byte> buffer);
 
     protected ImmutableArray<T> BuildBlocks(OffsetTable offsetTable, int desiredBlockSize)
     {
@@ -88,8 +88,9 @@ internal abstract partial class BlocksBuilder<T>
         int position = 0;
         foreach (var entry in entries)
         {
-            var buffer = uncompressed.AsSpan(start: position);
-            int size = WriteBytes(entry, buffer);
+            var size = GetByteCount(entry);
+            var buffer = uncompressed.AsSpan(start: position, size);
+            WriteBytes(entry, buffer);
             position += size;
         }
 

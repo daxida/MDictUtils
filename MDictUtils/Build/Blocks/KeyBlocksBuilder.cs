@@ -22,10 +22,9 @@ internal sealed class KeyBlocksBuilder
     protected override int GetByteCount(OffsetTableEntry entry)
         => entry.KeyDataSize;
 
-    protected override int WriteBytes(OffsetTableEntry entry, Span<byte> buffer)
+    protected override void WriteBytes(OffsetTableEntry entry, Span<byte> buffer)
     {
         Common.ToBigEndian((ulong)entry.Offset, buffer[..8]);
         entry.NullTerminatedKeyBytes.CopyTo(buffer[8..]);
-        return entry.KeyDataSize;
     }
 }

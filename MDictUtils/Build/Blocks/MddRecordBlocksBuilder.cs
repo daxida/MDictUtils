@@ -14,7 +14,7 @@ internal sealed class MddRecordBlocksBuilder
     public override ImmutableArray<RecordBlock> Build(OffsetTable offsetTable, int desiredBlockSize)
         => BuildBlocks(offsetTable, desiredBlockSize);
 
-    protected override int WriteBytes(OffsetTableEntry entry, Span<byte> buffer)
+    protected override void WriteBytes(OffsetTableEntry entry, Span<byte> buffer)
     {
         Debug.Assert(entry.RecordPos == 0);
 
@@ -27,16 +27,9 @@ internal sealed class MddRecordBlocksBuilder
         using var fs = new FileStream(entry.FilePath, FileMode.Open, FileAccess.Read);
         fs.Seek(entry.RecordPos, SeekOrigin.Begin);
 
-        int totalRead = 0;
-        while (fs.Read(buffer[totalRead..]) is int bytesRead and not 0)
-        {
-            totalRead += bytesRead;
-        }
-
         // Unless somebody changed the file since we last checked it,
-        // we should have read the expected amount of bytes.
-        Debug.Assert(totalRead == GetByteCount(entry));
-
-        return totalRead;
+        // we should read exactly the expected amount of bytes.
+        var size = GetByteCount(entry);
+        fs.ReadExactly(buffer[..size]);
     }
 }
