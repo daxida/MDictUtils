@@ -12,17 +12,11 @@ internal sealed record BuildOptions
 
 internal readonly record struct KeyData
 (
-    int EntryCount,
     CompressedBlock KeyBlockIndex,
     ImmutableArray<KeyBlock> KeyBlocks
 )
 {
     public int KeyBlocksSize => KeyBlocks.Sum(static b => b.Bytes.Length);
-}
-
-internal readonly record struct Block(ImmutableArray<byte> Bytes)
-{
-    public int Size => Bytes.Length;
 }
 
 internal readonly record struct CompressedBlock(ImmutableArray<byte> Bytes, long DecompSize)

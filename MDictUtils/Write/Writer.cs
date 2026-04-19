@@ -22,16 +22,16 @@ internal sealed class Writer
         headerWriter.Write(stream, header);
 
         var offsetTable = dataBuilder.BuildOffsetTable(entries);
+
+        // Process key data.
         var keyData = dataBuilder.BuildKeyData(offsetTable);
-        keysWriter.Write(stream, keyData);
-
-        var channel = GetRecordBlockChannel();
         var entryCount = offsetTable.Length;
-        var recordBlockCount = offsetTable.RecordBlockRanges.Length;
+        keysWriter.Write(stream, keyData, entryCount);
 
+        // Process record data.
+        var channel = GetRecordBlockChannel();
         var readTask = dataBuilder.ReadRecordBlocksAsync(offsetTable, channel);
         var writeTask = recordsWriter.WriteAsync(offsetTable, channel, stream);
-
         Task.WaitAll(readTask, writeTask);
     }
 

@@ -39,6 +39,7 @@ internal sealed class RecordsWriter
         {
             blocks[orderedBlock.Order] = orderedBlock.Block;
 
+            // Ensure that blocks are always written in sequential order.
             while (blocks[order] is RecordBlock block) // (not null)
             {
                 totalSize += block.Bytes.Length;
