@@ -91,10 +91,10 @@ public static class MDictWriterProvider
             .AddTransient(_ => new DesiredRecordBlockSize(options.DesiredRecordBlockSize))
             .AddTransient(_ => new EncodingSettings(options.Encoding, options.IsMdd));
 
-    private static IServiceCollection AddBlockCompressor(this IServiceCollection services, uint compressionType)
+    private static IServiceCollection AddBlockCompressor(this IServiceCollection services, MDictCompressionType compressionType)
         => compressionType switch
         {
-            ZLibBlockCompressor.CompressionType
+            MDictCompressionType.ZLib
                 => services.AddTransient<IBlockCompressor, ZLibBlockCompressor>(),
             _ // Default
                 => throw new NotSupportedException($"Unsupported compression type `{compressionType}`")
