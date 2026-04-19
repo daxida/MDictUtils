@@ -12,7 +12,7 @@ namespace MDictUtils;
 
 public interface IMDictWriter
 {
-    public void Write(List<MDictEntry> entries, string outputFile, MDictHeader header);
+    public void Write(MDictHeader header, List<MDictEntry> entries, string outputFile);
 }
 
 public sealed record MDictWriterOptions
