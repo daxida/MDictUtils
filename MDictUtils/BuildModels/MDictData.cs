@@ -1,32 +1,23 @@
-using System.Diagnostics;
 using System.Text;
 
 namespace MDictUtils.BuildModels;
 
-internal sealed record DesiredKeyBlockSize(int Value);
-internal sealed record DesiredRecordBlockSize(int Value);
-
-internal sealed record EncodingSettings
+internal sealed record BuildOptions
 {
-    public Encoding Encoding { get; }
-    public int EncodingLength { get; }
-    public EncodingSettings(Encoding encoding, bool isMdd)
+    public required int DesiredKeyBlockSize { get; init; }
+    public required int DesiredRecordBlockSize { get; init; }
+    public required Encoding KeyEncoding
     {
-        if (isMdd || encoding == Encoding.Unicode)
+        get;
+        init
         {
-            Encoding = Encoding.Unicode;
-            EncodingLength = 2;
-        }
-        else if (encoding == Encoding.UTF8)
-        {
-            Encoding = Encoding.UTF8;
-            EncodingLength = 1;
-        }
-        else
-        {
-            throw new NotSupportedException("Unknown encoding. Supported: utf8, utf16");
+            if (value == Encoding.UTF8 || value == Encoding.Unicode)
+                field = value;
+            else
+                throw new NotSupportedException("Unknown encoding. Supported: utf8, utf16");
         }
     }
+    public int KeyEncodingLength => KeyEncoding == Encoding.Unicode ? 2 : 1;
 }
 
 internal readonly record struct KeyData

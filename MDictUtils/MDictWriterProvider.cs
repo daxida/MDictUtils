@@ -1,3 +1,4 @@
+using System.Text;
 using MDictUtils.Build;
 using MDictUtils.Build.Blocks;
 using MDictUtils.Build.Compression;
@@ -86,10 +87,12 @@ public static class MDictWriterProvider
             .AddBlockCompressor(options.CompressionType);
 
     private static IServiceCollection AddBuildOptions(this IServiceCollection services, MDictWriterOptions options)
-        => services
-            .AddTransient(_ => new DesiredKeyBlockSize(options.DesiredKeyBlockSize))
-            .AddTransient(_ => new DesiredRecordBlockSize(options.DesiredRecordBlockSize))
-            .AddTransient(_ => new EncodingSettings(options.KeyEncoding, options.IsMdd));
+        => services.AddTransient(_ => new BuildOptions
+            {
+                KeyEncoding = options.IsMdd ? Encoding.Unicode : options.KeyEncoding,
+                DesiredKeyBlockSize = options.DesiredKeyBlockSize,
+                DesiredRecordBlockSize = options.DesiredRecordBlockSize,
+            });
 
     private static IServiceCollection AddBlockCompressor(this IServiceCollection services, MDictCompressionType compressionType)
         => compressionType switch

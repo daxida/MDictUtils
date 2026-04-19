@@ -9,9 +9,7 @@ internal sealed partial class OffsetTableBuilder
 (
     ILogger<OffsetTableBuilder> logger,
     IKeyComparer keyComparer,
-    DesiredKeyBlockSize desiredKeyBlockSize,
-    DesiredRecordBlockSize desiredRecordBlockSize,
-    EncodingSettings encoder
+    BuildOptions options
 )
 {
     private static readonly ArrayPool<byte> _arrayPool = ArrayPool<byte>.Shared;
@@ -32,20 +30,21 @@ internal sealed partial class OffsetTableBuilder
     {
         var arrayBuilder = ImmutableArray.CreateBuilder<OffsetTableEntry>(entries.Count);
         long currentOffset = 0;
-        int maxEncLength = GetMaxEncLength(entries, encoder);
+        int maxKeySize = GetMaxKeySize(entries);
+        int encodingLength = options.KeyEncodingLength;
 
         byte[]? bufferArray = null;
-        var buffer = maxEncLength < 256
-            ? stackalloc byte[maxEncLength]
-            : _arrayPool.Rent(maxEncLength, ref bufferArray);
+        var buffer = maxKeySize < 256
+            ? stackalloc byte[maxKeySize]
+            : _arrayPool.Rent(maxKeySize, ref bufferArray);
 
         foreach (var entry in entries)
         {
-            var length = encoder.Encoding.GetBytes($"{entry.Key}\0", buffer);
+            var length = options.KeyEncoding.GetBytes($"{entry.Key}\0", buffer);
             var keyNull = ImmutableArray.Create(buffer[..length]);
 
             // Subtract the encoding length because we appended '\0'
-            var keyLen = (length - encoder.EncodingLength) / encoder.EncodingLength;
+            var keyLen = (length - encodingLength) / encodingLength;
 
             var tableEntry = new OffsetTableEntry
             {
@@ -70,16 +69,16 @@ internal sealed partial class OffsetTableBuilder
         return tableEntries;
     }
 
-    private static int GetMaxEncLength(List<MDictEntry> entries, EncodingSettings encoder)
+    private int GetMaxKeySize(List<MDictEntry> entries)
     {
-        int maxEncLength = 0;
+        int maxKeySize = 0;
         foreach (var entry in entries)
         {
-            int encLength = encoder.Encoding.GetByteCount(entry.Key);
-            maxEncLength = int.Max(maxEncLength, encLength);
+            int keySize = options.KeyEncoding.GetByteCount(entry.Key);
+            maxKeySize = int.Max(maxKeySize, keySize);
         }
-        maxEncLength += encoder.EncodingLength; // Because we'll be appending an extra '\0' character.
-        return maxEncLength;
+        maxKeySize += options.KeyEncodingLength; // Because we'll be appending an extra '\0' character.
+        return maxKeySize;
     }
 
     private ImmutableArray<Range> GetKeyBlockRanges(ImmutableArray<OffsetTableEntry> tableEntries)
@@ -87,7 +86,7 @@ internal sealed partial class OffsetTableBuilder
         var keyEntrySizes = tableEntries
             .Select(static e => e.KeyDataSize)
             .ToArray();
-        return PartitionTable(keyEntrySizes, desiredKeyBlockSize.Value);
+        return PartitionTable(keyEntrySizes, options.DesiredKeyBlockSize);
     }
 
     private ImmutableArray<Range> GetRecordBlockRanges(ImmutableArray<OffsetTableEntry> tableEntries)
@@ -95,7 +94,7 @@ internal sealed partial class OffsetTableBuilder
         var recordEntrySizes = tableEntries
             .Select(static e => e.RecordSize)
             .ToArray();
-        return PartitionTable(recordEntrySizes, desiredRecordBlockSize.Value);
+        return PartitionTable(recordEntrySizes, options.DesiredRecordBlockSize);
     }
 
     private ImmutableArray<Range> PartitionTable(ReadOnlySpan<int> entrySizes, int desiredBlockSize)
