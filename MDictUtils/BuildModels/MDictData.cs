@@ -6,18 +6,8 @@ internal sealed record BuildOptions
 {
     public required int DesiredKeyBlockSize { get; init; }
     public required int DesiredRecordBlockSize { get; init; }
-    public required Encoding KeyEncoding
-    {
-        get;
-        init
-        {
-            if (value == Encoding.UTF8 || value == Encoding.Unicode)
-                field = value;
-            else
-                throw new NotSupportedException("Unknown encoding. Supported: utf8, utf16");
-        }
-    }
-    public int KeyEncodingLength => KeyEncoding == Encoding.Unicode ? 2 : 1;
+    public required Encoding KeyEncoding { get; init; }
+    public required int KeyEncodingLength { get; init; }
 }
 
 internal readonly record struct KeyData

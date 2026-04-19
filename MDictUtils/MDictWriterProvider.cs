@@ -8,6 +8,7 @@ using MDictUtils.BuildModels;
 using MDictUtils.Write;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using static MDictUtils.MDictKeyEncodingType;
 
 namespace MDictUtils;
 
@@ -89,17 +90,15 @@ public static class MDictWriterProvider
     private static IServiceCollection AddBuildOptions(this IServiceCollection services, MDictWriterOptions options)
         => services.AddTransient(_ => new BuildOptions
         {
-            KeyEncoding = options.IsMdd ? Encoding.Unicode : GetKeyEncoding(options.KeyEncoding),
             DesiredKeyBlockSize = options.DesiredKeyBlockSize,
             DesiredRecordBlockSize = options.DesiredRecordBlockSize,
+            KeyEncoding = options.IsMdd
+                ? Utf16.ToEncoding()
+                : options.KeyEncoding.ToEncoding(),
+            KeyEncodingLength = options.IsMdd
+                ? Utf16.ToEncodingLength()
+                : options.KeyEncoding.ToEncodingLength(),
         });
-
-    private static Encoding GetKeyEncoding(MDictKeyEncodingType type) => type switch
-    {
-        MDictKeyEncodingType.Utf8 => Encoding.UTF8,
-        MDictKeyEncodingType.Utf16 => Encoding.Unicode,
-        _ => throw new NotSupportedException("Unknown encoding. Supported: utf8, utf16")
-    };
 
     private static IServiceCollection AddBlockCompressor(this IServiceCollection services, MDictCompressionType compressionType)
         => compressionType switch
