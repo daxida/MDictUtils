@@ -41,14 +41,9 @@ public static class MDictWriterProvider
 
         /// Inject <see cref="Build"> namespace types.
         if (options.IsMdd)
-            s.AddMddBuilderServices(options.CompressionType);
+            s.AddMddBuilderServices(options);
         else
-            s.AddMdxBuilderServices(options.CompressionType);
-
-        // Inject option wrapper objects.
-        s.AddTransient(_ => new DesiredKeyBlockSize(options.DesiredKeyBlockSize));
-        s.AddTransient(_ => new DesiredRecordBlockSize(options.DesiredRecordBlockSize));
-        s.AddTransient(_ => new EncodingSettings(options.Encoding, options.IsMdd));
+            s.AddMdxBuilderServices(options);
 
         // Logging
         s.AddLogging(builder =>
@@ -76,7 +71,7 @@ public static class MDictWriterProvider
             .AddTransient<KeysWriter>()
             .AddTransient<RecordsWriter>();
 
-    private static IServiceCollection AddMdxBuilderServices(this IServiceCollection services, uint compressionType)
+    private static IServiceCollection AddMdxBuilderServices(this IServiceCollection services, MDictWriterOptions options)
         => services
             .AddTransient<IDataBuilder, DataBuilder>()
             .AddTransient<IKeyComparer, MdxKeyComparer>()
@@ -85,9 +80,10 @@ public static class MDictWriterProvider
             .AddTransient<KeyBlocksBuilder>()
             .AddTransient<RecordBlockIndexBuilder>()
             .AddTransient<IRecordBlocksBuilder, MdxRecordBlocksBuilder>()
-            .AddBlockCompressor(compressionType);
+            .AddBuildOptions(options)
+            .AddBlockCompressor(options.CompressionType);
 
-    private static IServiceCollection AddMddBuilderServices(this IServiceCollection services, uint compressionType)
+    private static IServiceCollection AddMddBuilderServices(this IServiceCollection services, MDictWriterOptions options)
         => services
             .AddTransient<IDataBuilder, DataBuilder>()
             .AddTransient<IKeyComparer, MddKeyComparer>()
@@ -96,7 +92,14 @@ public static class MDictWriterProvider
             .AddTransient<KeyBlocksBuilder>()
             .AddTransient<RecordBlockIndexBuilder>()
             .AddTransient<IRecordBlocksBuilder, MddRecordBlocksBuilder>()
-            .AddBlockCompressor(compressionType);
+            .AddBuildOptions(options)
+            .AddBlockCompressor(options.CompressionType);
+
+    private static IServiceCollection AddBuildOptions(this IServiceCollection services, MDictWriterOptions options)
+        => services
+            .AddTransient(_ => new DesiredKeyBlockSize(options.DesiredKeyBlockSize))
+            .AddTransient(_ => new DesiredRecordBlockSize(options.DesiredRecordBlockSize))
+            .AddTransient(_ => new EncodingSettings(options.Encoding, options.IsMdd));
 
     private static IServiceCollection AddBlockCompressor(this IServiceCollection services, uint compressionType)
         => compressionType switch
