@@ -32,7 +32,7 @@ internal sealed record EncodingSettings
     }
 }
 
-internal sealed record KeyData
+internal readonly record struct KeyData
 (
     int EntryCount,
     CompressedBlock KeyBlockIndex,
@@ -42,7 +42,7 @@ internal sealed record KeyData
     public int KeyBlocksSize => KeyBlocks.Sum(static b => b.Bytes.Length);
 }
 
-internal sealed record RecordData
+internal readonly record struct RecordData
 (
     int EntryCount,
     Block RecordBlockIndex,

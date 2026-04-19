@@ -20,10 +20,12 @@ internal sealed class Writer
 
         int bytesWritten = headerWriter.Write(stream, header);
 
-        var keyData = dataBuilder.BuildKeyData(entries);
+        var offsetTable = dataBuilder.BuildOffsetTable(entries);
+
+        var keyData = dataBuilder.BuildKeyData(offsetTable);
         bytesWritten += keysWriter.Write(stream, keyData);
 
-        var recordData = dataBuilder.BuildRecordData(entries);
+        var recordData = dataBuilder.BuildRecordData(offsetTable);
         recordsWriter.Write(stream, recordData);
     }
 }

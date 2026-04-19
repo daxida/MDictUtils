@@ -15,43 +15,28 @@ internal sealed class DataBuilder
 )
     : IDataBuilder
 {
-    private OffsetTable? _offsetTable;
+    public OffsetTable BuildOffsetTable(List<MDictEntry> entries)
+        => offsetTableBuilder.Build(entries);
 
-    public KeyData BuildKeyData(List<MDictEntry> entries)
+    public KeyData BuildKeyData(OffsetTable offsetTable)
     {
-        _offsetTable = offsetTableBuilder
-            .Build(entries);
-
         var keyBlocks = keyBlocksBuilder
-            .Build(_offsetTable.Value);
+            .Build(offsetTable);
 
         var keyBlockIndex = keyBlockIndexBuilder
             .Build(keyBlocks);
 
-        return new KeyData
-        (
-            entries.Count,
-            keyBlockIndex,
-            keyBlocks
-        );
+        return new KeyData(offsetTable.Length, keyBlockIndex, keyBlocks);
     }
 
-    public RecordData BuildRecordData(List<MDictEntry> entries)
+    public RecordData BuildRecordData(OffsetTable offsetTable)
     {
-        if (_offsetTable is null)
-            throw new InvalidOperationException("Must build key data before record data.");
-
         var recordBlocks = recordBlocksBuilder
-            .Build(_offsetTable.Value);
+            .Build(offsetTable);
 
         var recordBlockIndex = recordBlockIndexBuilder
             .Build(recordBlocks);
 
-        return new RecordData
-        (
-            entries.Count,
-            recordBlockIndex,
-            recordBlocks
-        );
+        return new RecordData(offsetTable.Length, recordBlockIndex, recordBlocks);
     }
 }

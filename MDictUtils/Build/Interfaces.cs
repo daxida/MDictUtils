@@ -4,8 +4,9 @@ namespace MDictUtils.Build;
 
 internal interface IDataBuilder
 {
-    public KeyData BuildKeyData(List<MDictEntry> entries);
-    public RecordData BuildRecordData(List<MDictEntry> entries);
+    public OffsetTable BuildOffsetTable(List<MDictEntry> entries);
+    public KeyData BuildKeyData(OffsetTable offsetTable);
+    public RecordData BuildRecordData(OffsetTable offsetTable);
 }
 
 internal interface IBlockCompressor
