@@ -1,3 +1,4 @@
+using System.Threading.Channels;
 using MDictUtils.BuildModels;
 
 namespace MDictUtils.Build;
@@ -6,7 +7,7 @@ internal interface IDataBuilder
 {
     public OffsetTable BuildOffsetTable(List<MDictEntry> entries);
     public KeyData BuildKeyData(OffsetTable offsetTable);
-    public RecordData BuildRecordData(OffsetTable offsetTable);
+    public Task ReadRecordBlocksAsync(OffsetTable offsetTable, Channel<(int, RecordBlock)> channel);
 }
 
 internal interface IBlockCompressor
@@ -16,7 +17,7 @@ internal interface IBlockCompressor
 
 internal interface IRecordBlocksBuilder
 {
-    ImmutableArray<RecordBlock> Build(OffsetTable offsetTable);
+    Task ReadAsync(OffsetTable offsetTable, Channel<(int, RecordBlock)> channel);
 }
 
 internal interface IKeyComparer

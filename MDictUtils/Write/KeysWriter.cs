@@ -4,7 +4,7 @@ namespace MDictUtils.Write;
 
 internal sealed class KeysWriter
 {
-    public int Write(Stream outfile, KeyData data)
+    public void Write(Stream outfile, KeyData data)
     {
         Span<byte> preamble = stackalloc byte[5 * 8]; // Five 8-byte buffers
         var r = new SpanReader<byte>(preamble) { ReadSize = 8 };
@@ -23,16 +23,9 @@ internal sealed class KeysWriter
         outfile.Write(checksum);
         outfile.Write(data.KeyBlockIndex.Bytes.AsSpan());
 
-        var bytesWritten = preamble.Length
-            + checksum.Length
-            + data.KeyBlockIndex.Bytes.Length;
-
         foreach (var block in data.KeyBlocks)
         {
             outfile.Write(block.Bytes.AsSpan());
-            bytesWritten += block.Bytes.Length;
         }
-
-        return bytesWritten;
     }
 }

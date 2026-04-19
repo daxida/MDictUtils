@@ -20,17 +20,6 @@ internal readonly record struct KeyData
     public int KeyBlocksSize => KeyBlocks.Sum(static b => b.Bytes.Length);
 }
 
-internal readonly record struct RecordData
-(
-    int EntryCount,
-    Block RecordBlockIndex,
-    ImmutableArray<RecordBlock> RecordBlocks
-)
-{
-    public int RecordBlocksSize => RecordBlocks.Sum(static b => b.Bytes.Length);
-}
-
-
 internal readonly record struct Block(ImmutableArray<byte> Bytes)
 {
     public int Size => Bytes.Length;

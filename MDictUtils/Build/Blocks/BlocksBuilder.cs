@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.Diagnostics;
+using System.Threading.Channels;
 using MDictUtils.BuildModels;
 using MDictUtils.Extensions;
 using Microsoft.Extensions.Logging;
@@ -21,26 +22,21 @@ internal abstract partial class BlocksBuilder<T>
     protected abstract void WriteBytes(OffsetTableEntry entry, Span<byte> buffer);
     protected abstract ImmutableArray<Range> GetBlockRanges(OffsetTable offsetTable);
 
-    protected ImmutableArray<T> BuildBlocks(OffsetTable offsetTable)
+    protected async Task WriteBlocksAsync(OffsetTable offsetTable, Channel<(int, T)> channel)
     {
         LogBeginBuilding(_typeName);
+        var blockRanges = GetBlockRanges(offsetTable);
+        var enumerator = Enumerable.Range(0, blockRanges.Length);
 
-        var ranges = GetBlockRanges(offsetTable);
-        var blockCount = ranges.Length;
-        var blocksBuilder = new T[blockCount];
-
-        Parallel.For(0, blockCount, i =>
+        await Parallel.ForEachAsync(enumerator, async (i, _) =>
         {
-            var range = ranges[i];
-            var entries = offsetTable.AsSpan(range);
+            var blockRange = blockRanges[i];
+            var entries = offsetTable.AsSpan(blockRange);
             var block = BlockConstructor(entries);
-            blocksBuilder[i] = block;
+            await channel.Writer.WriteAsync((i, block));
         });
 
-        var blocks = ImmutableArray.Create(blocksBuilder);
-        LogBlocks(blocks);
-
-        return blocks;
+        channel.Writer.Complete();
     }
 
     protected CompressedBlock GetCompressedBlock(ReadOnlySpan<OffsetTableEntry> entries)

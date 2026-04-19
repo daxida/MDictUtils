@@ -4,7 +4,7 @@ namespace MDictUtils.Write;
 
 internal sealed class HeaderWriter
 {
-    public int Write(Stream stream, MDictHeader header)
+    public void Write(Stream stream, MDictHeader header)
     {
         var headerString = header.ToString();
 
@@ -25,9 +25,5 @@ internal sealed class HeaderWriter
         Common.ToLittleEndian(checksum, checksumBytes);
 
         stream.Write(checksumBytes);
-
-        return lengthBytes.Length
-            + headerBytes.Length
-            + checksumBytes.Length;
     }
 }

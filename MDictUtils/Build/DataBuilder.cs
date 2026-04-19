@@ -1,3 +1,4 @@
+using System.Threading.Channels;
 using MDictUtils.Build.Blocks;
 using MDictUtils.Build.Index;
 using MDictUtils.Build.Offset;
@@ -10,7 +11,6 @@ internal sealed class DataBuilder
     OffsetTableBuilder offsetTableBuilder,
     KeyBlockIndexBuilder keyBlockIndexBuilder,
     KeyBlocksBuilder keyBlocksBuilder,
-    RecordBlockIndexBuilder recordBlockIndexBuilder,
     IRecordBlocksBuilder recordBlocksBuilder
 )
     : IDataBuilder
@@ -29,14 +29,6 @@ internal sealed class DataBuilder
         return new KeyData(offsetTable.Length, keyBlockIndex, keyBlocks);
     }
 
-    public RecordData BuildRecordData(OffsetTable offsetTable)
-    {
-        var recordBlocks = recordBlocksBuilder
-            .Build(offsetTable);
-
-        var recordBlockIndex = recordBlockIndexBuilder
-            .Build(recordBlocks);
-
-        return new RecordData(offsetTable.Length, recordBlockIndex, recordBlocks);
-    }
+    public async Task ReadRecordBlocksAsync(OffsetTable offsetTable, Channel<(int, RecordBlock)> channel)
+        => await recordBlocksBuilder.ReadAsync(offsetTable, channel);
 }

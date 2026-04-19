@@ -1,3 +1,4 @@
+using System.Threading.Channels;
 using MDictUtils.BuildModels;
 using Microsoft.Extensions.Logging;
 
@@ -11,7 +12,26 @@ internal sealed class KeyBlocksBuilder
     : BlocksBuilder<KeyBlock>(logger, blockCompressor)
 {
     public ImmutableArray<KeyBlock> Build(OffsetTable offsetTable)
-        => BuildBlocks(offsetTable);
+    {
+        var blockCount = offsetTable.KeyBlockRanges.Length;
+        var blocks = new KeyBlock[blockCount];
+        var channel = Channel.CreateUnbounded<(int, KeyBlock)>();
+
+        var readTask = ReadKeyBlocksAsync(blocks, channel);
+        var writeTask = WriteBlocksAsync(offsetTable, channel);
+
+        Task.WaitAll(readTask, writeTask);
+
+        return ImmutableArray.Create(blocks);
+    }
+
+    private async Task ReadKeyBlocksAsync(KeyBlock[] blocks, Channel<(int Order, KeyBlock Block)> channel)
+    {
+        await foreach (var orderedBlock in channel.Reader.ReadAllAsync())
+        {
+            blocks[orderedBlock.Order] = orderedBlock.Block;
+        }
+    }
 
     protected override KeyBlock BlockConstructor(ReadOnlySpan<OffsetTableEntry> entries)
     {

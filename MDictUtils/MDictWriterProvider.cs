@@ -70,7 +70,6 @@ public static class MDictWriterProvider
             .AddTransient<OffsetTableBuilder>()
             .AddTransient<KeyBlockIndexBuilder>()
             .AddTransient<KeyBlocksBuilder>()
-            .AddTransient<RecordBlockIndexBuilder>()
             .AddTransient<IRecordBlocksBuilder, MdxRecordBlocksBuilder>()
             .AddBuildOptions(options)
             .AddBlockCompressor(options.CompressionType);
@@ -82,7 +81,6 @@ public static class MDictWriterProvider
             .AddTransient<OffsetTableBuilder>()
             .AddTransient<KeyBlockIndexBuilder>()
             .AddTransient<KeyBlocksBuilder>()
-            .AddTransient<RecordBlockIndexBuilder>()
             .AddTransient<IRecordBlocksBuilder, MddRecordBlocksBuilder>()
             .AddBuildOptions(options)
             .AddBlockCompressor(options.CompressionType);
