@@ -26,7 +26,10 @@ internal sealed class DataBuilder
         var keyBlockIndex = keyBlockIndexBuilder
             .Build(keyBlocks);
 
-        return new KeyData(keyBlockIndex, keyBlocks);
+        return new KeyData(
+            offsetTable.Length,
+            keyBlockIndex,
+            keyBlocks);
     }
 
     public async Task BuildRecordBlocksAsync(OffsetTable offsetTable, Channel<(int, RecordBlock)> channel)

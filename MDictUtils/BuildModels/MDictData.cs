@@ -12,6 +12,7 @@ internal sealed record BuildOptions
 
 internal readonly record struct KeyData
 (
+    int EntryCount,
     CompressedBlock KeyBlockIndex,
     ImmutableArray<KeyBlock> KeyBlocks
 )

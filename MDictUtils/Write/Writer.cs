@@ -25,8 +25,7 @@ internal sealed class Writer
 
         // Process key data.
         var keyData = dataBuilder.BuildKeyData(offsetTable);
-        var entryCount = offsetTable.Length;
-        keysWriter.Write(stream, keyData, entryCount);
+        keysWriter.Write(stream, keyData);
 
         // Concurrently read, compress, and write record data to the disk.
         // This is where the heavy lifting happens.
