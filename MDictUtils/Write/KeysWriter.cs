@@ -2,6 +2,22 @@ using MDictUtils.BuildModels;
 
 namespace MDictUtils.Write;
 
+/// <summary>
+/// Writes the key index and key blocks to the output MDict file.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Unlike the record data, the key data cannot be efficiently built and
+/// written to the output file concurrently. This is because the key
+/// index, unlike the record index, is compressed. The key index contains
+/// the compressed and uncompressed sizes of all of the key blocks. So all
+/// of the key blocks must be built and compressed and measured before the
+/// key index may be built and compressed and measured.
+/// </para>
+/// Unlike the record data, the key data is relatively small and should
+/// fit easily into our runtime memory. So there is no need to build and
+/// write this data concurrently.
+/// </remarks>
 internal sealed class KeysWriter
 {
     public void Write(Stream outfile, KeyData data, int entryCount)
