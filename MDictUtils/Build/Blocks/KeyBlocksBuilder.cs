@@ -1,6 +1,7 @@
 using System.Threading.Channels;
 using MDictUtils.BuildModels;
 using Microsoft.Extensions.Logging;
+using OrderedBlock = (int Order, MDictUtils.BuildModels.KeyBlock Block);
 
 namespace MDictUtils.Build.Blocks;
 
@@ -15,21 +16,21 @@ internal sealed class KeyBlocksBuilder
     {
         var blockCount = offsetTable.KeyBlockRanges.Length;
         var blocks = new KeyBlock[blockCount];
-        var channel = Channel.CreateUnbounded<(int, KeyBlock)>();
+        var channel = Channel.CreateUnbounded<OrderedBlock>();
 
         var readTask = ReadKeyBlocksAsync(blocks, channel);
-        var writeTask = WriteBlocksAsync(offsetTable, channel);
+        var buildTask = BuildBlocksAsync(offsetTable, channel);
 
-        Task.WaitAll(readTask, writeTask);
+        Task.WaitAll(readTask, buildTask);
 
         return ImmutableArray.Create(blocks);
     }
 
-    private async Task ReadKeyBlocksAsync(KeyBlock[] blocks, Channel<(int Order, KeyBlock Block)> channel)
+    private async Task ReadKeyBlocksAsync(KeyBlock[] blocks, Channel<OrderedBlock> channel)
     {
-        await foreach (var orderedBlock in channel.Reader.ReadAllAsync())
+        await foreach (var (i, block) in channel.Reader.ReadAllAsync())
         {
-            blocks[orderedBlock.Order] = orderedBlock.Block;
+            blocks[i] = block;
         }
     }
 

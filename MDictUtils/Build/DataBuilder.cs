@@ -29,6 +29,6 @@ internal sealed class DataBuilder
         return new KeyData(keyBlockIndex, keyBlocks);
     }
 
-    public async Task ReadRecordBlocksAsync(OffsetTable offsetTable, Channel<(int, RecordBlock)> channel)
-        => await recordBlocksBuilder.ReadAsync(offsetTable, channel);
+    public async Task BuildRecordBlocksAsync(OffsetTable offsetTable, Channel<(int, RecordBlock)> channel)
+        => await recordBlocksBuilder.BuildAsync(offsetTable, channel);
 }

@@ -30,12 +30,12 @@ internal sealed class Writer
 
         // Process record data.
         var channel = GetRecordBlockChannel();
-        var readTask = dataBuilder.ReadRecordBlocksAsync(offsetTable, channel);
+        var buildTask = dataBuilder.BuildRecordBlocksAsync(offsetTable, channel);
         var writeTask = recordsWriter.WriteAsync(offsetTable, channel, stream);
-        Task.WaitAll(readTask, writeTask);
+        Task.WaitAll(buildTask, writeTask);
     }
 
-    private Channel<(int, RecordBlock)> GetRecordBlockChannel()
+    private static Channel<(int, RecordBlock)> GetRecordBlockChannel()
     {
         var option = new BoundedChannelOptions(256)
         {

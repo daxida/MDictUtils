@@ -7,7 +7,7 @@ internal interface IDataBuilder
 {
     public OffsetTable BuildOffsetTable(List<MDictEntry> entries);
     public KeyData BuildKeyData(OffsetTable offsetTable);
-    public Task ReadRecordBlocksAsync(OffsetTable offsetTable, Channel<(int, RecordBlock)> channel);
+    public Task BuildRecordBlocksAsync(OffsetTable offsetTable, Channel<(int, RecordBlock)> channel);
 }
 
 internal interface IBlockCompressor
@@ -17,7 +17,7 @@ internal interface IBlockCompressor
 
 internal interface IRecordBlocksBuilder
 {
-    Task ReadAsync(OffsetTable offsetTable, Channel<(int, RecordBlock)> channel);
+    Task BuildAsync(OffsetTable offsetTable, Channel<(int, RecordBlock)> channel);
 }
 
 internal interface IKeyComparer

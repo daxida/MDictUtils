@@ -12,8 +12,8 @@ internal sealed class MddRecordBlocksBuilder
 )
     : RecordBlocksBuilder(logger, blockCompressor)
 {
-    public override async Task ReadAsync(OffsetTable offsetTable, Channel<(int, RecordBlock)> channel)
-        => await WriteBlocksAsync(offsetTable, channel);
+    public override async Task BuildAsync(OffsetTable offsetTable, Channel<(int, RecordBlock)> channel)
+        => await BuildBlocksAsync(offsetTable, channel);
 
     protected override void WriteBytes(OffsetTableEntry entry, Span<byte> buffer)
     {

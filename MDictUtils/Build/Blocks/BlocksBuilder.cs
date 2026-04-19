@@ -22,7 +22,7 @@ internal abstract partial class BlocksBuilder<T>
     protected abstract void WriteBytes(OffsetTableEntry entry, Span<byte> buffer);
     protected abstract ImmutableArray<Range> GetBlockRanges(OffsetTable offsetTable);
 
-    protected async Task WriteBlocksAsync(OffsetTable offsetTable, Channel<(int, T)> channel)
+    protected async Task BuildBlocksAsync(OffsetTable offsetTable, Channel<(int, T)> channel)
     {
         LogBeginBuilding(_typeName);
         var blockRanges = GetBlockRanges(offsetTable);
