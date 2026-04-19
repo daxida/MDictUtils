@@ -63,7 +63,12 @@ internal readonly record struct CompressedBlock(ImmutableArray<byte> Bytes, long
     public int Size => Bytes.Length;
 }
 
-internal readonly record struct OffsetTable(ImmutableArray<OffsetTableEntry> Entries)
+internal readonly record struct OffsetTable
+(
+    ImmutableArray<OffsetTableEntry> Entries,
+    ImmutableArray<Range> KeyBlockRanges,
+    ImmutableArray<Range> RecordBlockRanges
+)
 {
     public int Length => Entries.Length;
     public ReadOnlySpan<OffsetTableEntry> AsSpan(Range range) => Entries.AsSpan(range);

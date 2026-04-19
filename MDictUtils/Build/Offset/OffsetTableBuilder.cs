@@ -9,15 +9,27 @@ internal sealed partial class OffsetTableBuilder
 (
     ILogger<OffsetTableBuilder> logger,
     IKeyComparer keyComparer,
+    DesiredKeyBlockSize desiredKeyBlockSize,
+    DesiredRecordBlockSize desiredRecordBlockSize,
     EncodingSettings encoder
 )
 {
     private static readonly ArrayPool<byte> _arrayPool = ArrayPool<byte>.Shared;
+    private readonly static ArrayPool<Range> _rangePool = ArrayPool<Range>.Shared;
 
     public OffsetTable Build(List<MDictEntry> entries)
     {
         entries.Sort((a, b) => keyComparer.Compare(a.Key, b.Key));
 
+        var tableEntries = GetTableEntries(entries);
+        var keyBlockRanges = GetKeyBlockRanges(tableEntries);
+        var recordBlockRanges = GetRecordBlockRanges(tableEntries);
+
+        return new OffsetTable(tableEntries, keyBlockRanges, recordBlockRanges);
+    }
+
+    private ImmutableArray<OffsetTableEntry> GetTableEntries(List<MDictEntry> entries)
+    {
         var arrayBuilder = ImmutableArray.CreateBuilder<OffsetTableEntry>(entries.Count);
         long currentOffset = 0;
         int maxEncLength = GetMaxEncLength(entries, encoder);
@@ -55,7 +67,7 @@ internal sealed partial class OffsetTableBuilder
         var tableEntries = arrayBuilder.MoveToImmutable();
         LogInfo(tableEntries.Length, currentOffset);
 
-        return new OffsetTable(tableEntries);
+        return tableEntries;
     }
 
     private static int GetMaxEncLength(List<MDictEntry> entries, EncodingSettings encoder)
@@ -68,6 +80,62 @@ internal sealed partial class OffsetTableBuilder
         }
         maxEncLength += encoder.EncodingLength; // Because we'll be appending an extra '\0' character.
         return maxEncLength;
+    }
+
+    private ImmutableArray<Range> GetKeyBlockRanges(ImmutableArray<OffsetTableEntry> tableEntries)
+    {
+        var keyEntrySizes = tableEntries
+            .Select(static e => e.KeyDataSize)
+            .ToArray();
+        return PartitionTable(keyEntrySizes, desiredKeyBlockSize.Value);
+    }
+
+    private ImmutableArray<Range> GetRecordBlockRanges(ImmutableArray<OffsetTableEntry> tableEntries)
+    {
+        var recordEntrySizes = tableEntries
+            .Select(static e => e.RecordSize)
+            .ToArray();
+        return PartitionTable(recordEntrySizes, desiredRecordBlockSize.Value);
+    }
+
+    private ImmutableArray<Range> PartitionTable(ReadOnlySpan<int> entrySizes, int desiredBlockSize)
+    {
+        var ranges = _rangePool.Rent(entrySizes.Length);
+        int start = 0;
+        int blockCount = 0;
+        long blockSize = 0;
+
+        for (int end = 0; end <= entrySizes.Length; end++)
+        {
+            int? entrySize = (end == entrySizes.Length)
+                ? null
+                : entrySizes[end];
+
+            bool flush;
+            if (end == 0)
+                flush = false;
+            else if (entrySize == null)
+                flush = true;
+            else if (blockSize + entrySize > desiredBlockSize)
+                flush = true;
+            else
+                flush = false;
+
+            if (flush)
+            {
+                ranges[blockCount++] = start..end;
+                blockSize = 0;
+                start = end;
+            }
+
+            if (entrySize.HasValue)
+                blockSize += entrySize.Value;
+        }
+
+        var entryRanges = ImmutableArray.Create(ranges.AsSpan(..blockCount));
+        _rangePool.Return(ranges);
+
+        return entryRanges;
     }
 
     [LoggerMessage(LogLevel.Debug,
