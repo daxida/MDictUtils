@@ -88,11 +88,11 @@ public static class MDictWriterProvider
 
     private static IServiceCollection AddBuildOptions(this IServiceCollection services, MDictWriterOptions options)
         => services.AddTransient(_ => new BuildOptions
-            {
-                KeyEncoding = options.IsMdd ? Encoding.Unicode : options.KeyEncoding,
-                DesiredKeyBlockSize = options.DesiredKeyBlockSize,
-                DesiredRecordBlockSize = options.DesiredRecordBlockSize,
-            });
+        {
+            KeyEncoding = options.IsMdd ? Encoding.Unicode : options.KeyEncoding,
+            DesiredKeyBlockSize = options.DesiredKeyBlockSize,
+            DesiredRecordBlockSize = options.DesiredRecordBlockSize,
+        });
 
     private static IServiceCollection AddBlockCompressor(this IServiceCollection services, MDictCompressionType compressionType)
         => compressionType switch
