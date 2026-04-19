@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Threading.Channels;
 using MDictUtils.BuildModels;
 using Microsoft.Extensions.Logging;
@@ -22,6 +23,8 @@ internal sealed class KeyBlocksBuilder
         var buildTask = BuildBlocksAsync(offsetTable, channel);
 
         Task.WaitAll(readTask, buildTask);
+
+        LogBlocks(blocks);
 
         return ImmutableArray.Create(blocks);
     }
@@ -51,4 +54,21 @@ internal sealed class KeyBlocksBuilder
 
     protected override ImmutableArray<Range> GetBlockRanges(OffsetTable offsetTable)
         => offsetTable.KeyBlockRanges;
+
+    [Conditional("DEBUG")]
+    private void LogBlocks(IList<KeyBlock> blocks)
+    {
+        // Average() throws an exception if the count is 0.
+        var avg = blocks.Count > 0
+            ? blocks.Average(static b => b.Bytes.Length)
+            : 0;
+
+        logger.LogDebug("Built {Count} key blocks.", blocks.Count);
+        logger.LogDebug("Average key block size {Avg:N0} bytes", avg);
+
+        foreach (var block in blocks)
+        {
+            logger.LogDebug("KeyBlock: {Block}", block);
+        }
+    }
 }

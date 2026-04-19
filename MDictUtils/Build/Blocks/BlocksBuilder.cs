@@ -64,24 +64,4 @@ internal abstract partial class BlocksBuilder<T>
 
     [LoggerMessage(LogLevel.Debug, "Building blocks of type {Type}")]
     private partial void LogBeginBuilding(string type);
-
-    [Conditional("DEBUG")]
-    private void LogBlocks(IList<T> blocks)
-    {
-        // Average() throws an exception if the count is 0.
-        var avg = blocks.Count > 0
-            ? blocks.Average(static b => b.Bytes.Length)
-            : 0;
-
-        logger.LogDebug("Built {Count} blocks.", blocks.Count);
-        logger.LogDebug("Average block size {Avg:N0} bytes", avg);
-
-        if (blocks is not IList<KeyBlock>)
-            return;
-
-        foreach (var block in blocks)
-        {
-            logger.LogDebug("KeyBlock: {Block}", block);
-        }
-    }
 }

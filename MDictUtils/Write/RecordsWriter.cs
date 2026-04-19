@@ -1,10 +1,11 @@
 using System.Threading.Channels;
 using MDictUtils.BuildModels;
+using Microsoft.Extensions.Logging;
 using OrderedBlock = (int Order, MDictUtils.BuildModels.RecordBlock Block);
 
 namespace MDictUtils.Write;
 
-internal sealed class RecordsWriter
+internal sealed partial class RecordsWriter(ILogger<RecordsWriter> logger)
 {
     private const int IndexPreambleSize = 4 * 8; // Four 8-byte buffers
 
@@ -20,6 +21,8 @@ internal sealed class RecordsWriter
         // Skip over the index sections for now.
         outfile.Seek(IndexPreambleSize + indexSize, SeekOrigin.Current);
         var totalSize = await WriteOutputAsync(outfile, channel, index);
+
+        LogBlocks(blockCount, avgSize: blockCount == 0 ? 0 : totalSize / blockCount);
 
         // Return to the start of the index sections.
         outfile.Seek(indexStartPosition, SeekOrigin.Begin);
@@ -71,4 +74,8 @@ internal sealed class RecordsWriter
 
         return preamble;
     }
+
+    [LoggerMessage(LogLevel.Debug,
+    "Built {Count} record blocks of average size {AvgSize:N0}")]
+    private partial void LogBlocks(int count, long avgSize);
 }
