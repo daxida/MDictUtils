@@ -43,7 +43,7 @@ public class MDictWriterTests
         var header = new MdxHeader();
         var writer = MDictWriterProvider.GetWriter(options =>
         {
-            options.KeyEncoding = Encoding.UTF8;
+            options.KeyEncoding = MDictKeyEncodingType.Utf8;
         });
         var outputPath = Path.GetTempFileName();
 

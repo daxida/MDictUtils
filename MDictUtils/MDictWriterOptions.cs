@@ -8,7 +8,7 @@ public sealed record MDictWriterOptions
     public int DesiredKeyBlockSize { get; set; } = 32_768;
     public int DesiredRecordBlockSize { get; set; } = 65_536;
     public bool EnableLogging { get; set; } = true;
-    public Encoding KeyEncoding { get; set; } = Encoding.UTF8;
+    public MDictKeyEncodingType KeyEncoding { get; set; } = MDictKeyEncodingType.Utf8;
     public bool IsMdd { get; set; } = false;
 }
 
@@ -17,4 +17,10 @@ public enum MDictCompressionType : uint
     None = 0,
     LZO = 1,
     ZLib = 2,
+}
+
+public enum MDictKeyEncodingType : byte
+{
+    Utf8,
+    Utf16,
 }

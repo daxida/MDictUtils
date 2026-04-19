@@ -89,10 +89,17 @@ public static class MDictWriterProvider
     private static IServiceCollection AddBuildOptions(this IServiceCollection services, MDictWriterOptions options)
         => services.AddTransient(_ => new BuildOptions
         {
-            KeyEncoding = options.IsMdd ? Encoding.Unicode : options.KeyEncoding,
+            KeyEncoding = options.IsMdd ? Encoding.Unicode : GetKeyEncoding(options.KeyEncoding),
             DesiredKeyBlockSize = options.DesiredKeyBlockSize,
             DesiredRecordBlockSize = options.DesiredRecordBlockSize,
         });
+
+    private static Encoding GetKeyEncoding(MDictKeyEncodingType type) => type switch
+    {
+        MDictKeyEncodingType.Utf8 => Encoding.UTF8,
+        MDictKeyEncodingType.Utf16 => Encoding.Unicode,
+        _ => throw new NotSupportedException("Unknown encoding. Supported: utf8, utf16")
+    };
 
     private static IServiceCollection AddBlockCompressor(this IServiceCollection services, MDictCompressionType compressionType)
         => compressionType switch
