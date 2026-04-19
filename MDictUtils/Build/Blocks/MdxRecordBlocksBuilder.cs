@@ -6,23 +6,28 @@ namespace MDictUtils.Build.Blocks;
 internal sealed class MdxRecordBlocksBuilder
 (
     ILogger<MdxRecordBlocksBuilder> logger,
-    IBlockCompressor blockCompressor
+    IBlockCompressor blockCompressor,
+    DesiredRecordBlockSize desiredRecordBlockSize
 )
     : RecordBlocksBuilder(logger, blockCompressor)
 {
     private FileStreams? _fileStreams;
 
-    public override ImmutableArray<RecordBlock> Build(OffsetTable offsetTable, int desiredBlockSize)
+    public override ImmutableArray<RecordBlock> Build(OffsetTable offsetTable)
     {
         var pathToTotalEntryCount = offsetTable.GetFilePathToTotalEntryCount();
         using var fileStreams = new FileStreams(pathToTotalEntryCount);
         _fileStreams = fileStreams;
-        return BuildBlocks(offsetTable, desiredBlockSize);
+        return BuildBlocks(offsetTable, desiredRecordBlockSize.Value);
     }
 
-    protected override int WriteBytes(OffsetTableEntry entry, Span<byte> buffer)
+    protected override void WriteBytes(OffsetTableEntry entry, Span<byte> buffer)
     {
-        int size = Convert.ToInt32(GetByteCount(entry));
+        int size = buffer.Length;
+
+        /// By design, we expect that the size will always be at
+        /// least 1 to account for the null-termination byte.
+        /// <see cref="MDictPacker.PackMdxTxt"/>
         if (size < 1)
             throw new InvalidDataException("Size must be >= 1");
 
@@ -34,7 +39,5 @@ internal sealed class MdxRecordBlocksBuilder
         buffer[size - 1] = 0; // null-terminate
 
         _fileStreams.UpdateEntryCount(entry.FilePath);
-
-        return size;
     }
 }

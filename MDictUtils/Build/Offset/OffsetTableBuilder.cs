@@ -1,6 +1,4 @@
 using System.Buffers;
-using System.Diagnostics;
-using System.Text;
 using MDictUtils.BuildModels;
 using MDictUtils.Extensions;
 using Microsoft.Extensions.Logging;
@@ -10,16 +8,16 @@ namespace MDictUtils.Build.Offset;
 internal sealed partial class OffsetTableBuilder
 (
     ILogger<OffsetTableBuilder> logger,
-    IKeyComparer keyComparer
+    IKeyComparer keyComparer,
+    EncodingSettings encoder
 )
 {
     private static readonly ArrayPool<byte> _arrayPool = ArrayPool<byte>.Shared;
 
-    public OffsetTable Build(List<MDictEntry> entries, MDictMetadata m)
+    public OffsetTable Build(List<MDictEntry> entries)
     {
         entries.Sort((a, b) => keyComparer.Compare(a.Key, b.Key));
 
-        var encoder = GetEncodingSettings(m);
         var arrayBuilder = ImmutableArray.CreateBuilder<OffsetTableEntry>(entries.Count);
         long currentOffset = 0;
         int maxEncLength = GetMaxEncLength(entries, encoder);
@@ -58,27 +56,6 @@ internal sealed partial class OffsetTableBuilder
         LogInfo(tableEntries.Length, currentOffset);
 
         return new OffsetTable(tableEntries);
-    }
-
-    private sealed record EncodingSettings(Encoding Encoding, int EncodingLength);
-
-    private static EncodingSettings GetEncodingSettings(MDictMetadata m)
-    {
-        var encoding = m.Encoding.ToLower();
-        Debug.Assert(encoding == "utf8");
-
-        if (m.IsMdd || encoding == "utf16" || encoding == "utf-16")
-        {
-            return new(Encoding.Unicode, EncodingLength: 2);
-        }
-        else if (encoding == "utf8" || encoding == "utf-8")
-        {
-            return new(Encoding.UTF8, EncodingLength: 1);
-        }
-        else
-        {
-            throw new NotSupportedException("Unknown encoding. Supported: utf8, utf16");
-        }
     }
 
     private static int GetMaxEncLength(List<MDictEntry> entries, EncodingSettings encoder)

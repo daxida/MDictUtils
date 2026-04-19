@@ -4,7 +4,9 @@ namespace MDictUtils.Build;
 
 internal interface IDataBuilder
 {
-    public MDictData BuildData(List<MDictEntry> entries, MDictMetadata metadata);
+    public OffsetTable BuildOffsetTable(List<MDictEntry> entries);
+    public KeyData BuildKeyData(OffsetTable offsetTable);
+    public RecordData BuildRecordData(OffsetTable offsetTable);
 }
 
 internal interface IBlockCompressor
@@ -14,7 +16,7 @@ internal interface IBlockCompressor
 
 internal interface IRecordBlocksBuilder
 {
-    ImmutableArray<RecordBlock> Build(OffsetTable offsetTable, int desiredBlockSize);
+    ImmutableArray<RecordBlock> Build(OffsetTable offsetTable);
 }
 
 internal interface IKeyComparer

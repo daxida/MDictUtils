@@ -210,12 +210,16 @@ static class Program
                 description = File.ReadAllText(args.DescriptionPath, Encoding.UTF8).Trim();
             }
 
-            var metadata = new MDictMetadata(
-                Title: title,
-                Description: description,
-                IsMdd: args.IsMdd);
+            MDictHeader header = args.IsMdd
+                ? new MddHeader() { Title = title, Description = description }
+                : new MdxHeader() { Title = title, Description = description };
 
-            MDictWriter writer = new(packed, metadata, logging: args.Verbose);
+            var writer = MDictWriterProvider.GetWriter(options =>
+            {
+                options.IsMdd = args.IsMdd;
+                options.EnableLogging = args.Verbose;
+            });
+            // MDictWriter writer = new(packed, metadata, logging: args.Verbose);
 
             // creates intermediate directories if needed
             // so that it works if MdictPath is a/b/thing.mdx
@@ -224,7 +228,7 @@ static class Program
             {
                 Directory.CreateDirectory(directory);
             }
-            writer.Write(args.MdictPath);
+            writer.Write(packed, args.MdictPath, header);
         }
         else if (args.ExtractFlag)
         {

@@ -2,13 +2,11 @@ using MDictUtils.Build.Blocks;
 using MDictUtils.Build.Index;
 using MDictUtils.Build.Offset;
 using MDictUtils.BuildModels;
-using Microsoft.Extensions.Logging;
 
 namespace MDictUtils.Build;
 
 internal sealed class DataBuilder
 (
-    ILogger<DataBuilder> logger,
     OffsetTableBuilder offsetTableBuilder,
     KeyBlockIndexBuilder keyBlockIndexBuilder,
     KeyBlocksBuilder keyBlocksBuilder,
@@ -17,37 +15,28 @@ internal sealed class DataBuilder
 )
     : IDataBuilder
 {
-    public MDictData BuildData(List<MDictEntry> entries, MDictMetadata m)
-    {
-        var offsetTable = offsetTableBuilder
-            .Build(entries, m);
+    public OffsetTable BuildOffsetTable(List<MDictEntry> entries)
+        => offsetTableBuilder.Build(entries);
 
+    public KeyData BuildKeyData(OffsetTable offsetTable)
+    {
         var keyBlocks = keyBlocksBuilder
-            .Build(offsetTable, m.KeySize);
+            .Build(offsetTable);
 
         var keyBlockIndex = keyBlockIndexBuilder
             .Build(keyBlocks);
 
+        return new KeyData(offsetTable.Length, keyBlockIndex, keyBlocks);
+    }
+
+    public RecordData BuildRecordData(OffsetTable offsetTable)
+    {
         var recordBlocks = recordBlocksBuilder
-            .Build(offsetTable, m.BlockSize);
+            .Build(offsetTable);
 
         var recordBlockIndex = recordBlockIndexBuilder
             .Build(recordBlocks);
 
-        if (logger.IsEnabled(LogLevel.Debug))
-            logger.LogDebug("Initialization complete.");
-
-        return new MDictData
-        (
-            m.Title,
-            m.Description,
-            m.Version,
-            m.IsMdd,
-            entries.Count,
-            keyBlockIndex,
-            keyBlocks,
-            recordBlockIndex,
-            recordBlocks
-        );
+        return new RecordData(offsetTable.Length, recordBlockIndex, recordBlocks);
     }
 }

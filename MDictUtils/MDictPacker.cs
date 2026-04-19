@@ -10,6 +10,7 @@ public static class MDictPacker
     // python does not include the BOM in the title/description
     // so we do the same to allow for oracle testing (but it should not matter really)
     private static readonly UTF8Encoding UTF8NoBOM = new(false);
+    private const long MaxRecordSize = 2_000_000_000;
 
     public static void Unpack(string target, string source, bool isMdd)
     {
@@ -122,7 +123,11 @@ public static class MDictPacker
         if (File.Exists(source))
         {
             // Single file (wtf is happening with separators?)
-            long size = new FileInfo(source).Length;
+            var info = new FileInfo(source);
+            int size = info.Length < MaxRecordSize
+                ? Convert.ToInt32(info.Length)
+                : throw new InvalidDataException($"File '{info.FullName}' is too large (over {MaxRecordSize:N0} bytes)");
+
             string key = "\\" + Path.GetFileName(source);
             if (Path.DirectorySeparatorChar != '\\')
                 key = key.Replace(Path.DirectorySeparatorChar, '\\');
@@ -135,9 +140,14 @@ public static class MDictPacker
             string relpath = source;
             foreach (var fpath in Directory.GetFiles(source, "*", SearchOption.AllDirectories))
             {
+                var info = new FileInfo(fpath);
+
                 /// TODO: An error will be thrown later if this length is equal to zero.
                 /// <see cref="Build.Blocks.MddRecordBlocksBuilder.WriteBytes"/>
-                long size = new FileInfo(fpath).Length;
+                int size = info.Length < MaxRecordSize
+                    ? Convert.ToInt32(info.Length)
+                    : throw new InvalidDataException($"File '{info.FullName}' is too large (over {MaxRecordSize:N0} bytes)");
+
                 string key = "\\" + Path.GetRelativePath(relpath, fpath);
                 if (Path.DirectorySeparatorChar != '\\')
                     key = key.Replace(Path.DirectorySeparatorChar, '\\');
@@ -201,7 +211,11 @@ public static class MDictPacker
                     if (key == null || offset == pos)
                         throw new Exception($"Error at line {lineNum}: {path}");
 
-                    long size = offset - pos + nullLength;
+                    long longSize = offset - pos + nullLength;
+                    int size = longSize < MaxRecordSize
+                        ? Convert.ToInt32(longSize)
+                        : throw new InvalidDataException($"File '{path}' contains a record that is too large (over {MaxRecordSize:N0} bytes)");
+
                     entries.Add(new MDictEntry(key, pos, path, size));
                     key = null;
                 }
