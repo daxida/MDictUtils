@@ -89,7 +89,7 @@ public static class MDictWriterProvider
         => services
             .AddTransient(_ => new DesiredKeyBlockSize(options.DesiredKeyBlockSize))
             .AddTransient(_ => new DesiredRecordBlockSize(options.DesiredRecordBlockSize))
-            .AddTransient(_ => new EncodingSettings(options.Encoding, options.IsMdd));
+            .AddTransient(_ => new EncodingSettings(options.KeyEncoding, options.IsMdd));
 
     private static IServiceCollection AddBlockCompressor(this IServiceCollection services, MDictCompressionType compressionType)
         => compressionType switch

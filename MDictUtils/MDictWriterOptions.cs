@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace MDictUtils;
 
 public sealed record MDictWriterOptions
@@ -6,7 +8,7 @@ public sealed record MDictWriterOptions
     public int DesiredKeyBlockSize { get; set; } = 32_768;
     public int DesiredRecordBlockSize { get; set; } = 65_536;
     public bool EnableLogging { get; set; } = true;
-    public string Encoding { get; set; } = "utf8";
+    public Encoding KeyEncoding { get; set; } = Encoding.UTF8;
     public bool IsMdd { get; set; } = false;
 }
 
