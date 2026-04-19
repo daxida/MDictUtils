@@ -59,7 +59,7 @@ internal sealed partial class KeyBlockIndexBuilder
         LogEntryData(entryData);
     }
 
-    [LoggerMessage(LogLevel.Debug, "Entry: {EntryData}")]
+    [LoggerMessage(LogLevel.Debug, "KeyBlock index entry: {EntryData}")]
     private partial void LogEntryData(string entryData);
 
     [LoggerMessage(LogLevel.Debug,
