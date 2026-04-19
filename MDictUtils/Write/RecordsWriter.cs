@@ -43,7 +43,7 @@ internal sealed class RecordsWriter
             while (blocks[order] is RecordBlock block) // (not null)
             {
                 totalSize += block.Bytes.Length;
-                outfile.Write(block.Bytes.AsSpan());
+                await outfile.WriteAsync(block.Bytes.AsMemory());
 
                 int start = order * 16;
                 block.CopyIndexEntryTo(index.AsSpan(start, 16));
