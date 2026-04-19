@@ -28,7 +28,8 @@ internal sealed class Writer
         var entryCount = offsetTable.Length;
         keysWriter.Write(stream, keyData, entryCount);
 
-        // Process record data.
+        // Concurrently read, compress, and write record data to the disk.
+        // This is where the heavy lifting happens.
         var channel = GetRecordBlockChannel();
         var buildTask = dataBuilder.BuildRecordBlocksAsync(offsetTable, channel);
         var writeTask = recordsWriter.WriteAsync(offsetTable, channel, stream);

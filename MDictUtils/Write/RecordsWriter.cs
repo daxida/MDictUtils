@@ -15,11 +15,12 @@ internal sealed partial class RecordsWriter(ILogger<RecordsWriter> logger)
         var entryCount = offsetTable.Length;
 
         var indexStartPosition = outfile.Position;
-        var indexSize = blockCount * 16;
+        var indexSize = blockCount * 16; // 8 bytes for compressed size, 8 bytes for decomp size per block.
         var index = new byte[indexSize];
 
         // Skip over the index sections for now.
         outfile.Seek(IndexPreambleSize + indexSize, SeekOrigin.Current);
+
         var totalSize = await WriteOutputAsync(outfile, channel, index);
 
         LogBlocks(blockCount, avgSize: blockCount == 0 ? 0 : totalSize / blockCount);
@@ -31,6 +32,9 @@ internal sealed partial class RecordsWriter(ILogger<RecordsWriter> logger)
         outfile.Write(index.AsSpan());
     }
 
+    /// <summary>
+    /// Read all blocks from the channel, calculate the index data, and write the blocks to disk.
+    /// </summary>
     async Task<long> WriteOutputAsync(Stream outfile, Channel<OrderedBlock> channel, byte[] index)
     {
         long totalSize = 0;
