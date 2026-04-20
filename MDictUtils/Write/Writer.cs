@@ -13,7 +13,7 @@ internal sealed class Writer
 )
     : IMDictWriter
 {
-    public void Write(MDictHeader header, List<MDictEntry> entries, string outputFile)
+    public async Task WriteAsync(MDictHeader header, List<MDictEntry> entries, string outputFile)
     {
         if (header.Version != "2.0")
             throw new NotSupportedException("Unknown version. Supported: 2.0");
@@ -24,15 +24,15 @@ internal sealed class Writer
         var offsetTable = dataBuilder.BuildOffsetTable(entries);
 
         // Process key data.
-        var keyData = dataBuilder.BuildKeyData(offsetTable);
+        var keyData = await dataBuilder.BuildKeyDataAsync(offsetTable);
         keysWriter.Write(stream, keyData);
 
         // Concurrently read, compress, and write record data to the disk.
         // This is where the heavy lifting happens.
         var channel = GetRecordBlockChannel();
-        var buildTask = dataBuilder.BuildRecordBlocksAsync(offsetTable, channel);
+        var buildTask = dataBuilder.BuildRecordBlocksAsync(offsetTable, channel.Writer);
         var writeTask = recordsWriter.WriteAsync(offsetTable, channel, stream);
-        Task.WaitAll(buildTask, writeTask);
+        await Task.WhenAll(buildTask, writeTask);
     }
 
     private static Channel<(int, RecordBlock)> GetRecordBlockChannel()

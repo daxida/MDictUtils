@@ -13,7 +13,7 @@ internal sealed class KeyBlocksBuilder
 )
     : BlocksBuilder<KeyBlock>(logger, blockCompressor)
 {
-    public ImmutableArray<KeyBlock> Build(OffsetTable offsetTable)
+    public async Task<ImmutableArray<KeyBlock>> BuildAsync(OffsetTable offsetTable)
     {
         var blockCount = offsetTable.KeyBlockRanges.Length;
         var blocks = new KeyBlock[blockCount];
@@ -22,16 +22,16 @@ internal sealed class KeyBlocksBuilder
         var readTask = ReadKeyBlocksAsync(blocks, channel);
         var buildTask = BuildBlocksAsync(offsetTable, channel);
 
-        Task.WaitAll(readTask, buildTask);
+        await Task.WhenAll(readTask, buildTask);
 
         LogBlocks(blocks);
 
         return ImmutableArray.Create(blocks);
     }
 
-    private async Task ReadKeyBlocksAsync(KeyBlock[] blocks, Channel<OrderedBlock> channel)
+    static private async Task ReadKeyBlocksAsync(KeyBlock[] blocks, ChannelReader<OrderedBlock> channel)
     {
-        await foreach (var (i, block) in channel.Reader.ReadAllAsync())
+        await foreach (var (i, block) in channel.ReadAllAsync())
         {
             blocks[i] = block;
         }

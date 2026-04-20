@@ -18,20 +18,13 @@ internal sealed class DataBuilder
     public OffsetTable BuildOffsetTable(List<MDictEntry> entries)
         => offsetTableBuilder.Build(entries);
 
-    public KeyData BuildKeyData(OffsetTable offsetTable)
+    public async Task<KeyData> BuildKeyDataAsync(OffsetTable offsetTable)
     {
-        var keyBlocks = keyBlocksBuilder
-            .Build(offsetTable);
-
-        var keyBlockIndex = keyBlockIndexBuilder
-            .Build(keyBlocks);
-
-        return new KeyData(
-            offsetTable.Length,
-            keyBlockIndex,
-            keyBlocks);
+        var keyBlocks = await keyBlocksBuilder.BuildAsync(offsetTable);
+        var keyBlockIndex = keyBlockIndexBuilder.Build(keyBlocks);
+        return new KeyData(offsetTable.Length, keyBlockIndex, keyBlocks);
     }
 
-    public async Task BuildRecordBlocksAsync(OffsetTable offsetTable, Channel<(int, RecordBlock)> channel)
-        => await recordBlocksBuilder.BuildAsync(offsetTable, channel);
+    public Task BuildRecordBlocksAsync(OffsetTable offsetTable, ChannelWriter<(int, RecordBlock)> writer)
+        => recordBlocksBuilder.BuildAsync(offsetTable, writer);
 }

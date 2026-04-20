@@ -22,21 +22,21 @@ internal abstract partial class BlocksBuilder<T>
     protected abstract void WriteBytes(OffsetTableEntry entry, Span<byte> buffer);
     protected abstract ImmutableArray<Range> GetBlockRanges(OffsetTable offsetTable);
 
-    protected async Task BuildBlocksAsync(OffsetTable offsetTable, Channel<(int, T)> channel)
+    protected async Task BuildBlocksAsync(OffsetTable offsetTable, ChannelWriter<(int, T)> channel)
     {
         LogBeginBuilding(_typeName);
         var blockRanges = GetBlockRanges(offsetTable);
         var enumerator = Enumerable.Range(0, blockRanges.Length);
 
-        await Parallel.ForEachAsync(enumerator, async (i, _) =>
+        await Parallel.ForEachAsync(enumerator, async (i, ct) =>
         {
             var blockRange = blockRanges[i];
             var entries = offsetTable.AsSpan(blockRange);
             var block = BlockConstructor(entries);
-            await channel.Writer.WriteAsync((i, block));
+            await channel.WriteAsync((i, block), ct);
         });
 
-        channel.Writer.Complete();
+        channel.Complete();
     }
 
     protected CompressedBlock GetCompressedBlock(ReadOnlySpan<OffsetTableEntry> entries)

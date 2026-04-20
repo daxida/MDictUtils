@@ -5,9 +5,9 @@ namespace MDictUtils.Build;
 
 internal interface IDataBuilder
 {
-    public OffsetTable BuildOffsetTable(List<MDictEntry> entries);
-    public KeyData BuildKeyData(OffsetTable offsetTable);
-    public Task BuildRecordBlocksAsync(OffsetTable offsetTable, Channel<(int, RecordBlock)> channel);
+    OffsetTable BuildOffsetTable(List<MDictEntry> entries);
+    Task<KeyData> BuildKeyDataAsync(OffsetTable offsetTable);
+    Task BuildRecordBlocksAsync(OffsetTable offsetTable, ChannelWriter<(int, RecordBlock)> writer);
 }
 
 internal interface IBlockCompressor
@@ -17,7 +17,7 @@ internal interface IBlockCompressor
 
 internal interface IRecordBlocksBuilder
 {
-    Task BuildAsync(OffsetTable offsetTable, Channel<(int, RecordBlock)> channel);
+    Task BuildAsync(OffsetTable offsetTable, ChannelWriter<(int, RecordBlock)> writer);
 }
 
 internal interface IKeyComparer

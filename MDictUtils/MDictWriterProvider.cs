@@ -13,7 +13,7 @@ namespace MDictUtils;
 
 public interface IMDictWriter
 {
-    public void Write(MDictHeader header, List<MDictEntry> entries, string outputFile);
+    Task WriteAsync(MDictHeader header, List<MDictEntry> entries, string outputFile);
 }
 
 public static class MDictWriterProvider
