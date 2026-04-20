@@ -11,6 +11,8 @@ public class Benchmarks
 
     private readonly List<MDictEntry> Entries = [];
     private readonly MdxHeader Header = new();
+    private readonly IMDictWriter Writer = MDictWriterProvider
+        .GetWriter(static o => o.EnableLogging = false);
 
     [GlobalSetup]
     public void Setup()
@@ -33,8 +35,7 @@ public class Benchmarks
         Entries.AddRange(MDictPacker.PackMdxTxt(_txtFilePath));
 
         // Initialize MDX file.
-        var writer = MDictWriterProvider.GetWriter(static o => o.EnableLogging = false);
-        writer.Write(Header, Entries, _mdxFilePath);
+        Writer.Write(Header, Entries, _mdxFilePath);
     }
 
     [GlobalCleanup]
@@ -61,8 +62,7 @@ public class Benchmarks
     {
         var tempFile = Path.Join(_tmpDirectoryPath, Guid.NewGuid().ToString());
 
-        var writer = MDictWriterProvider.GetWriter(static o => o.EnableLogging = false);
-        writer.Write(Header, Entries, tempFile);
+        Writer.Write(Header, Entries, tempFile);
     }
 
     [Benchmark]
