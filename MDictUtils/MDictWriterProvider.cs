@@ -1,4 +1,3 @@
-using System.Text;
 using MDictUtils.Build;
 using MDictUtils.Build.Blocks;
 using MDictUtils.Build.Compression;
