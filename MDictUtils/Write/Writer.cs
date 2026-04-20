@@ -18,8 +18,8 @@ internal sealed class Writer
         if (header.Version != "2.0")
             throw new NotSupportedException("Unknown version. Supported: 2.0");
 
-        using var stream = new FileStream(outputFile, FileMode.Create, FileAccess.Write, FileShare.None);
-        headerWriter.Write(stream, header);
+        await using var stream = new FileStream(outputFile, FileMode.Create, FileAccess.Write, FileShare.None);
+        await headerWriter.WriteAsync(stream, header);
 
         var offsetTable = dataBuilder.BuildOffsetTable(entries);
 
