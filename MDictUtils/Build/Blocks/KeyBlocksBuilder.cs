@@ -29,7 +29,7 @@ internal sealed class KeyBlocksBuilder
         return ImmutableArray.Create(blocks);
     }
 
-    static private async Task ReadKeyBlocksAsync(KeyBlock[] blocks, ChannelReader<OrderedBlock> channel)
+    private static async Task ReadKeyBlocksAsync(KeyBlock[] blocks, ChannelReader<OrderedBlock> channel)
     {
         await foreach (var (i, block) in channel.ReadAllAsync())
         {

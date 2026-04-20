@@ -198,7 +198,7 @@ public class DoUndoTests
 
     [Theory]
     [MemberData(nameof(TestContents))]
-    async public Task DoUndo_PackAndUnpackMdx_ProducesIdenticalFile(string testContent)
+    public async Task DoUndo_PackAndUnpackMdx_ProducesIdenticalFile(string testContent)
     {
         const bool isMdd = false;
 

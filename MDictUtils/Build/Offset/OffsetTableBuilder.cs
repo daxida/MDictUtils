@@ -13,7 +13,7 @@ internal sealed partial class OffsetTableBuilder
 )
 {
     private static readonly ArrayPool<byte> _arrayPool = ArrayPool<byte>.Shared;
-    private readonly static ArrayPool<Range> _rangePool = ArrayPool<Range>.Shared;
+    private static readonly ArrayPool<Range> _rangePool = ArrayPool<Range>.Shared;
 
     public OffsetTable Build(List<MDictEntry> entries)
     {

@@ -12,7 +12,7 @@ internal sealed partial class KeyBlockIndexBuilder
     IBlockCompressor blockCompressor
 )
 {
-    private readonly static ArrayPool<byte> _arrayPool = ArrayPool<byte>.Shared;
+    private static readonly ArrayPool<byte> _arrayPool = ArrayPool<byte>.Shared;
 
     public CompressedBlock Build(ImmutableArray<KeyBlock> keyBlocks)
     {

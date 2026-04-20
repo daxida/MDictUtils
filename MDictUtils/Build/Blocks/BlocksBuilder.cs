@@ -14,8 +14,8 @@ internal abstract partial class BlocksBuilder<T>
 )
     where T : MDictBlock
 {
-    private readonly static ArrayPool<byte> _arrayPool = ArrayPool<byte>.Shared;
-    private readonly static string _typeName = typeof(T).Name;
+    private static readonly ArrayPool<byte> _arrayPool = ArrayPool<byte>.Shared;
+    private static readonly string _typeName = typeof(T).Name;
 
     protected abstract T BlockConstructor(ReadOnlySpan<OffsetTableEntry> entries);
     protected abstract int GetByteCount(OffsetTableEntry entry);
