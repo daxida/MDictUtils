@@ -30,7 +30,7 @@ internal sealed class Writer
         // Concurrently read, compress, and write record data to the disk.
         // This is where the heavy lifting happens.
         var channel = GetRecordBlockChannel();
-        var buildTask = dataBuilder.BuildRecordBlocksAsync(offsetTable, channel.Writer);
+        var buildTask = dataBuilder.BuildRecordBlocksAsync(offsetTable, channel);
         var writeTask = recordsWriter.WriteAsync(offsetTable, channel, stream);
         await Task.WhenAll(buildTask, writeTask);
     }

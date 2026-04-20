@@ -9,7 +9,7 @@ internal sealed partial class RecordsWriter(ILogger<RecordsWriter> logger)
 {
     private const int IndexPreambleSize = 4 * 8; // Four 8-byte buffers
 
-    public async Task WriteAsync(OffsetTable offsetTable, Channel<OrderedBlock> channel, Stream outfile)
+    public async Task WriteAsync(OffsetTable offsetTable, ChannelReader<OrderedBlock> channel, Stream outfile)
     {
         var blockCount = offsetTable.RecordBlockRanges.Length;
         var entryCount = offsetTable.Length;
@@ -35,14 +35,14 @@ internal sealed partial class RecordsWriter(ILogger<RecordsWriter> logger)
     /// <summary>
     /// Read all blocks from the channel, calculate the index data, and write the blocks to disk.
     /// </summary>
-    async Task<long> WriteOutputAsync(Stream outfile, Channel<OrderedBlock> channel, byte[] index)
+    async Task<long> WriteOutputAsync(Stream outfile, ChannelReader<OrderedBlock> channel, byte[] index)
     {
         long totalSize = 0;
         var blockCount = index.Length / 16;
         var blocks = new RecordBlock?[blockCount];
         int order = 0;
 
-        await foreach (var orderedBlock in channel.Reader.ReadAllAsync())
+        await foreach (var orderedBlock in channel.ReadAllAsync())
         {
             blocks[orderedBlock.Order] = orderedBlock.Block;
 
