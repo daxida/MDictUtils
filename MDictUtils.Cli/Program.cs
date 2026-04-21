@@ -168,7 +168,7 @@ static class Program
         });
 
         ParseResult parseResult = rootCommand.Parse(args);
-        return parseResult.Invoke();
+        return await parseResult.InvokeAsync();
     }
 
     static int CheckPath(string? path)
