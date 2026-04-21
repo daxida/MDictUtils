@@ -13,7 +13,7 @@ internal sealed class MdxRecordBlocksBuilder
 {
     private FileStreams? _fileStreams;
 
-    public override async Task BuildAsync(OffsetTable offsetTable, ChannelWriter<(int, RecordBlock)> channel)
+    public override async Task BuildAsync(OffsetTable offsetTable, ChannelWriter<RecordBlock> channel)
     {
         var pathToTotalEntryCount = offsetTable.GetFilePathToTotalEntryCount();
         using var fileStreams = new FileStreams(pathToTotalEntryCount);

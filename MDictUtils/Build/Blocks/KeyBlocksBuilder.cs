@@ -2,7 +2,6 @@ using System.Diagnostics;
 using System.Threading.Channels;
 using MDictUtils.BuildModels;
 using Microsoft.Extensions.Logging;
-using OrderedBlock = (int Order, MDictUtils.BuildModels.KeyBlock Block);
 
 namespace MDictUtils.Build.Blocks;
 
@@ -17,7 +16,7 @@ internal sealed class KeyBlocksBuilder
     {
         var blockCount = offsetTable.KeyBlockRanges.Length;
         var blocks = new KeyBlock[blockCount];
-        var channel = Channel.CreateUnbounded<OrderedBlock>();
+        var channel = Channel.CreateUnbounded<KeyBlock>();
 
         var readTask = ReadKeyBlocksAsync(blocks, channel);
         var buildTask = BuildBlocksAsync(offsetTable, channel);
@@ -29,18 +28,18 @@ internal sealed class KeyBlocksBuilder
         return ImmutableArray.Create(blocks);
     }
 
-    private static async Task ReadKeyBlocksAsync(KeyBlock[] blocks, ChannelReader<OrderedBlock> channel)
+    private static async Task ReadKeyBlocksAsync(KeyBlock[] blocks, ChannelReader<KeyBlock> channel)
     {
-        await foreach (var (i, block) in channel.ReadAllAsync())
+        await foreach (var block in channel.ReadAllAsync())
         {
-            blocks[i] = block;
+            blocks[block.Id] = block;
         }
     }
 
-    protected override async Task<KeyBlock> BlockConstructorAsync(ReadOnlyMemory<OffsetTableEntry> entries)
+    protected override async Task<KeyBlock> BlockConstructorAsync(int id, ReadOnlyMemory<OffsetTableEntry> entries)
     {
         var block = await GetCompressedBlockAsync(entries);
-        return new(block, entries.Span);
+        return new(id, block, entries.Span);
     }
 
     protected override int GetByteCount(OffsetTableEntry entry)

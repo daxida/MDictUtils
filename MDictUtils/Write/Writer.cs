@@ -35,12 +35,12 @@ internal sealed class Writer
         await Task.WhenAll(buildTask, writeTask);
     }
 
-    private static Channel<(int, RecordBlock)> GetRecordBlockChannel()
+    private static Channel<RecordBlock> GetRecordBlockChannel()
     {
         var option = new BoundedChannelOptions(256)
         {
             FullMode = BoundedChannelFullMode.Wait
         };
-        return Channel.CreateBounded<(int, RecordBlock)>(option);
+        return Channel.CreateBounded<RecordBlock>(option);
     }
 }
