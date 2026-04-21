@@ -99,7 +99,8 @@ internal sealed partial class OffsetTableBuilder
 
     private ImmutableArray<Range> PartitionTable(ReadOnlySpan<int> entrySizes, int desiredBlockSize)
     {
-        using var ranges = _rangePool.Rent(entrySizes.Length);
+        using var memoryOwner = _rangePool.Rent(entrySizes.Length);
+        var ranges = memoryOwner.Memory.Span;
         int start = 0;
         int blockCount = 0;
         long blockSize = 0;
@@ -122,7 +123,7 @@ internal sealed partial class OffsetTableBuilder
 
             if (flush)
             {
-                ranges.Memory.Span[blockCount++] = start..end;
+                ranges[blockCount++] = start..end;
                 blockSize = 0;
                 start = end;
             }
@@ -131,7 +132,7 @@ internal sealed partial class OffsetTableBuilder
                 blockSize += entrySize.Value;
         }
 
-        return ImmutableArray.Create(ranges.Memory.Span[..blockCount]);
+        return ImmutableArray.Create(ranges[..blockCount]);
     }
 
     [LoggerMessage(LogLevel.Debug,
