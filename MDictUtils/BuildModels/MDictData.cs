@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Text;
 
 namespace MDictUtils.BuildModels;
@@ -20,9 +21,10 @@ internal readonly record struct KeyData
     public int KeyBlocksSize => KeyBlocks.Sum(static b => b.Bytes.Length);
 }
 
-internal readonly record struct CompressedBlock(ImmutableArray<byte> Bytes, long DecompSize)
+internal readonly record struct CompressedBlock(IMemoryOwner<byte> MemoryOwner, int Size, int DecompSize)
 {
-    public int Size => Bytes.Length;
+    public ReadOnlyMemory<byte> Bytes => MemoryOwner.Memory[..Size];
+    public void Dispose() => MemoryOwner.Dispose();
 }
 
 internal readonly record struct OffsetTable

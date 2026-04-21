@@ -53,10 +53,8 @@ internal abstract partial class BlocksBuilder<T>
             position += size;
         }
 
-        var compressed = await blockCompressor
+        return await blockCompressor
             .CompressAsync(uncompressed.Memory[..position]);
-
-        return new(compressed, DecompSize: position);
     }
 
     [LoggerMessage(LogLevel.Debug, "Building blocks of type {Type}")]

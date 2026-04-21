@@ -17,7 +17,10 @@ internal sealed partial class KeyBlockIndexBuilder
     public async Task<CompressedBlock> BuildAsync(ImmutableArray<KeyBlock> keyBlocks)
     {
         if (keyBlocks is [])
-            return new([], 0);
+        {
+            var compressed = _memoryPool.Rent(0);
+            return new(compressed, 0, 0);
+        }
 
         int totalSize = keyBlocks.Sum(static b => b.IndexEntryLength);
         var uncompressed = _memoryPool.Rent(totalSize);
@@ -32,14 +35,10 @@ internal sealed partial class KeyBlockIndexBuilder
             position += size;
         }
 
-        var compressed = await blockCompressor
+        var index = await blockCompressor
             .CompressAsync(uncompressed.Memory[..position]);
 
         uncompressed.Dispose();
-
-        CompressedBlock index = new(
-            Bytes: compressed,
-            DecompSize: position);
 
         Debug.Assert(position == totalSize);
         LogIndexBuilt(index.DecompSize, index.Size);

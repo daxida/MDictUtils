@@ -48,7 +48,7 @@ internal sealed partial class RecordsWriter(ILogger<RecordsWriter> logger)
             // Ensure that blocks are always written in sequential order.
             while (blocks[order] is RecordBlock block) // (not null)
             {
-                var writeTask = outfile.WriteAsync(block.Bytes.AsMemory());
+                var writeTask = outfile.WriteAsync(block.Bytes);
                 totalSize += block.Bytes.Length;
 
                 int start = order * 16;
@@ -58,6 +58,7 @@ internal sealed partial class RecordsWriter(ILogger<RecordsWriter> logger)
                 order++;
 
                 await writeTask;
+                block.Dispose();
 
                 if (order == blockCount)
                     break;

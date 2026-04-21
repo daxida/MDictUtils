@@ -12,7 +12,7 @@ internal interface IDataBuilder
 
 internal interface IBlockCompressor
 {
-    Task<ImmutableArray<byte>> CompressAsync(ReadOnlyMemory<byte> data);
+    Task<CompressedBlock> CompressAsync(ReadOnlyMemory<byte> data);
 }
 
 internal interface IRecordBlocksBuilder
