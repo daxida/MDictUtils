@@ -19,9 +19,9 @@ internal abstract class RecordBlocksBuilder
     protected sealed override ImmutableArray<Range> GetBlockRanges(OffsetTable offsetTable)
         => offsetTable.RecordBlockRanges;
 
-    protected sealed override RecordBlock BlockConstructor(ReadOnlySpan<OffsetTableEntry> entries)
+    protected sealed override async Task<RecordBlock> BlockConstructorAsync(ReadOnlyMemory<OffsetTableEntry> entries)
     {
-        var block = GetCompressedBlock(entries);
+        var block = await GetCompressedBlockAsync(entries);
         return new(block);
     }
 }

@@ -33,7 +33,7 @@ internal readonly record struct OffsetTable
 )
 {
     public int Length => Entries.Length;
-    public ReadOnlySpan<OffsetTableEntry> AsSpan(Range range) => Entries.AsSpan(range);
+    public ReadOnlyMemory<OffsetTableEntry> AsMemory(Range range) => Entries.AsMemory()[range];
     public Dictionary<string, int> GetFilePathToTotalEntryCount()
     {
         var dict = new Dictionary<string, int>();

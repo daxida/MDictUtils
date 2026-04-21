@@ -37,10 +37,10 @@ internal sealed class KeyBlocksBuilder
         }
     }
 
-    protected override KeyBlock BlockConstructor(ReadOnlySpan<OffsetTableEntry> entries)
+    protected override async Task<KeyBlock> BlockConstructorAsync(ReadOnlyMemory<OffsetTableEntry> entries)
     {
-        var block = GetCompressedBlock(entries);
-        return new(block, entries);
+        var block = await GetCompressedBlockAsync(entries);
+        return new(block, entries.Span);
     }
 
     protected override int GetByteCount(OffsetTableEntry entry)

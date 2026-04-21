@@ -12,9 +12,9 @@ internal sealed partial class KeyBlockIndexBuilder
     IBlockCompressor blockCompressor
 )
 {
-    private static readonly ArrayPool<byte> _arrayPool = ArrayPool<byte>.Shared;
+    private static readonly MemoryPool<byte> _arrayPool = MemoryPool<byte>.Shared;
 
-    public CompressedBlock Build(ImmutableArray<KeyBlock> keyBlocks)
+    public async Task<CompressedBlock> BuildAsync(ImmutableArray<KeyBlock> keyBlocks)
     {
         if (keyBlocks is [])
             return new([], 0);
@@ -26,16 +26,16 @@ internal sealed partial class KeyBlockIndexBuilder
         foreach (var block in keyBlocks)
         {
             var size = block.IndexEntryLength;
-            var buffer = uncompressed.AsSpan(position, size);
+            var buffer = uncompressed.Memory.Slice(position, size).Span;
             block.CopyIndexEntryTo(buffer);
             LogIndexEntry(buffer);
             position += size;
         }
 
-        var compressed = blockCompressor
-            .Compress(uncompressed.AsSpan(..position));
+        var compressed = await blockCompressor
+            .CompressAsync(uncompressed.Memory[..position]);
 
-        _arrayPool.Return(uncompressed);
+        uncompressed.Dispose();
 
         CompressedBlock index = new(
             Bytes: compressed,

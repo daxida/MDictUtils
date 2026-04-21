@@ -14,10 +14,10 @@ internal abstract partial class BlocksBuilder<T>
 )
     where T : MDictBlock
 {
-    private static readonly ArrayPool<byte> _arrayPool = ArrayPool<byte>.Shared;
+    private static readonly MemoryPool<byte> _memoryPool = MemoryPool<byte>.Shared;
     private static readonly string _typeName = typeof(T).Name;
 
-    protected abstract T BlockConstructor(ReadOnlySpan<OffsetTableEntry> entries);
+    protected abstract Task<T> BlockConstructorAsync(ReadOnlyMemory<OffsetTableEntry> entries);
     protected abstract int GetByteCount(OffsetTableEntry entry);
     protected abstract void WriteBytes(OffsetTableEntry entry, Span<byte> buffer);
     protected abstract ImmutableArray<Range> GetBlockRanges(OffsetTable offsetTable);
@@ -26,37 +26,36 @@ internal abstract partial class BlocksBuilder<T>
     {
         LogBeginBuilding(_typeName);
         var blockRanges = GetBlockRanges(offsetTable);
-        var enumerator = Enumerable.Range(0, blockRanges.Length);
 
-        await Parallel.ForEachAsync(enumerator, async (i, ct) =>
+        await Parallel.ForAsync(0, blockRanges.Length, async (i, ct) =>
         {
             var blockRange = blockRanges[i];
-            var entries = offsetTable.AsSpan(blockRange);
-            var block = BlockConstructor(entries);
+            var entries = offsetTable.AsMemory(blockRange);
+            var block = await BlockConstructorAsync(entries);
             await channel.WriteAsync((i, block), ct);
         });
 
         channel.Complete();
     }
 
-    protected CompressedBlock GetCompressedBlock(ReadOnlySpan<OffsetTableEntry> entries)
+    protected async Task<CompressedBlock> GetCompressedBlockAsync(ReadOnlyMemory<OffsetTableEntry> entries)
     {
-        int totalSize = entries.Sum(GetByteCount);
-        var uncompressed = _arrayPool.Rent(totalSize);
+        int totalSize = entries.Span.Sum(GetByteCount);
+        var uncompressed = _memoryPool.Rent(totalSize);
 
         int position = 0;
-        foreach (var entry in entries)
+        foreach (var entry in entries.Span)
         {
             var size = GetByteCount(entry);
-            var buffer = uncompressed.AsSpan(start: position, size);
+            var buffer = uncompressed.Memory.Slice(start: position, size).Span;
             WriteBytes(entry, buffer);
             position += size;
         }
 
-        var compressed = blockCompressor
-            .Compress(uncompressed.AsSpan(..position));
+        var compressed = await blockCompressor
+            .CompressAsync(uncompressed.Memory[..position]);
 
-        _arrayPool.Return(uncompressed);
+        uncompressed.Dispose();
         Debug.Assert(totalSize == position);
 
         return new(compressed, DecompSize: position);
