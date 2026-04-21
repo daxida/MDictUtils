@@ -71,9 +71,9 @@ internal sealed partial class OffsetTableBuilder
 
     private int GetMaxKeySize(List<MDictEntry> entries)
     {
-        int maxKeySize = entries
-            .DefaultIfEmpty(new("", "", 0, 0))
-            .Max(entry => options.KeyEncoding.GetByteCount(entry.Key));
+        int maxKeySize = entries.Any()
+            ? entries.Max(entry => options.KeyEncoding.GetByteCount(entry.Key))
+            : 0;
 
         // Add the length of one character because
         // we'll be appending a '\0' character later.
