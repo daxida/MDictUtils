@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.Text;
+using MDictUtils.Extensions;
 
 namespace MDictUtils.BuildModels;
 
@@ -15,10 +16,10 @@ internal readonly record struct KeyData
 (
     int EntryCount,
     CompressedBlock KeyBlockIndex,
-    ImmutableArray<KeyBlock> KeyBlocks
+    ReadOnlyMemory<KeyBlock> KeyBlocks
 )
 {
-    public int KeyBlocksSize => KeyBlocks.Sum(static b => b.Bytes.Length);
+    public int KeyBlocksSize => KeyBlocks.Span.Sum(static b => b.Bytes.Length);
 }
 
 internal readonly record struct CompressedBlock(IMemoryOwner<byte> MemoryOwner, int Size, int DecompSize)

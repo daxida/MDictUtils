@@ -41,8 +41,9 @@ internal sealed class KeysWriter
         await outfile.WriteAsync(data.KeyBlockIndex.Bytes);
         data.KeyBlockIndex.Dispose();
 
-        foreach (var block in data.KeyBlocks)
+        for (int i = 0; i < data.KeyBlocks.Length; i++)
         {
+            var block = data.KeyBlocks.Span[i];
             await outfile.WriteAsync(block.Bytes);
             block.Dispose();
         }

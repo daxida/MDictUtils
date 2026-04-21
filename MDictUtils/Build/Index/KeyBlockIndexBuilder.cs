@@ -14,19 +14,19 @@ internal sealed partial class KeyBlockIndexBuilder
 {
     private static readonly MemoryPool<byte> _memoryPool = MemoryPool<byte>.Shared;
 
-    public async Task<CompressedBlock> BuildAsync(ImmutableArray<KeyBlock> keyBlocks)
+    public async Task<CompressedBlock> BuildAsync(ReadOnlyMemory<KeyBlock> keyBlocks)
     {
-        if (keyBlocks is [])
+        if (keyBlocks.IsEmpty)
         {
             var compressed = _memoryPool.Rent(0);
             return new(compressed, 0, 0);
         }
 
-        int totalSize = keyBlocks.Sum(static b => b.IndexEntryLength);
+        int totalSize = keyBlocks.Span.Sum(static b => b.IndexEntryLength);
         var uncompressed = _memoryPool.Rent(totalSize);
 
         int position = 0;
-        foreach (var block in keyBlocks)
+        foreach (var block in keyBlocks.Span)
         {
             var size = block.IndexEntryLength;
             var buffer = uncompressed.Memory.Slice(position, size).Span;
