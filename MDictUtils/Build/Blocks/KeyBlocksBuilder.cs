@@ -45,10 +45,10 @@ internal sealed class KeyBlocksBuilder
     protected override int GetByteCount(OffsetTableEntry entry)
         => entry.KeyDataSize;
 
-    protected override void WriteBytes(OffsetTableEntry entry, Span<byte> buffer)
+    protected override async Task WriteBytesAsync(OffsetTableEntry entry, Memory<byte> buffer)
     {
-        Common.ToBigEndian((ulong)entry.Offset, buffer[..8]);
-        entry.NullTerminatedKeyBytes.CopyTo(buffer[8..]);
+        Common.ToBigEndian((ulong)entry.Offset, buffer.Span[..8]);
+        entry.NullTerminatedKeyBytes.CopyTo(buffer.Span[8..]);
     }
 
     protected override ImmutableArray<Range> GetBlockRanges(OffsetTable offsetTable)

@@ -19,7 +19,7 @@ internal abstract partial class BlocksBuilder<T>
 
     protected abstract Task<T> BlockConstructorAsync(int id, ReadOnlyMemory<OffsetTableEntry> entries);
     protected abstract int GetByteCount(OffsetTableEntry entry);
-    protected abstract void WriteBytes(OffsetTableEntry entry, Span<byte> buffer);
+    protected abstract Task WriteBytesAsync(OffsetTableEntry entry, Memory<byte> buffer);
     protected abstract ImmutableArray<Range> GetBlockRanges(OffsetTable offsetTable);
 
     protected async Task BuildBlocksAsync(OffsetTable offsetTable, ChannelWriter<T> channel)
@@ -41,22 +41,20 @@ internal abstract partial class BlocksBuilder<T>
     protected async Task<CompressedBlock> GetCompressedBlockAsync(ReadOnlyMemory<OffsetTableEntry> entries)
     {
         int totalSize = entries.Span.Sum(GetByteCount);
-        var uncompressed = _memoryPool.Rent(totalSize);
+        using var uncompressed = _memoryPool.Rent(totalSize);
 
         int position = 0;
-        foreach (var entry in entries.Span)
+        for (int i = 0; i < entries.Length; i++)
         {
+            var entry = entries.Span[i];
             var size = GetByteCount(entry);
-            var buffer = uncompressed.Memory.Slice(start: position, size).Span;
-            WriteBytes(entry, buffer);
+            var buffer = uncompressed.Memory.Slice(start: position, size);
+            await WriteBytesAsync(entry, buffer);
             position += size;
         }
 
         var compressed = await blockCompressor
             .CompressAsync(uncompressed.Memory[..position]);
-
-        uncompressed.Dispose();
-        Debug.Assert(totalSize == position);
 
         return new(compressed, DecompSize: position);
     }

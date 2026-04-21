@@ -12,7 +12,7 @@ internal sealed partial class KeyBlockIndexBuilder
     IBlockCompressor blockCompressor
 )
 {
-    private static readonly MemoryPool<byte> _arrayPool = MemoryPool<byte>.Shared;
+    private static readonly MemoryPool<byte> _memoryPool = MemoryPool<byte>.Shared;
 
     public async Task<CompressedBlock> BuildAsync(ImmutableArray<KeyBlock> keyBlocks)
     {
@@ -20,7 +20,7 @@ internal sealed partial class KeyBlockIndexBuilder
             return new([], 0);
 
         int totalSize = keyBlocks.Sum(static b => b.IndexEntryLength);
-        var uncompressed = _arrayPool.Rent(totalSize);
+        var uncompressed = _memoryPool.Rent(totalSize);
 
         int position = 0;
         foreach (var block in keyBlocks)
