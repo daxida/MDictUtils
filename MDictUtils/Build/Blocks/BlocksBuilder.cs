@@ -16,10 +16,10 @@ internal abstract partial class BlocksBuilder<T>
     private static readonly MemoryPool<byte> _memoryPool = MemoryPool<byte>.Shared;
     private static readonly string _typeName = typeof(T).Name;
 
-    protected abstract Task<T> BlockConstructorAsync(int id, ReadOnlyMemory<OffsetTableEntry> entries);
     protected abstract int GetByteCount(OffsetTableEntry entry);
-    protected abstract Task WriteBytesAsync(OffsetTableEntry entry, Memory<byte> buffer);
     protected abstract ImmutableArray<Range> GetBlockRanges(OffsetTable offsetTable);
+    protected abstract Task<T> BlockConstructorAsync(int id, ReadOnlyMemory<OffsetTableEntry> entries);
+    protected abstract Task WriteBytesAsync(OffsetTableEntry entry, Memory<byte> buffer);
 
     protected async Task BuildBlocksAsync(OffsetTable offsetTable, ChannelWriter<T> channel)
     {

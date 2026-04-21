@@ -36,23 +36,23 @@ internal sealed class KeyBlocksBuilder
         }
     }
 
+    protected override int GetByteCount(OffsetTableEntry entry)
+        => entry.KeyDataSize;
+
+    protected override ImmutableArray<Range> GetBlockRanges(OffsetTable offsetTable)
+        => offsetTable.KeyBlockRanges;
+
     protected override async Task<KeyBlock> BlockConstructorAsync(int id, ReadOnlyMemory<OffsetTableEntry> entries)
     {
         var block = await GetCompressedBlockAsync(entries);
         return new(id, block, entries.Span);
     }
 
-    protected override int GetByteCount(OffsetTableEntry entry)
-        => entry.KeyDataSize;
-
     protected override async Task WriteBytesAsync(OffsetTableEntry entry, Memory<byte> buffer)
     {
         Common.ToBigEndian((ulong)entry.Offset, buffer.Span[..8]);
         entry.NullTerminatedKeyBytes.CopyTo(buffer.Span[8..]);
     }
-
-    protected override ImmutableArray<Range> GetBlockRanges(OffsetTable offsetTable)
-        => offsetTable.KeyBlockRanges;
 
     [Conditional("DEBUG")]
     private void LogBlocks(IList<KeyBlock> blocks)
