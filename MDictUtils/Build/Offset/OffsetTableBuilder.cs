@@ -13,7 +13,7 @@ internal sealed partial class OffsetTableBuilder
 )
 {
     private static readonly ArrayPool<byte> _arrayPool = ArrayPool<byte>.Shared;
-    private static readonly ArrayPool<Range> _rangePool = ArrayPool<Range>.Shared;
+    private static readonly MemoryPool<Range> _rangePool = MemoryPool<Range>.Shared;
 
     public OffsetTable Build(List<MDictEntry> entries)
     {
@@ -99,7 +99,7 @@ internal sealed partial class OffsetTableBuilder
 
     private ImmutableArray<Range> PartitionTable(ReadOnlySpan<int> entrySizes, int desiredBlockSize)
     {
-        var ranges = _rangePool.Rent(entrySizes.Length);
+        using var ranges = _rangePool.Rent(entrySizes.Length);
         int start = 0;
         int blockCount = 0;
         long blockSize = 0;
@@ -122,7 +122,7 @@ internal sealed partial class OffsetTableBuilder
 
             if (flush)
             {
-                ranges[blockCount++] = start..end;
+                ranges.Memory.Span[blockCount++] = start..end;
                 blockSize = 0;
                 start = end;
             }
@@ -131,10 +131,7 @@ internal sealed partial class OffsetTableBuilder
                 blockSize += entrySize.Value;
         }
 
-        var entryRanges = ImmutableArray.Create(ranges.AsSpan(..blockCount));
-        _rangePool.Return(ranges);
-
-        return entryRanges;
+        return ImmutableArray.Create(ranges.Memory.Span[..blockCount]);
     }
 
     [LoggerMessage(LogLevel.Debug,
