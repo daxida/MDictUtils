@@ -32,18 +32,29 @@ public sealed class MdxCreator : MDictCreator
         await _txtWriter.WriteAsync(body);
     }
 
+    public void Write(MdxHeader header, string outputFile, Action<MdxWriterOptions>? configure = null)
+    {
+        ObjectDisposedException.ThrowIf(_isDisposed, this);
+
+        var mdxWriter = GetWriter(configure);
+        _txtWriter.Flush();
+        mdxWriter.WriteAsync(header, _entries, outputFile).GetAwaiter().GetResult();
+    }
+
     public async Task WriteAsync(MdxHeader header, string outputFile, Action<MdxWriterOptions>? configure = null)
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
 
-        var mdxWriter = new ServiceCollection()
-            .AddMdxWriter(configure)
-            .BuildServiceProvider()
-            .GetRequiredService<IMdxWriter>();
-
+        var mdxWriter = GetWriter(configure);
         await _txtWriter.FlushAsync();
         await mdxWriter.WriteAsync(header, _entries, outputFile);
     }
+
+    private static IMdxWriter GetWriter(Action<MdxWriterOptions>? configure)
+        => new ServiceCollection()
+            .AddMdxWriter(configure)
+            .BuildServiceProvider()
+            .GetRequiredService<IMdxWriter>();
 
     protected override void Dispose(bool disposing)
     {
