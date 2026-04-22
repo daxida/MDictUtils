@@ -148,7 +148,6 @@ public class CreationDoUndoTests
             MDictPacker.Unpack(tempDir, outMddPath, isMdd: true);
             Assert.True(File.Exists(extractedStubPath), "Extracted file should exist");
             string extractedContent = File.ReadAllText(extractedStubPath);
-            Console.Error.WriteLine(extractedContent);
             AssertContentEqual(TestContent, extractedContent);
         }
         finally
