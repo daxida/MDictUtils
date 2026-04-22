@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Text;
 using System.Threading.Tasks;
 using MDictUtils.Creation;
 using Xunit;
@@ -111,18 +112,8 @@ public class CreationDoUndoTests
         }
     }
 
-    private static ReadOnlySpan<byte> TestBytes =>
-        """
-        apple
-        A fruit that grows on trees.
-        </>
-        banana
-        A long yellow fruit.
-        </>
-        @cc-100
-        xxx
-        </>
-        """u8;
+    private static ReadOnlySpan<byte> TestBytes
+        => Encoding.UTF8.GetBytes(TestContent);
 
     [Fact]
     public async Task DoUndo_PackAndUnpackMdd_ProducesIdenticalFile()
