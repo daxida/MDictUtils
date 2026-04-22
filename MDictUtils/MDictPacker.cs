@@ -47,7 +47,7 @@ public static class MDictPacker
 
             // f.write(b'\r\n'.join(mdx.header[b'Description'].splitlines()))
             // Force CRLF like the python model
-            var lines = description.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+            var lines = description.Split(["\r\n", "\n"], StringSplitOptions.None);
             swriter.Write(string.Join("\r\n", lines));
         }
 
