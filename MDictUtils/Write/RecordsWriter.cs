@@ -25,7 +25,7 @@ internal sealed partial class RecordsWriter(ILogger<RecordsWriter> logger)
     /// <summary>
     /// Read all blocks from the channel, calculate the index data, and write the blocks to disk.
     /// </summary>
-    async Task WriteOutputAsync(ChannelReader<RecordBlock> reader, Stream outfile, RecordBlockIndexBuilder indexBuilder)
+    private async Task WriteOutputAsync(ChannelReader<RecordBlock> reader, Stream outfile, RecordBlockIndexBuilder indexBuilder)
     {
         var blockCount = indexBuilder.BlockCount;
         var blocks = new RecordBlock?[blockCount];

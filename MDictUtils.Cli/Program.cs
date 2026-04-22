@@ -9,9 +9,9 @@ using System.Threading.Tasks;
 
 namespace MDictUtils.Cli;
 
-static class Program
+internal static class Program
 {
-    sealed record Args
+    private sealed record Args
     (
         bool Verbose,
         string MdictPath,
@@ -40,7 +40,7 @@ static class Program
     }
 
     // https://learn.microsoft.com/en-us/dotnet/standard/commandline/
-    static async Task<int> Main(string[] args)
+    private static async Task<int> Main(string[] args)
     {
         Argument<string> mdictPath = new("mdx/mdd file")
         {
@@ -171,7 +171,7 @@ static class Program
         return await parseResult.InvokeAsync();
     }
 
-    static int CheckPath(string? path)
+    private static int CheckPath(string? path)
     {
         if (path != null && !File.Exists(path) && !Directory.Exists(path))
         {
@@ -181,7 +181,7 @@ static class Program
         return 0;
     }
 
-    static async Task RunAsync(Args args)
+    private static async Task RunAsync(Args args)
     {
         if (args.Verbose)
         {
