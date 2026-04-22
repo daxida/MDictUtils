@@ -96,13 +96,59 @@ public class CreationDoUndoTests
             creator.AddEntry("banana", "A long yellow fruit.");
             creator.AddEntry("@cc-100", "xxx");
 
-            var header = new MdxHeader();
-            await creator.WriteAsync(header, outMdxPath);
+            await creator.WriteAsync(new(), outMdxPath);
 
             // Unpack out1.mdx to tempDir and compare normalized
             MDictPacker.Unpack(tempDir, outMdxPath, isMdd: false);
             Assert.True(File.Exists(extractedDictPath), "Extracted file should exist");
             string extractedContent = File.ReadAllText(extractedDictPath);
+            AssertContentEqual(TestContent, extractedContent);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+                Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    private static ReadOnlySpan<byte> TestBytes =>
+        """
+        apple
+        A fruit that grows on trees.
+        </>
+        banana
+        A long yellow fruit.
+        </>
+        @cc-100
+        xxx
+        </>
+        """u8;
+
+    [Fact]
+    public async Task DoUndo_PackAndUnpackMdd_ProducesIdenticalFile()
+    {
+        string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(tempDir);
+        string originalStubPath = Path.Combine(tempDir, "dict1.txt");
+        string outMddPath = Path.Combine(tempDir, "out.mdd");
+        string extractedStubPath = Path.Combine(tempDir, "dict2.txt");
+
+        try
+        {
+            // Create dict1.txt
+            File.WriteAllText(originalStubPath, TestContent);
+
+            // Pack it into out.mdd
+            var creator = new MddCreator();
+            creator.AddEntry("dict2.txt", TestBytes);
+
+            await creator.WriteAsync(new(), outMddPath);
+
+            // Unpack out1.mdd to tempDir and compare normalized
+            MDictPacker.Unpack(tempDir, outMddPath, isMdd: true);
+            Assert.True(File.Exists(extractedStubPath), "Extracted file should exist");
+            string extractedContent = File.ReadAllText(extractedStubPath);
+            Console.Error.WriteLine(extractedContent);
             AssertContentEqual(TestContent, extractedContent);
         }
         finally
