@@ -11,9 +11,15 @@ internal sealed class Writer
     KeysWriter keysWriter,
     RecordsWriter recordsWriter
 )
-    : IMDictWriter
+    : IMdxWriter, IMddWriter
 {
-    public async Task WriteAsync(MDictHeader header, List<MDictEntry> entries, string outputFile)
+    public async Task WriteAsync(MdxHeader header, List<MDictEntry> entries, string outputFile)
+        => await WriteAsync((MDictHeader)header, entries, outputFile);
+
+    public async Task WriteAsync(MddHeader header, List<MDictEntry> entries, string outputFile)
+        => await WriteAsync((MDictHeader)header, entries, outputFile);
+
+    private async Task WriteAsync(MDictHeader header, List<MDictEntry> entries, string outputFile)
     {
         if (header.Version != "2.0")
             throw new NotSupportedException("Unknown version. Supported: 2.0");

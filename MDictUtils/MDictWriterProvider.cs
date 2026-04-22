@@ -6,63 +6,61 @@ using MDictUtils.Build.Offset;
 using MDictUtils.BuildModels;
 using MDictUtils.Write;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using static MDictUtils.MDictKeyEncodingType;
 
 namespace MDictUtils;
 
-public interface IMDictWriter
+public interface IMdxWriter
 {
-    Task WriteAsync(MDictHeader header, List<MDictEntry> entries, string outputFile);
+    Task WriteAsync(MdxHeader header, List<MDictEntry> entries, string outputFile);
 }
 
-public static class MDictWriterProvider
+public interface IMddWriter
 {
-    public static IMDictWriter GetWriter(Action<MDictWriterOptions>? configure = null)
-    {
-        var options = new MDictWriterOptions();
+    Task WriteAsync(MddHeader header, List<MDictEntry> entries, string outputFile);
+}
 
+public static class ServiceCollectionExtensions
+{
+    public static IServiceCollection AddMdxWriter(this IServiceCollection services, Action<MdxWriterOptions>? configure = null)
+    {
+        var options = new MdxWriterOptions();
         if (configure is not null)
             configure(options);
 
-        var s = new ServiceCollection();
-
-        /// Inject <see cref="Write"> namespace types.
-        s.AddWriterServices();
-
-        /// Inject <see cref="Build"> namespace types.
-        if (options.IsMdd)
-            s.AddMddBuilderServices(options);
-        else
-            s.AddMdxBuilderServices(options);
-
-        // Logging
-        s.AddLogging(builder =>
-        {
-            if (options.EnableLogging)
-                builder.SetMinimumLevel(LogLevel.Debug);
-
-            builder.AddSimpleConsole(options =>
-            {
-                options.IncludeScopes = true;
-                options.SingleLine = true;
-                options.TimestampFormat = "HH:mm:ss.FFF ";
-            });
-        });
-
-        // Build and return the writer service.
-        var provider = s.BuildServiceProvider();
-        return provider.GetRequiredService<IMDictWriter>();
+        return services
+            .AddLogging()
+            .AddMdxWriterServices()
+            .AddMdxBuilderServices(options);
     }
 
-    private static IServiceCollection AddWriterServices(this IServiceCollection services)
+    public static IServiceCollection AddMddWriter(this IServiceCollection services, Action<MddWriterOptions>? configure = null)
+    {
+        var options = new MddWriterOptions();
+        if (configure is not null)
+            configure(options);
+
+        return services
+            .AddLogging()
+            .AddMddWriterServices()
+            .AddMddBuilderServices(options);
+    }
+
+    private static IServiceCollection AddMdxWriterServices(this IServiceCollection services)
         => services
-            .AddTransient<IMDictWriter, Writer>()
+            .AddTransient<IMdxWriter, Writer>()
             .AddTransient<HeaderWriter>()
             .AddTransient<KeysWriter>()
             .AddTransient<RecordsWriter>();
 
-    private static IServiceCollection AddMdxBuilderServices(this IServiceCollection services, MDictWriterOptions options)
+    private static IServiceCollection AddMddWriterServices(this IServiceCollection services)
+        => services
+            .AddTransient<IMddWriter, Writer>()
+            .AddTransient<HeaderWriter>()
+            .AddTransient<KeysWriter>()
+            .AddTransient<RecordsWriter>();
+
+    private static IServiceCollection AddMdxBuilderServices(this IServiceCollection services, MdxWriterOptions options)
         => services
             .AddTransient<IDataBuilder, DataBuilder>()
             .AddTransient<IKeyComparer, MdxKeyComparer>()
@@ -70,10 +68,10 @@ public static class MDictWriterProvider
             .AddTransient<KeyBlockIndexBuilder>()
             .AddTransient<KeyBlocksBuilder>()
             .AddTransient<IRecordBlocksBuilder, MdxRecordBlocksBuilder>()
-            .AddBuildOptions(options)
+            .AddMdxBuildOptions(options)
             .AddBlockCompressor(options.CompressionType);
 
-    private static IServiceCollection AddMddBuilderServices(this IServiceCollection services, MDictWriterOptions options)
+    private static IServiceCollection AddMddBuilderServices(this IServiceCollection services, MddWriterOptions options)
         => services
             .AddTransient<IDataBuilder, DataBuilder>()
             .AddTransient<IKeyComparer, MddKeyComparer>()
@@ -81,20 +79,25 @@ public static class MDictWriterProvider
             .AddTransient<KeyBlockIndexBuilder>()
             .AddTransient<KeyBlocksBuilder>()
             .AddTransient<IRecordBlocksBuilder, MddRecordBlocksBuilder>()
-            .AddBuildOptions(options)
+            .AddMddBuildOptions(options)
             .AddBlockCompressor(options.CompressionType);
 
-    private static IServiceCollection AddBuildOptions(this IServiceCollection services, MDictWriterOptions options)
+    private static IServiceCollection AddMdxBuildOptions(this IServiceCollection services, MdxWriterOptions options)
         => services.AddTransient(_ => new BuildOptions
         {
             DesiredKeyBlockSize = options.DesiredKeyBlockSize,
             DesiredRecordBlockSize = options.DesiredRecordBlockSize,
-            KeyEncoding = options.IsMdd
-                ? Utf16.ToEncoding()
-                : options.KeyEncoding.ToEncoding(),
-            KeyEncodingLength = options.IsMdd
-                ? Utf16.ToEncodingLength()
-                : options.KeyEncoding.ToEncodingLength(),
+            KeyEncoding = options.KeyEncoding.ToEncoding(),
+            KeyEncodingLength = options.KeyEncoding.ToEncodingLength(),
+        });
+
+    private static IServiceCollection AddMddBuildOptions(this IServiceCollection services, MddWriterOptions options)
+        => services.AddTransient(_ => new BuildOptions
+        {
+            DesiredKeyBlockSize = options.DesiredKeyBlockSize,
+            DesiredRecordBlockSize = options.DesiredRecordBlockSize,
+            KeyEncoding = Utf16.ToEncoding(),
+            KeyEncodingLength = Utf16.ToEncodingLength(),
         });
 
     private static IServiceCollection AddBlockCompressor(this IServiceCollection services, MDictCompressionType compressionType)

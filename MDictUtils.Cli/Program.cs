@@ -6,6 +6,8 @@ using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace MDictUtils.Cli;
 
@@ -211,15 +213,21 @@ internal static class Program
                 description = File.ReadAllText(args.DescriptionPath, Encoding.UTF8).Trim();
             }
 
-            MDictHeader header = args.IsMdd
-                ? new MddHeader() { Title = title, Description = description }
-                : new MdxHeader() { Title = title, Description = description };
-
-            var writer = MDictWriterProvider.GetWriter(options =>
+            var services = new ServiceCollection();
+            if (args.Verbose)
             {
-                options.IsMdd = args.IsMdd;
-                options.EnableLogging = args.Verbose;
-            });
+                services.AddLogging(builder =>
+                {
+                    builder.SetMinimumLevel(LogLevel.Debug);
+                    builder.AddSimpleConsole(options =>
+                    {
+                        options.IncludeScopes = true;
+                        options.SingleLine = true;
+                        options.TimestampFormat = "HH:mm:ss.FFF ";
+                    });
+                });
+            }
+
             // MDictWriter writer = new(packed, metadata, logging: args.Verbose);
 
             // creates intermediate directories if needed
@@ -229,7 +237,33 @@ internal static class Program
             {
                 Directory.CreateDirectory(directory);
             }
-            await writer.WriteAsync(header, packed, args.MdictPath);
+
+            if (args.IsMdd)
+            {
+                var writer = services
+                    .AddMddWriter()
+                    .BuildServiceProvider()
+                    .GetRequiredService<IMddWriter>();
+                var header = new MddHeader()
+                {
+                    Title = title,
+                    Description = description,
+                };
+                await writer.WriteAsync(header, packed, args.MdictPath);
+            }
+            else
+            {
+                var writer = services
+                    .AddMdxWriter()
+                    .BuildServiceProvider()
+                    .GetRequiredService<IMdxWriter>();
+                var header = new MdxHeader()
+                {
+                    Title = title,
+                    Description = description,
+                };
+                await writer.WriteAsync(header, packed, args.MdictPath);
+            }
         }
         else if (args.ExtractFlag)
         {

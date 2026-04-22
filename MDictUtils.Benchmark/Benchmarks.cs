@@ -1,5 +1,6 @@
 using System.Text;
 using BenchmarkDotNet.Attributes;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace MDictUtils.Benchmark;
 
@@ -11,8 +12,10 @@ public class Benchmarks
 
     private readonly List<MDictEntry> Entries = [];
     private readonly MdxHeader Header = new();
-    private readonly IMDictWriter Writer = MDictWriterProvider
-        .GetWriter(static o => o.EnableLogging = false);
+    private readonly IMdxWriter Writer = new ServiceCollection()
+        .AddMdxWriter()
+        .BuildServiceProvider()
+        .GetRequiredService<IMdxWriter>();
 
     [GlobalSetup]
     public async Task Setup()
