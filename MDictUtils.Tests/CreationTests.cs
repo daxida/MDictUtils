@@ -78,7 +78,7 @@ public class CreationDoUndoTests
         """;
 
     [Fact]
-    public async Task DoUndo_PackAndUnpackMdx_ProducesIdenticalFile()
+    public void DoUndo_PackAndUnpackMdx_ProducesIdenticalFile()
     {
         string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         Directory.CreateDirectory(tempDir);
@@ -96,6 +96,41 @@ public class CreationDoUndoTests
             creator.AddEntry("apple", "A fruit that grows on trees.");
             creator.AddEntry("banana", "A long yellow fruit.");
             creator.AddEntry("@cc-100", "xxx");
+
+            creator.Write(new(), outMdxPath);
+
+            // Unpack out1.mdx to tempDir and compare normalized
+            MDictPacker.Unpack(tempDir, outMdxPath, isMdd: false);
+            Assert.True(File.Exists(extractedDictPath), "Extracted file should exist");
+            string extractedContent = File.ReadAllText(extractedDictPath);
+            AssertContentEqual(TestContent, extractedContent);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+                Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task DoUndo_PackAndUnpackMdx_ProducesIdenticalFile_Async()
+    {
+        string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(tempDir);
+        string originalDictPath = Path.Combine(tempDir, "dict1.txt");
+        string outMdxPath = Path.Combine(tempDir, "out.mdx");
+        string extractedDictPath = Path.Combine(tempDir, "out.mdx.txt");
+
+        try
+        {
+            // Create dict1.txt
+            File.WriteAllText(originalDictPath, TestContent);
+
+            // Pack it into out.mdx
+            using var creator = new MdxCreator();
+            await creator.AddEntryAsync("apple", "A fruit that grows on trees.".AsMemory());
+            await creator.AddEntryAsync("banana", "A long yellow fruit.".AsMemory());
+            await creator.AddEntryAsync("@cc-100", "xxx".AsMemory());
 
             await creator.WriteAsync(new(), outMdxPath);
 
