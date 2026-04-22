@@ -2,15 +2,19 @@ using System.Text;
 
 namespace MDictUtils;
 
-public sealed record MDictWriterOptions
+public abstract record MDictWriterOptions
 {
-    public MDictCompressionType CompressionType { get; set; } = MDictCompressionType.ZLib;
     public int DesiredKeyBlockSize { get; set; } = 32_768;
     public int DesiredRecordBlockSize { get; set; } = 65_536;
-    public bool EnableLogging { get; set; } = true;
-    public MDictKeyEncodingType KeyEncoding { get; set; } = MDictKeyEncodingType.Utf8;
-    public bool IsMdd { get; set; } = false;
+    public MDictCompressionType CompressionType { get; set; } = MDictCompressionType.ZLib;
 }
+
+public sealed record MdxWriterOptions : MDictWriterOptions
+{
+    public MDictKeyEncodingType KeyEncoding { get; set; } = MDictKeyEncodingType.Utf8;
+}
+
+public sealed record MddWriterOptions : MDictWriterOptions;
 
 public enum MDictCompressionType : uint
 {

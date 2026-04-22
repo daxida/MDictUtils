@@ -40,20 +40,20 @@ internal abstract partial class BlocksBuilder<T>
     protected async Task<CompressedBlock> GetCompressedBlockAsync(ReadOnlyMemory<OffsetTableEntry> entries)
     {
         int totalSize = entries.Span.Sum(GetByteCount);
-        using var uncompressed = _memoryPool.Rent(totalSize);
+        using var memoryOwner = _memoryPool.Rent(totalSize);
+        var uncompressed = memoryOwner.Memory[..totalSize];
 
         int position = 0;
         for (int i = 0; i < entries.Length; i++)
         {
             var entry = entries.Span[i];
             var size = GetByteCount(entry);
-            var buffer = uncompressed.Memory.Slice(start: position, size);
+            var buffer = uncompressed.Slice(start: position, size);
             await WriteBytesAsync(entry, buffer);
             position += size;
         }
 
-        return await blockCompressor
-            .CompressAsync(uncompressed.Memory[..position]);
+        return await blockCompressor.CompressAsync(uncompressed);
     }
 
     [LoggerMessage(LogLevel.Debug, "Building blocks of type {Type}")]

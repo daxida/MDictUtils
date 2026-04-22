@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Threading.Channels;
+using MDictUtils.Build.Index;
 using MDictUtils.BuildModels;
 using Microsoft.Extensions.Logging;
 
@@ -7,89 +8,64 @@ namespace MDictUtils.Write;
 
 internal sealed partial class RecordsWriter(ILogger<RecordsWriter> logger)
 {
-    private const int IndexPreambleSize = 4 * 8; // Four 8-byte buffers
-
     public async Task WriteAsync(OffsetTable offsetTable, ChannelReader<RecordBlock> channel, Stream outfile)
     {
-        var blockCount = offsetTable.RecordBlockRanges.Length;
-        var entryCount = offsetTable.Length;
-
-        var indexStartPosition = outfile.Position;
-        var indexSize = blockCount * 16; // 8 bytes for compressed size, 8 bytes for decomp size per block.
-        var index = new byte[indexSize];
+        using var indexBuilder = new RecordBlockIndexBuilder(offsetTable);
 
         // Skip over the index sections for now.
-        outfile.Seek(IndexPreambleSize + indexSize, SeekOrigin.Current);
+        var indexStartPosition = outfile.Position;
+        outfile.Seek(indexBuilder.IndexSize, SeekOrigin.Current);
 
-        var totalSize = await WriteOutputAsync(outfile, channel, index);
-
-        LogBlocks(blockCount, avgSize: blockCount == 0 ? 0 : totalSize / blockCount);
+        await WriteOutputAsync(channel, outfile, indexBuilder);
 
         // Return to the start of the index sections.
         outfile.Seek(indexStartPosition, SeekOrigin.Begin);
-        var preamble = GetIndexPreamble(blockCount, entryCount, indexSize, totalSize);
-        outfile.Write(preamble);
-        outfile.Write(index.AsSpan());
+        await indexBuilder.WriteAsync(outfile);
     }
 
     /// <summary>
     /// Read all blocks from the channel, calculate the index data, and write the blocks to disk.
     /// </summary>
-    async Task<long> WriteOutputAsync(Stream outfile, ChannelReader<RecordBlock> channel, byte[] index)
+    private async Task WriteOutputAsync(ChannelReader<RecordBlock> reader, Stream outfile, RecordBlockIndexBuilder indexBuilder)
     {
-        long totalSize = 0;
-        var blockCount = index.Length / 16;
+        var blockCount = indexBuilder.BlockCount;
         var blocks = new RecordBlock?[blockCount];
         int order = 0;
 
-        await foreach (var recordBlock in channel.ReadAllAsync())
+        await foreach (var recordBlock in reader.ReadAllAsync())
         {
             blocks[recordBlock.Id] = recordBlock;
+            LogBlockReceived(recordBlock.Id, order, reader.Count);
 
             // Ensure that blocks are always written in sequential order.
-            while (blocks[order] is not null)
+            while (blocks[order] is RecordBlock block) // (not null)
             {
-                var block = Interlocked.Exchange(ref blocks[order], null);
+                LogBlockWrite(block.Id);
+                await outfile.WriteAsync(block.Bytes);
+                indexBuilder.ReadBlock(block);
 
-                if (block is null)
-                    continue;
-
-                // The value of `order` is now fixed until we increment it.
-                Debug.Assert(order == block.Id);
-
-                var writeTask = outfile.WriteAsync(block.Bytes);
-                Interlocked.Add(ref totalSize, block.Bytes.Length);
-
-                int start = order * 16;
-                block.CopyIndexEntryTo(index.AsSpan(start, 16));
-
-                await writeTask;
-
-                Interlocked.Increment(ref order);
                 block.Dispose();
+                blocks[order] = null;
+                order++;
 
                 if (order == blockCount)
                     break;
             }
         }
 
-        return totalSize;
-    }
-
-    private ReadOnlySpan<byte> GetIndexPreamble(int blockCount, int entryCount, int indexSize, long totalSize)
-    {
-        Span<byte> preamble = new byte[IndexPreambleSize];
-        var r = new SpanReader<byte>(preamble) { ReadSize = 8 };
-
-        Common.ToBigEndian((ulong)blockCount, r.Read());
-        Common.ToBigEndian((ulong)entryCount, r.Read());
-        Common.ToBigEndian((ulong)indexSize, r.Read()); // Redundant? Always equal to blockCount * 16.
-        Common.ToBigEndian((ulong)totalSize, r.Read());
-
-        return preamble;
+        LogBlocks(indexBuilder.BlockCount, indexBuilder.AverageRecordSize);
     }
 
     [LoggerMessage(LogLevel.Debug,
     "Built {Count} record blocks of average size {AvgSize:N0}")]
     private partial void LogBlocks(int count, long avgSize);
+
+    [Conditional("DEBUG")]
+    [LoggerMessage(LogLevel.Trace,
+    "Received block #{Id}; waiting for block #{WaitId}; channel contains {Count} blocks")]
+    private partial void LogBlockReceived(int id, int waitId, int count);
+
+    [Conditional("DEBUG")]
+    [LoggerMessage(LogLevel.Trace, "Writing block #{Id}")]
+    private partial void LogBlockWrite(int id);
 }

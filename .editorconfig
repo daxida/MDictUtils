@@ -7,6 +7,7 @@ insert_final_newline = true
 
 dotnet_sort_system_directives_first = true
 dotnet_separate_import_directive_groups = false
+dotnet_style_require_accessibility_modifiers = for_non_interface_members:warning
 
 # IDE0005: Remove unnecessary using directives
 dotnet_diagnostic.IDE0005.severity = warning

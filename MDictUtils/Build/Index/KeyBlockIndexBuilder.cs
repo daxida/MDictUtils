@@ -23,24 +23,20 @@ internal sealed partial class KeyBlockIndexBuilder
         }
 
         int totalSize = keyBlocks.Span.Sum(static b => b.IndexEntryLength);
-        var uncompressed = _memoryPool.Rent(totalSize);
+        using var memoryOwner = _memoryPool.Rent(totalSize);
+        var uncompressed = memoryOwner.Memory[..totalSize];
 
         int position = 0;
         foreach (var block in keyBlocks.Span)
         {
             var size = block.IndexEntryLength;
-            var buffer = uncompressed.Memory.Slice(position, size).Span;
+            var buffer = uncompressed.Span.Slice(position, size);
             block.CopyIndexEntryTo(buffer);
             LogIndexEntry(buffer);
             position += size;
         }
 
-        var index = await blockCompressor
-            .CompressAsync(uncompressed.Memory[..position]);
-
-        uncompressed.Dispose();
-
-        Debug.Assert(position == totalSize);
+        var index = await blockCompressor.CompressAsync(uncompressed);
         LogIndexBuilt(index.DecompSize, index.Size);
 
         return index;

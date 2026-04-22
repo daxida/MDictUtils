@@ -4,6 +4,7 @@ using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 using MDictUtils.Build.Offset;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace MDictUtils.Tests;
@@ -20,7 +21,12 @@ public class MDictWriterTests
             Description = "A test dictionary",
         };
 
-        var writer = MDictWriterProvider.GetWriter();
+        var writer = new ServiceCollection()
+            .AddMdxWriter()
+            .AddTestLogging()
+            .BuildServiceProvider()
+            .GetRequiredService<IMdxWriter>();
+
         var outputPath = Path.GetTempFileName();
 
         try
@@ -42,10 +48,13 @@ public class MDictWriterTests
     {
         var entries = new List<MDictEntry>();
         var header = new MdxHeader();
-        var writer = MDictWriterProvider.GetWriter(options =>
-        {
-            options.KeyEncoding = MDictKeyEncodingType.Utf8;
-        });
+
+        var writer = new ServiceCollection()
+            .AddMdxWriter(static options => options.KeyEncoding = MDictKeyEncodingType.Utf8)
+            .AddTestLogging()
+            .BuildServiceProvider()
+            .GetRequiredService<IMdxWriter>();
+
         var outputPath = Path.GetTempFileName();
 
         try
@@ -200,8 +209,6 @@ public class DoUndoTests
     [MemberData(nameof(TestContents))]
     public async Task DoUndo_PackAndUnpackMdx_ProducesIdenticalFile(string testContent)
     {
-        const bool isMdd = false;
-
         string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         Directory.CreateDirectory(tempDir);
         string originalDictPath = Path.Combine(tempDir, "dict1.txt");
@@ -214,18 +221,18 @@ public class DoUndoTests
             File.WriteAllText(originalDictPath, testContent);
 
             // Pack it into out.mdx
+            var header = new MdxHeader();
             var packedEntries = MDictPacker.PackMdxTxt(originalDictPath);
-            MDictHeader header = isMdd
-                ? new MddHeader()
-                : new MdxHeader();
-            var writer = MDictWriterProvider.GetWriter(options =>
-            {
-                options.IsMdd = isMdd;
-            });
+            var writer = new ServiceCollection()
+                .AddMdxWriter()
+                .AddTestLogging()
+                .BuildServiceProvider()
+                .GetRequiredService<IMdxWriter>();
+
             await writer.WriteAsync(header, packedEntries, outMdxPath);
 
             // Unpack out1.mdx to tempDir and compare normalized
-            MDictPacker.Unpack(tempDir, outMdxPath, isMdd: isMdd);
+            MDictPacker.Unpack(tempDir, outMdxPath, isMdd: false);
             Assert.True(File.Exists(extractedDictPath), "Extracted file should exist");
             string extractedContent = File.ReadAllText(extractedDictPath);
             AssertContentEqual(testContent, extractedContent);
@@ -241,8 +248,6 @@ public class DoUndoTests
     [MemberData(nameof(TestContents))]
     public async Task DoUndo_PackAndUnpackMdd_ProducesIdenticalFile(string testContent)
     {
-        const bool isMdd = true;
-
         string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         Directory.CreateDirectory(tempDir);
         string originalStubPath = Path.Combine(tempDir, "dict1.txt");
@@ -256,17 +261,17 @@ public class DoUndoTests
 
             // Pack it into out.mdd
             var packedEntries = MDictPacker.PackMddFile(originalStubPath);
-            MDictHeader header = isMdd
-                ? new MddHeader()
-                : new MdxHeader();
-            var writer = MDictWriterProvider.GetWriter(options =>
-            {
-                options.IsMdd = isMdd;
-            });
+            var header = new MddHeader();
+            var writer = new ServiceCollection()
+                .AddMddWriter()
+                .AddTestLogging()
+                .BuildServiceProvider()
+                .GetRequiredService<IMddWriter>();
+
             await writer.WriteAsync(header, packedEntries, outMddPath);
 
             // Unpack out1.mdd to tempDir and compare normalized
-            MDictPacker.Unpack(tempDir, outMddPath, isMdd: isMdd);
+            MDictPacker.Unpack(tempDir, outMddPath, isMdd: true);
             Assert.True(File.Exists(extractedStubPath), "Extracted file should exist");
             string extractedContent = File.ReadAllText(extractedStubPath);
             AssertContentEqual(testContent, extractedContent);
@@ -323,8 +328,6 @@ public class DoUndoTests
     [MemberData(nameof(MultipleFileTestContents))]
     public async Task DoUndo_PackAndUnpackMdxWithMultipleFiles_ProducesIdenticalFiles(string[] contents)
     {
-        const bool isMdd = false;
-
         // This should be the result since the fixture keys are sorted
         string combinedOriginal = string.Join("\n", contents);
 
@@ -346,17 +349,17 @@ public class DoUndoTests
 
             // Pack the entire source directory into out.mdx
             var packedEntries = MDictPacker.PackMdxTxt(sourceDir);
-            MDictHeader header = isMdd
-                ? new MddHeader()
-                : new MdxHeader();
-            var writer = MDictWriterProvider.GetWriter(options =>
-            {
-                options.IsMdd = isMdd;
-            });
+            var header = new MdxHeader();
+            var writer = new ServiceCollection()
+                .AddMdxWriter()
+                .AddTestLogging()
+                .BuildServiceProvider()
+                .GetRequiredService<IMdxWriter>();
+
             await writer.WriteAsync(header, packedEntries, outMdxPath);
 
             // Unpack out.mdx and compare normalized
-            MDictPacker.Unpack(tempDir, outMdxPath, isMdd: isMdd);
+            MDictPacker.Unpack(tempDir, outMdxPath, isMdd: false);
             Assert.True(File.Exists(extractPath), "Extracted file should exist");
             string extractedContent = File.ReadAllText(extractPath);
             AssertContentEqual(combinedOriginal, extractedContent);

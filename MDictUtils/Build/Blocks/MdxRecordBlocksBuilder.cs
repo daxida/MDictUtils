@@ -7,7 +7,8 @@ namespace MDictUtils.Build.Blocks;
 internal sealed class MdxRecordBlocksBuilder
 (
     ILogger<MdxRecordBlocksBuilder> logger,
-    IBlockCompressor blockCompressor
+    IBlockCompressor blockCompressor,
+    BuildOptions options
 )
     : RecordBlocksBuilder(logger, blockCompressor)
 {
@@ -24,19 +25,24 @@ internal sealed class MdxRecordBlocksBuilder
     protected override async Task WriteBytesAsync(OffsetTableEntry entry, Memory<byte> buffer)
     {
         int size = buffer.Length;
+        int charByteCount = options.KeyEncodingLength;
 
-        /// By design, we expect that the size will always be at
-        /// least 1 to account for the null-termination byte.
+        /// By design, we expect a minimum size to account for the null-termination character.
         /// <see cref="MDictPacker.PackMdxTxt"/>
-        if (size < 1)
-            throw new InvalidDataException("Size must be >= 1");
+        if (size < charByteCount)
+            throw new InvalidDataException($"Size must be >= {charByteCount}");
 
         var stream = _fileStreams!.GetStream(entry.FilePath);
         stream.Seek(entry.RecordPos, SeekOrigin.Begin);
 
-        // For MDX, read size-1 bytes and append null byte
-        await stream.ReadExactlyAsync(buffer[..(size - 1)]);
-        buffer.Span[size - 1] = 0; // null-terminate
+        // For MDX, read the record bytes and append null character
+        var recordLength = size - charByteCount;
+        await stream.ReadExactlyAsync(buffer[..recordLength]);
+
+        for (int i = recordLength; i < size; i++)
+        {
+            buffer.Span[i] = 0; // null-terminate
+        }
 
         _fileStreams.UpdateEntryCount(entry.FilePath);
     }
