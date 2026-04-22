@@ -8,9 +8,20 @@ public abstract class MDictCreator : IDisposable
     protected readonly Stream _stream;
     protected long _currentPosition = 0;
 
-    protected MDictCreator()
+    protected MDictCreator(string? filepath = null)
     {
-        _filepath = Path.GetTempFileName();
+        if (filepath is not null)
+        {
+            if (File.Exists(filepath))
+                File.Delete(filepath);
+            File.Create(filepath);
+            _filepath = filepath;
+        }
+        else
+        {
+            _filepath = Path.GetTempFileName();
+        }
+
         _stream = new FileStream(_filepath, FileMode.Open, FileAccess.Write, FileShare.Read);
     }
 

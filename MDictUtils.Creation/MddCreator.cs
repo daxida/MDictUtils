@@ -2,7 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace MDictUtils.Creation;
 
-public sealed class MddCreator : MDictCreator
+public sealed class MddCreator(string? filepath = null) : MDictCreator(filepath)
 {
     public void AddEntry(string key, ReadOnlySpan<byte> bytes)
     {

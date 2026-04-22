@@ -7,7 +7,7 @@ public sealed class MdxCreator : MDictCreator
 {
     private readonly StreamWriter _txtWriter;
 
-    public MdxCreator()
+    public MdxCreator(string? filepath = null) : base(filepath)
     {
         _txtWriter = new StreamWriter(_stream, new UTF8Encoding(false)); // No BOM
     }
