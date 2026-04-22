@@ -54,7 +54,7 @@ internal sealed partial class RecordsWriter(ILogger<RecordsWriter> logger)
                     continue;
 
                 var writeTask = outfile.WriteAsync(block.Bytes);
-                totalSize += block.Bytes.Length;
+                Interlocked.Add(ref totalSize, block.Bytes.Length);
 
                 int start = order * 16;
                 block.CopyIndexEntryTo(index.AsSpan(start, 16));
