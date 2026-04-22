@@ -34,7 +34,7 @@ internal sealed partial class OffsetTableBuilder
         int encodingLength = options.KeyEncodingLength;
 
         byte[]? bufferArray = null;
-        var buffer = maxKeySize < 256
+        var buffer = maxKeySize < 1024
             ? stackalloc byte[maxKeySize]
             : _arrayPool.Rent(maxKeySize, ref bufferArray);
 
