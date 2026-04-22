@@ -19,9 +19,7 @@ internal sealed partial class RecordsWriter(ILogger<RecordsWriter> logger)
 
         // Return to the start of the index sections.
         outfile.Seek(indexStartPosition, SeekOrigin.Begin);
-
-        var indexBytes = indexBuilder.GetIndexBytes();
-        await outfile.WriteAsync(indexBytes);
+        await indexBuilder.WriteAsync(outfile);
     }
 
     /// <summary>

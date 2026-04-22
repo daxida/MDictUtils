@@ -34,14 +34,18 @@ internal sealed class RecordBlockIndexBuilder : IDisposable
 
     public void ReadBlock(RecordBlock block)
     {
+        ObjectDisposedException.ThrowIf(_isDisposed, this);
+
         TotalRecordSize += block.Bytes.Length;
         int start = PreambleSize + (block.Id * 16);
         var destination = _indexMemoryOwner.Memory.Span.Slice(start, 16);
         block.CopyIndexEntryTo(destination);
     }
 
-    public ReadOnlyMemory<byte> GetIndexBytes()
+    public async Task WriteAsync(Stream stream)
     {
+        ObjectDisposedException.ThrowIf(_isDisposed, this);
+
         var preamble = _indexMemoryOwner.Memory.Span[..PreambleSize];
         var r = new SpanReader<byte>(preamble) { ReadSize = 8 };
 
@@ -50,7 +54,8 @@ internal sealed class RecordBlockIndexBuilder : IDisposable
         Common.ToBigEndian((ulong)BlocksSize, r.Read());
         Common.ToBigEndian((ulong)TotalRecordSize, r.Read());
 
-        return _indexMemoryOwner.Memory[..IndexSize];
+        var bytes = _indexMemoryOwner.Memory[..IndexSize];
+        await stream.WriteAsync(bytes);
     }
 
     void IDisposable.Dispose()
