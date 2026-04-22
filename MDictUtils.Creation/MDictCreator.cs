@@ -12,8 +12,6 @@ public abstract class MDictCreator : IDisposable
     {
         if (filepath is not null)
         {
-            if (File.Exists(filepath))
-                File.Delete(filepath);
             File.Create(filepath);
             _filepath = filepath;
         }
