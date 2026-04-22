@@ -1,29 +1,37 @@
+using System.Buffers;
 using System.Text;
 
 namespace MDictUtils.Write;
 
 internal sealed class HeaderWriter
 {
+    private static readonly MemoryPool<byte> _memoryPool = MemoryPool<byte>.Shared;
+
     public async Task WriteAsync(Stream stream, MDictHeader header)
     {
-        var headerString = header.ToString();
+        var xmlString = header.ToString();
+        var xmlSize = Encoding.Unicode.GetByteCount(xmlString);
+        var headerSize = xmlSize + 8;
 
-        // Encode header to little-endian UTF-16
-        ReadOnlyMemory<byte> headerBytes = Encoding.Unicode.GetBytes(headerString);
+        using var memoryOwner = _memoryPool.Rent(headerSize);
 
-        // Write header length (big-endian)
-        Span<byte> lengthBytes = stackalloc byte[4];
-        Common.ToBigEndian((uint)headerBytes.Length, lengthBytes);
-        stream.Write(lengthBytes);
+        var headerBytes = memoryOwner.Memory[..headerSize];
 
-        // Write header string
-        await stream.WriteAsync(headerBytes);
+        var sizeBytes = headerBytes.Span[..4];
+        var xmlBytes = headerBytes.Span[4..^4];
+        var checksumBytes = headerBytes.Span[^4..headerSize];
 
-        // Write Adler32 checksum (little-endian)
-        uint checksum = Common.Adler32(headerBytes.Span);
-        Span<byte> checksumBytes = stackalloc byte[4];
+        // Size
+        Common.ToBigEndian((uint)xmlSize, sizeBytes);
+
+        // XML
+        Encoding.Unicode.GetBytes(xmlString, xmlBytes);
+
+        // Checksum
+        uint checksum = Common.Adler32(xmlBytes);
         Common.ToLittleEndian(checksum, checksumBytes);
 
-        stream.Write(checksumBytes);
+        // Output
+        await stream.WriteAsync(headerBytes);
     }
 }
