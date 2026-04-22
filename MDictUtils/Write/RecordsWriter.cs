@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Threading.Channels;
 using MDictUtils.BuildModels;
 using Microsoft.Extensions.Logging;
@@ -52,6 +53,9 @@ internal sealed partial class RecordsWriter(ILogger<RecordsWriter> logger)
 
                 if (block is null)
                     continue;
+
+                // The value of `order` is now fixed until we increment it.
+                Debug.Assert(order == block.Id);
 
                 var writeTask = outfile.WriteAsync(block.Bytes);
                 Interlocked.Add(ref totalSize, block.Bytes.Length);
