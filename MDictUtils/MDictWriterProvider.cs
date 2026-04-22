@@ -45,8 +45,8 @@ public static class MDictWriterProvider
             builder.AddSimpleConsole(options =>
             {
                 options.IncludeScopes = true;
-                options.SingleLine = false;
-                options.TimestampFormat = "HH:mm:ss ";
+                options.SingleLine = true;
+                options.TimestampFormat = "HH:mm:ss.FFF ";
             });
         });
 

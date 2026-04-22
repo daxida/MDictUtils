@@ -34,10 +34,12 @@ internal sealed partial class RecordsWriter(ILogger<RecordsWriter> logger)
         await foreach (var recordBlock in reader.ReadAllAsync())
         {
             blocks[recordBlock.Id] = recordBlock;
+            LogBlockReceived(recordBlock.Id, order, reader.Count);
 
             // Ensure that blocks are always written in sequential order.
             while (blocks[order] is RecordBlock block) // (not null)
             {
+                LogBlockWrite(block.Id);
                 await outfile.WriteAsync(block.Bytes);
                 indexBuilder.ReadBlock(block);
 
@@ -56,4 +58,11 @@ internal sealed partial class RecordsWriter(ILogger<RecordsWriter> logger)
     [LoggerMessage(LogLevel.Debug,
     "Built {Count} record blocks of average size {AvgSize:N0}")]
     private partial void LogBlocks(int count, long avgSize);
+
+    [LoggerMessage(LogLevel.Trace,
+    "Received block #{Id}; waiting for block #{WaitId}; channel contains {Count} blocks")]
+    private partial void LogBlockReceived(int id, int waitId, int count);
+
+    [LoggerMessage(LogLevel.Trace, "Writing block #{Id}")]
+    private partial void LogBlockWrite(int id);
 }

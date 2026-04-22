@@ -37,7 +37,11 @@ internal sealed class Writer
 
     private static Channel<RecordBlock> GetRecordBlockChannel()
     {
-        var option = new BoundedChannelOptions(256)
+        // Producing the record blocks is the bottleneck, so we
+        // expect the channel to be near empty most of the time.
+        // The purpose of the bounded capacity is to prevent
+        // excessive memory usage in exceptional circumstances.
+        var option = new BoundedChannelOptions(1024)
         {
             FullMode = BoundedChannelFullMode.Wait,
             SingleWriter = false,
