@@ -25,7 +25,15 @@ internal sealed class MddRecordBlocksBuilder
             throw new InvalidDataException("Size must be >= 1");
 
         // For MDD, each file is opened only once and read entirely.
-        await using var fs = new FileStream(entry.FilePath, FileMode.Open, FileAccess.Read);
+        await using var fs = new FileStream
+        (
+            entry.FilePath,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read,
+            bufferSize: 4096, // Default size is 4096.
+            useAsync: true // "the handle might be opened synchronously depending on the platform"
+        );
         fs.Seek(entry.RecordPos, SeekOrigin.Begin);
 
         // Unless somebody changed the file since we last checked it,

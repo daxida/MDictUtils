@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace MDictUtils.Cli;
 
@@ -39,7 +40,7 @@ static class Program
     }
 
     // https://learn.microsoft.com/en-us/dotnet/standard/commandline/
-    static int Main(string[] args)
+    static async Task<int> Main(string[] args)
     {
         Argument<string> mdictPath = new("mdx/mdd file")
         {
@@ -98,7 +99,7 @@ static class Program
             metaFlag,
         };
 
-        rootCommand.SetAction(parseResult =>
+        rootCommand.SetAction(async parseResult =>
         {
             var parsedMdictPath = parseResult.GetRequiredValue(mdictPath);
             string? extension = Path.GetExtension(parsedMdictPath);
@@ -162,12 +163,12 @@ static class Program
                 IsMdd: isMdd
             );
 
-            Run(arguments);
+            await RunAsync(arguments);
             return 0;
         });
 
         ParseResult parseResult = rootCommand.Parse(args);
-        return parseResult.Invoke();
+        return await parseResult.InvokeAsync();
     }
 
     static int CheckPath(string? path)
@@ -180,7 +181,7 @@ static class Program
         return 0;
     }
 
-    static void Run(Args args)
+    static async Task RunAsync(Args args)
     {
         if (args.Verbose)
         {
@@ -228,7 +229,7 @@ static class Program
             {
                 Directory.CreateDirectory(directory);
             }
-            writer.WriteAsync(header, packed, args.MdictPath);
+            await writer.WriteAsync(header, packed, args.MdictPath);
         }
         else if (args.ExtractFlag)
         {

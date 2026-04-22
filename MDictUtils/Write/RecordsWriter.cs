@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Threading.Channels;
 using MDictUtils.BuildModels;
 using Microsoft.Extensions.Logging;
@@ -46,18 +47,25 @@ internal sealed partial class RecordsWriter(ILogger<RecordsWriter> logger)
             blocks[recordBlock.Id] = recordBlock;
 
             // Ensure that blocks are always written in sequential order.
-            while (blocks[order] is RecordBlock block) // (not null)
+            while (blocks[order] is not null)
             {
+                var block = Interlocked.Exchange(ref blocks[order], null);
+
+                if (block is null)
+                    continue;
+
+                // The value of `order` is now fixed until we increment it.
+                Debug.Assert(order == block.Id);
+
                 var writeTask = outfile.WriteAsync(block.Bytes);
-                totalSize += block.Bytes.Length;
+                Interlocked.Add(ref totalSize, block.Bytes.Length);
 
                 int start = order * 16;
                 block.CopyIndexEntryTo(index.AsSpan(start, 16));
 
-                blocks[order] = null;
-                order++;
-
                 await writeTask;
+
+                Interlocked.Increment(ref order);
                 block.Dispose();
 
                 if (order == blockCount)
