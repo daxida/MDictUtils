@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\MDictUtils\MDictUtils.csproj" />
+    <ProjectReference Include="..\MDictUtils.Creation\MDictUtils.Creation.csproj" />
   </ItemGroup>
 
 </Project>

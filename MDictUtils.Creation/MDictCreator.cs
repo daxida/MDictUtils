@@ -11,7 +11,7 @@ public abstract class MDictCreator : IDisposable
     protected MDictCreator()
     {
         _filepath = Path.GetTempFileName();
-        _stream = new FileStream(_filepath, FileMode.CreateNew, FileAccess.Write, FileShare.Read);
+        _stream = new FileStream(_filepath, FileMode.Open, FileAccess.Write, FileShare.Read);
     }
 
     protected virtual void Dispose(bool disposing)
