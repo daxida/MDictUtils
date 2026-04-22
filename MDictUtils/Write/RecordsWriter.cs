@@ -51,8 +51,8 @@ internal sealed partial class RecordsWriter(ILogger<RecordsWriter> logger)
             {
                 var block = Interlocked.Exchange(ref blocks[order], null);
 
-                if (block is null)
-                    continue;
+                if (block is null) // A different thread took it.
+                    break;
 
                 // The value of `order` is now fixed until we increment it.
                 Debug.Assert(order == block.Id);
