@@ -5,21 +5,20 @@ namespace MDictUtils.Creation;
 
 public sealed class MdxCreator : MDictCreator
 {
-    private readonly StreamWriter _txtWriter;
-
-    public MdxCreator(string? filepath = null) : base(filepath)
+    public async Task AddEntryAsync(string key, string body)
     {
-        _txtWriter = new StreamWriter(_stream, new UTF8Encoding(false)); // No BOM
+        var bytes = Encoding.UTF8.GetBytes(body);
+        await AddEntryAsync(key, bytes);
     }
 
-    public async Task AddEntryAsync(string key, ReadOnlyMemory<char> body)
+    public async Task AddEntryAsync(string key, ReadOnlyMemory<byte> body)
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
 
-        var size = Encoding.UTF8.GetByteCount(body.Span);
+        var size = body.Length;
         _entries.Add(new(key, _filepath, _currentPosition, size + 1)); // Add one extra byte for the null-terminator
         _currentPosition += size;
-        await _txtWriter.WriteAsync(body);
+        await _stream.WriteAsync(body);
     }
 
     public async Task WriteAsync(MdxHeader header, string outputFile, Action<MdxWriterOptions>? configure = null)
@@ -27,7 +26,7 @@ public sealed class MdxCreator : MDictCreator
         ObjectDisposedException.ThrowIf(_isDisposed, this);
 
         var mdxWriter = GetWriter(configure);
-        await _txtWriter.FlushAsync();
+        await _stream.FlushAsync();
         await mdxWriter.WriteAsync(header, _entries, outputFile);
     }
 
@@ -36,11 +35,4 @@ public sealed class MdxCreator : MDictCreator
             .AddMdxWriter(configure)
             .BuildServiceProvider()
             .GetRequiredService<IMdxWriter>();
-
-    protected override void Dispose(bool disposing)
-    {
-        if (!_isDisposed && disposing)
-            _txtWriter.Dispose();
-        base.Dispose(disposing);
-    }
 }

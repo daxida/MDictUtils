@@ -93,9 +93,9 @@ public class CreationDoUndoTests
 
             // Pack it into out.mdx
             using var creator = new MdxCreator();
-            await creator.AddEntryAsync("apple", "A fruit that grows on trees.".AsMemory());
-            await creator.AddEntryAsync("banana", "A long yellow fruit.".AsMemory());
-            await creator.AddEntryAsync("@cc-100", "xxx".AsMemory());
+            await creator.AddEntryAsync("apple", "A fruit that grows on trees.");
+            await creator.AddEntryAsync("banana", "A long yellow fruit.");
+            await creator.AddEntryAsync("@cc-100", "xxx");
 
             await creator.WriteAsync(new(), outMdxPath);
 
