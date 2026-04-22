@@ -39,7 +39,9 @@ internal sealed class Writer
     {
         var option = new BoundedChannelOptions(256)
         {
-            FullMode = BoundedChannelFullMode.Wait
+            FullMode = BoundedChannelFullMode.Wait,
+            SingleWriter = false,
+            SingleReader = true,
         };
         return Channel.CreateBounded<RecordBlock>(option);
     }
