@@ -23,6 +23,7 @@ public sealed class MddCreator : MDictCreator
             .BuildServiceProvider()
             .GetRequiredService<IMddWriter>();
 
+        await _stream.FlushAsync();
         await writer.WriteAsync(header, _entries, outputFile);
     }
 }

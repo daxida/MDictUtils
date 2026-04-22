@@ -17,7 +17,7 @@ public sealed class MdxCreator : MDictCreator
         ObjectDisposedException.ThrowIf(_isDisposed, this);
 
         var size = Encoding.UTF8.GetByteCount(body);
-        _entries.Add(new(key, _filepath, _currentPosition, size));
+        _entries.Add(new(key, _filepath, _currentPosition, size + 1)); // Add one extra byte for the null-terminator
         _currentPosition += size;
         _writer.Write(body);
     }
@@ -31,6 +31,7 @@ public sealed class MdxCreator : MDictCreator
             .BuildServiceProvider()
             .GetRequiredService<IMdxWriter>();
 
+        await _writer.FlushAsync();
         await writer.WriteAsync(header, _entries, outputFile);
     }
 
