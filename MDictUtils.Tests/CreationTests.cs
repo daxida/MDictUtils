@@ -12,7 +12,7 @@ public class MDictCreationTests
     [Fact]
     public async Task Write_CreatesValidFile()
     {
-        var creator = new MdxCreator();
+        using var creator = new MdxCreator();
         var header = new MdxHeader
         {
             Title = "Test Dictionary",
@@ -37,7 +37,7 @@ public class MDictCreationTests
     [Fact]
     public async Task Write_WithUTF8Encoding_CreatesFile()
     {
-        var creator = new MdxCreator();
+        using var creator = new MdxCreator();
         var header = new MdxHeader();
         var outputPath = Path.GetTempFileName();
         try
@@ -92,7 +92,7 @@ public class CreationDoUndoTests
             File.WriteAllText(originalDictPath, TestContent);
 
             // Pack it into out.mdx
-            var creator = new MdxCreator();
+            using var creator = new MdxCreator();
             creator.AddEntry("apple", "A fruit that grows on trees.");
             creator.AddEntry("banana", "A long yellow fruit.");
             creator.AddEntry("@cc-100", "xxx");
@@ -130,7 +130,7 @@ public class CreationDoUndoTests
             File.WriteAllText(originalStubPath, TestContent);
 
             // Pack it into out.mdd
-            var creator = new MddCreator();
+            using var creator = new MddCreator();
             await creator.AddEntryAsync("dict2.txt", TestBytes);
 
             await creator.WriteAsync(new(), outMddPath);
