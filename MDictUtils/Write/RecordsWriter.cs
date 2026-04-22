@@ -40,13 +40,12 @@ internal sealed partial class RecordsWriter(ILogger<RecordsWriter> logger)
             // Ensure that blocks are always written in sequential order.
             while (blocks[order] is RecordBlock block) // (not null)
             {
-                var writeTask = outfile.WriteAsync(block.Bytes);
-
+                await outfile.WriteAsync(block.Bytes);
                 indexBuilder.ReadBlock(block);
-                order++;
 
-                await writeTask;
                 block.Dispose();
+                blocks[order] = null;
+                order++;
 
                 if (order == blockCount)
                     break;
