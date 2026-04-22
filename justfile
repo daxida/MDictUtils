@@ -57,6 +57,7 @@ sln:
   dotnet sln MDictUtils.slnx add MDictUtils/MDictUtils.csproj
   dotnet sln MDictUtils.slnx add MDictUtils.Tests/MDictUtils.Tests.csproj
   dotnet sln MDictUtils.slnx add MDictUtils.Benchmark/MDictUtils.Benchmark.csproj
+  dotnet sln MDictUtils.slnx add MDictUtils.Creation/MDictUtils.Creation.csproj
   dotnet build MDictUtils.slnx
 
 # Re-build jitendex from a downloaded, unzipped dict at .tmp/ folder
