@@ -22,6 +22,16 @@ public sealed class MdxCreator : MDictCreator
         _writer.Write(body);
     }
 
+    public async Task AddEntryAsync(string key, ReadOnlyMemory<char> body)
+    {
+        ObjectDisposedException.ThrowIf(_isDisposed, this);
+
+        var size = Encoding.UTF8.GetByteCount(body.Span);
+        _entries.Add(new(key, _filepath, _currentPosition, size + 1)); // Add one extra byte for the null-terminator
+        _currentPosition += size;
+        await _writer.WriteAsync(body);
+    }
+
     public async Task WriteAsync(MdxHeader header, string outputFile, Action<MdxWriterOptions>? configure = null)
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
