@@ -112,7 +112,7 @@ public class CreationDoUndoTests
         }
     }
 
-    private static ReadOnlySpan<byte> TestBytes
+    private static ReadOnlyMemory<byte> TestBytes
         => Encoding.UTF8.GetBytes(TestContent);
 
     [Fact]
@@ -131,7 +131,7 @@ public class CreationDoUndoTests
 
             // Pack it into out.mdd
             var creator = new MddCreator();
-            creator.AddEntry("dict2.txt", TestBytes);
+            await creator.AddEntryAsync("dict2.txt", TestBytes);
 
             await creator.WriteAsync(new(), outMddPath);
 
