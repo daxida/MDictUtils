@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Threading.Channels;
 using MDictUtils.Build.Index;
 using MDictUtils.BuildModels;
@@ -59,10 +60,12 @@ internal sealed partial class RecordsWriter(ILogger<RecordsWriter> logger)
     "Built {Count} record blocks of average size {AvgSize:N0}")]
     private partial void LogBlocks(int count, long avgSize);
 
+    [Conditional("DEBUG")]
     [LoggerMessage(LogLevel.Trace,
     "Received block #{Id}; waiting for block #{WaitId}; channel contains {Count} blocks")]
     private partial void LogBlockReceived(int id, int waitId, int count);
 
+    [Conditional("DEBUG")]
     [LoggerMessage(LogLevel.Trace, "Writing block #{Id}")]
     private partial void LogBlockWrite(int id);
 }
