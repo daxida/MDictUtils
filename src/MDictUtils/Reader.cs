@@ -546,6 +546,14 @@ public sealed class MDX(string fname, Encoding? encoding = null) : MDict(fname, 
     public override byte[] TreatRecordData(ReadOnlySpan<byte> data)
     {
         var nullBytes = _encoding.GetBytes("\0");
-        return data.Trim(nullBytes).ToArray();
+
+        Debug.Assert(data.EndsWith(nullBytes));
+
+        // Remove the null-termination byte that
+        // was added when compiling the MDX file.
+        if (data.EndsWith(nullBytes))
+            data = data[..^nullBytes.Length];
+
+        return data.ToArray();
     }
 }
