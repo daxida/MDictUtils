@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 
 namespace MDictUtils;
 
-public partial class MDict
+public abstract partial class MDict
 {
     private static readonly ArrayPool<byte> _arrayPool = ArrayPool<byte>.Shared;
     protected string _fname;
@@ -24,10 +24,10 @@ public partial class MDict
     protected readonly Dictionary<string, string> _header;
 
     // Ignore passcode for now
-    public MDict(string fname, Encoding encoding)
+    public MDict(string fname, Encoding? encoding)
     {
         _fname = fname;
-        _encoding = encoding;
+        _encoding = encoding ?? Encoding.UTF8;
         _header = ReadHeader();
         _version = 2.0F; // hardcode it, useless anyway
         _keyList = ReadKeys();
@@ -35,11 +35,8 @@ public partial class MDict
 
     public int Count => _numEntries;
     public Dictionary<string, string> Header => _header;
-
     public IEnumerable<(string, byte[])> Items() => ReadRecords();
-
-    // overwriten for MDX
-    public virtual byte[] TreatRecordData(ReadOnlySpan<byte> data) => data.ToArray();
+    public abstract byte[] TreatRecordData(ReadOnlySpan<byte> data);
 
     // _read_records_v1v2
     // https://github.com/liuyug/mdict-utils/blob/64e15b99aca786dbf65e5a2274f85547f8029f2e/mdict_utils/base/readmdict.py#L563
@@ -540,20 +537,15 @@ public partial class MDict
 
 public sealed class MDD(string fname) : MDict(fname, Encoding.Unicode)
 {
+    public override byte[] TreatRecordData(ReadOnlySpan<byte> data)
+        => data.ToArray();
 }
 
-public sealed class MDX(string fname) : MDict(fname, Encoding.UTF8)
+public sealed class MDX(string fname, Encoding? encoding = null) : MDict(fname, encoding)
 {
     public override byte[] TreatRecordData(ReadOnlySpan<byte> data)
     {
-        if (_encoding != Encoding.UTF8)
-        {
-            // For Encoding.Unicode, trimming the \0 bytes
-            // might(?) accidentally cut a character in half
-            // (since UTF-16 uses two bytes per character).
-            throw new InvalidOperationException();
-        }
-
-        return data.Trim((byte)'\0').ToArray();
+        var nullBytes = _encoding.GetBytes("\0");
+        return data.Trim(nullBytes).ToArray();
     }
 }
