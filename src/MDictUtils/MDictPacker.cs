@@ -31,8 +31,9 @@ public static class MDictPacker
     }
 
 
-    public static void UnpackMdx(string target, string source)
+    public static void UnpackMdx(string target, string source, Encoding? encoding = null)
     {
+        encoding ??= Encoding.UTF8;
         MDX mdx = new(source);
         string basename = Path.GetFileName(source);
 
@@ -62,32 +63,37 @@ public static class MDictPacker
         // Since split is None, we just write everything to a single file
         string outPath = Path.Combine(target, $"{basename}.txt");
 
-        using FileStream tf = new(outPath, FileMode.Create, FileAccess.Write);
-        using BinaryWriter writer = new(tf);
+        using FileStream outfile = new(outPath, FileMode.Create, FileAccess.Write);
+
+        ReadOnlySpan<byte> whitespaceBytes = encoding.GetBytes(" ");
+        ReadOnlySpan<byte> newlineBytes = encoding.GetBytes("\n");
+        ReadOnlySpan<byte> carriageNewlineBytes = encoding.GetBytes("\r\n");
+        ReadOnlySpan<byte> endOfEntryBytes = encoding.GetBytes("</>");
 
         int itemCount = 0;
 
         foreach (var (key, bytes) in mdx.Items())
         {
             // if not value.strip(): continue
-            if (bytes.Length == 0 || bytes.All(static b => char.IsWhiteSpace((char)b)))
+            if (bytes.Length == 0 || bytes.Trim(whitespaceBytes).Length == 0)
             {
                 continue;
             }
 
             itemCount++;
 
-            byte[] keyBytes = Encoding.UTF8.GetBytes(key);
-            writer.Write(keyBytes);
-            writer.Write("\r\n"u8);
+            byte[] keyBytes = encoding.GetBytes(key);
+            outfile.Write(keyBytes);
+            outfile.Write(carriageNewlineBytes);
 
-            writer.Write(bytes);
-            if (bytes.Length == 0 || bytes[^1] != (byte)'\n')
+            outfile.Write(bytes);
+            if (bytes.Length == 0 || !bytes.EndsWith(newlineBytes))
             {
-                writer.Write("\r\n"u8);
+                outfile.Write(carriageNewlineBytes);
             }
 
-            writer.Write("</>\r\n"u8);
+            outfile.Write(endOfEntryBytes);
+            outfile.Write(carriageNewlineBytes);
         }
     }
 
