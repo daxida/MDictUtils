@@ -163,8 +163,12 @@ public static class MDictPacker
     public static List<MDictEntry> PackMdx(string source, Encoding? encoding = null)
     {
         encoding ??= Encoding.UTF8;
+
         List<MDictEntry> entries = [];
         List<string> sources = [];
+
+        ReadOnlySpan<byte> lfBytes = encoding.GetBytes("\n");
+        ReadOnlySpan<byte> lfcrBytes = encoding.GetBytes("\r\n");
         int nullLength = encoding.GetByteCount("\0");
 
         if (File.Exists(source))
@@ -174,25 +178,33 @@ public static class MDictPacker
 
         foreach (var path in sources)
         {
-            byte[] fileBytes = File.ReadAllBytes(path);
-            long pos = 0, offset = 0;
+            byte[] fileBytes = File.ReadAllBytes(path); // TODO: This will crash if the file is too big.
+            int pos = 0, offset = 0;
             string? key = null;
             int lineNum = 0;
 
-            long i = 0;
+            int i = 0;
             while (i < fileBytes.Length)
             {
-                // Read a line (detect LF or CRLF)
-                long lineStart = i;
-                while (i < fileBytes.Length && fileBytes[i] != 10 && fileBytes[i] != 13) i++;
-                long lineEnd = i;
+                int lineStart = i;
+                while (i < fileBytes.Length)
+                {
+                    i++;
+                    var currentLine = fileBytes.AsSpan(lineStart..i);
+                    if (currentLine.EndsWith(lfBytes))
+                        break;
+                }
 
-                // Detect newline length
-                if (i < fileBytes.Length && fileBytes[i] == 13) i++;
-                if (i < fileBytes.Length && fileBytes[i] == 10) i++;
+                var fullLine = fileBytes.AsSpan(lineStart..i);
+                int lineEnd
+                    = fullLine.EndsWith(lfcrBytes)
+                        ? i - lfcrBytes.Length
+                    : fullLine.EndsWith(lfBytes)
+                        ? i - lfBytes.Length
+                    : i;
 
-                int lineLength = (int)(lineEnd - lineStart);
-                string line = encoding.GetString(fileBytes, (int)lineStart, lineLength).Trim();
+                int lineLength = lineEnd - lineStart;
+                string line = encoding.GetString(fileBytes, lineStart, lineLength).Trim();
                 lineNum++;
 
                 if (line.Length == 0)
@@ -207,11 +219,7 @@ public static class MDictPacker
                     if (key == null || offset == pos)
                         throw new Exception($"Error at line {lineNum}: {path}");
 
-                    long longSize = offset - pos + nullLength;
-                    int size = longSize < MaxRecordSize
-                        ? Convert.ToInt32(longSize)
-                        : throw new InvalidDataException($"File '{path}' contains a record that is too large (over {MaxRecordSize:N0} bytes)");
-
+                    int size = offset - pos + nullLength;
                     entries.Add(new MDictEntry(key, path, pos, size));
                     key = null;
                 }
