@@ -12,7 +12,7 @@ public static class MDictPacker
     private static readonly UTF8Encoding UTF8NoBOM = new(false);
     private const long MaxRecordSize = 2_000_000_000;
 
-    public static void Unpack(string target, string source, bool isMdd)
+    public static void Unpack(string target, string source, bool isMdd, Encoding? encoding = null)
     {
         // This creates intermediate folders, in case target = d1/d2/folder
         if (!Directory.Exists(target))
@@ -26,7 +26,7 @@ public static class MDictPacker
         }
         else
         {
-            UnpackMdx(target, source);
+            UnpackMdx(target, source, encoding);
         }
     }
 
