@@ -24,7 +24,7 @@ public abstract partial class MDict
     protected readonly Dictionary<string, string> _header;
 
     // Ignore passcode for now
-    public MDict(string fname, Encoding? encoding)
+    protected MDict(string fname, Encoding? encoding)
     {
         _fname = fname;
         _encoding = encoding ?? Encoding.UTF8;
@@ -172,7 +172,7 @@ public abstract partial class MDict
         using var br = new BinaryReader(fs);
 
         int headerBytesSize = Common.ReadBigEndian<int>(br.ReadBytes(4), false);
-        byte[] headerBytes = br.ReadBytes(headerBytesSize);
+        ReadOnlySpan<byte> headerBytes = br.ReadBytes(headerBytesSize);
 
         // Adler32 checksum of header
         uint adler32 = Common.ReadLittleEndian<uint>(br.ReadBytes(4), true);
@@ -182,16 +182,12 @@ public abstract partial class MDict
 
         _keyBlockOffset = fs.Position;
 
-        // decode header text
-        string headerText;
-        if (headerBytes.Length >= 2 && headerBytes[^2] == 0 && headerBytes[^1] == 0)
-        {
-            headerText = Encoding.Unicode.GetString(headerBytes, 0, headerBytes.Length - 2);
-        }
-        else
-        {
-            headerText = Encoding.UTF8.GetString(headerBytes, 0, headerBytes.Length - 1);
-        }
+        // decode header text (Always encoded in UTF-16LE by the specification)
+        var nullBytes = Encoding.Unicode.GetBytes("\0");
+        if (headerBytes.EndsWith(nullBytes))
+            headerBytes = headerBytes[..^nullBytes.Length];
+
+        var headerText = Encoding.Unicode.GetString(headerBytes);
 
         // parse XML-like tags into dictionary
         var headerTag = ParseHeader(headerText);
