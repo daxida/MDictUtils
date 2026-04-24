@@ -34,7 +34,7 @@ public static class MDictPacker
     public static void UnpackMdx(string target, string source, Encoding? encoding = null)
     {
         encoding ??= Encoding.UTF8;
-        MDX mdx = new(source);
+        MDX mdx = new(source, encoding);
         string basename = Path.GetFileName(source);
 
         Dictionary<string, string> header = mdx.Header;
