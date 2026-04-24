@@ -1,12 +1,14 @@
+using System.IO.Compression;
 using System.Text;
 
 namespace MDictUtils;
 
 public abstract record MDictWriterOptions
 {
+    public CompressionLevel CompressionLevel { get; set; } = CompressionLevel.Optimal;
+    public MDictCompressionType CompressionType { get; set; } = MDictCompressionType.ZLib;
     public int DesiredKeyBlockSize { get; set; } = 32_768;
     public int DesiredRecordBlockSize { get; set; } = 65_536;
-    public MDictCompressionType CompressionType { get; set; } = MDictCompressionType.ZLib;
 }
 
 public sealed record MdxWriterOptions : MDictWriterOptions

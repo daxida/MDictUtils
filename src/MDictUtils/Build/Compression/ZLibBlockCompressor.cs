@@ -3,7 +3,7 @@ using MDictUtils.BuildModels;
 
 namespace MDictUtils.Build.Compression;
 
-internal sealed class ZLibBlockCompressor : IBlockCompressor
+internal sealed class ZLibBlockCompressor(BuildOptions options) : IBlockCompressor
 {
     private static readonly ArrayPool<byte> _arrayPool = ArrayPool<byte>.Shared;
     private static readonly MemoryPool<byte> _memoryPool = MemoryPool<byte>.Shared;
@@ -16,7 +16,7 @@ internal sealed class ZLibBlockCompressor : IBlockCompressor
         // So we have to rent a size a little bit larger.
         var buffer = _arrayPool.Rent(data.Length + (data.Length * 5 / 16_000) + 32);
 
-        var size = await ZLibCompression.CompressAsync(data, buffer);
+        var size = await ZLibCompression.CompressAsync(data, buffer, options.CompressionLevel);
 
         /// <see cref="MDict.DecodeKeyBlockInfo"/>
         /// CompressionType = 2 expressed in little-endian bytes.

@@ -85,6 +85,7 @@ public static class ServiceCollectionExtensions
     private static IServiceCollection AddMdxBuildOptions(this IServiceCollection services, MdxWriterOptions options)
         => services.AddTransient(_ => new BuildOptions
         {
+            CompressionLevel = options.CompressionLevel,
             DesiredKeyBlockSize = options.DesiredKeyBlockSize,
             DesiredRecordBlockSize = options.DesiredRecordBlockSize,
             KeyEncoding = options.KeyEncoding.ToEncoding(),
@@ -94,6 +95,7 @@ public static class ServiceCollectionExtensions
     private static IServiceCollection AddMddBuildOptions(this IServiceCollection services, MddWriterOptions options)
         => services.AddTransient(_ => new BuildOptions
         {
+            CompressionLevel = options.CompressionLevel,
             DesiredKeyBlockSize = options.DesiredKeyBlockSize,
             DesiredRecordBlockSize = options.DesiredRecordBlockSize,
             KeyEncoding = Utf16.ToEncoding(),
