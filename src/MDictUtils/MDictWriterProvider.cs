@@ -105,6 +105,8 @@ public static class ServiceCollectionExtensions
     private static IServiceCollection AddBlockCompressor(this IServiceCollection services, MDictCompressionType compressionType)
         => compressionType switch
         {
+            MDictCompressionType.None
+                => services.AddTransient<IBlockCompressor, NoneBlockCompressor>(),
             MDictCompressionType.ZLib
                 => services.AddTransient<IBlockCompressor, ZLibBlockCompressor>(),
             _ // Default
