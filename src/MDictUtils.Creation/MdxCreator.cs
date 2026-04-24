@@ -5,9 +5,18 @@ namespace MDictUtils.Creation;
 
 public sealed class MdxCreator : MDictCreator
 {
+    private readonly Encoding _encoding;
+    private readonly int _nullLength;
+
+    public MdxCreator(string? filepath = null, Encoding? encoding = null) : base(filepath)
+    {
+        _encoding = encoding ?? Encoding.UTF8;
+        _nullLength = _encoding.GetByteCount("\0");
+    }
+
     public async Task AddEntryAsync(string key, string body)
     {
-        var bytes = Encoding.UTF8.GetBytes(body);
+        var bytes = _encoding.GetBytes(body);
         await AddEntryAsync(key, bytes);
     }
 
@@ -16,7 +25,7 @@ public sealed class MdxCreator : MDictCreator
         ObjectDisposedException.ThrowIf(_isDisposed, this);
 
         var size = body.Length;
-        _entries.Add(new(key, _filepath, _currentPosition, size + 1)); // Add one extra byte for the null-terminator
+        _entries.Add(new(key, _filepath, _currentPosition, size + _nullLength));
         _currentPosition += size;
         await _stream.WriteAsync(body);
     }
