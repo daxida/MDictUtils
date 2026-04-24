@@ -76,9 +76,8 @@ public class OracleTests
         Directory.CreateDirectory(tempDir);
         string outMdxPath = Path.Combine(tempDir, "out.mdx");
 
-        var stubEntries = MDictPacker.PackMdx("stub.txt");
-        var extraEntries = MDictPacker.PackMdx("extra.txt");
-        var entries = stubEntries.Concat(extraEntries).ToList();
+        var entries = MDictPacker.PackMdx("stub.txt");
+        entries.AddRange(MDictPacker.PackMdx("extra.txt"));
 
         var writer = new ServiceCollection()
             .AddMdxWriter(Configure)
@@ -105,7 +104,7 @@ public class OracleTests
 
         using var creator = new MddCreator();
         var bytes = await File.ReadAllBytesAsync("stub.txt");
-        await creator.AddEntryAsync("\\stub.txt", bytes);
+        await creator.AddEntryAsync(@"\stub.txt", bytes);
 
         await creator.WriteAsync(header, outMddPath, Configure);
 
