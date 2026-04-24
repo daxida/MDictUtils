@@ -188,8 +188,12 @@ public static class MDictPacker
             int pos = 0, offset = 0;
             string? key = null;
             int lineNum = 0;
-
             int i = 0;
+
+            var bomBytes = encoding.GetPreamble();
+            if (fileBytes.StartsWith(bomBytes))
+                i += bomBytes.Length;
+
             while (i < fileBytes.Length)
             {
                 int lineStart = i;
