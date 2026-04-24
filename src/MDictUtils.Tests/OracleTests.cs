@@ -21,13 +21,13 @@ public class OracleTests
     private static readonly string Description = File.ReadAllText("description.html", Encoding.UTF8).Trim();
     private static readonly DateOnly CreationDate = new(2026, 4, 24);
 
-    private static readonly byte[] MdxOracleBytes = File.ReadAllBytes("out_no_compression.mdx");
-    private static readonly byte[] MddOracleBytes = File.ReadAllBytes("out_no_compression.mdd");
+    private static readonly ReadOnlyMemory<byte> MdxOracleBytes = File.ReadAllBytes("out_no_compression.mdx");
+    private static readonly ReadOnlyMemory<byte> MddOracleBytes = File.ReadAllBytes("out_no_compression.mdd");
 
     private static void Configure(MDictWriterOptions options)
         => options.CompressionLevel = CompressionLevel.NoCompression;
 
-    private static void AssertContentEqual(byte[] oracleBytes, string newFile)
+    private static void AssertContentEqual(ReadOnlyMemory<byte> oracleBytes, string newFile)
     {
         var newBytes = File.ReadAllBytes(newFile);
         Assert.Equal(oracleBytes, newBytes);
