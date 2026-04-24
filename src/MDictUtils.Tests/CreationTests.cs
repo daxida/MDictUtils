@@ -112,6 +112,45 @@ public class CreationDoUndoTests
         }
     }
 
+    [Fact]
+    public async Task DoUndo_PackAndUnpackMdx_ProducesIdenticalFile_Utf16()
+    {
+        string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(tempDir);
+        string originalDictPath = Path.Combine(tempDir, "dict1.txt");
+        string outMdxPath = Path.Combine(tempDir, "out.mdx");
+        string extractedDictPath = Path.Combine(tempDir, "out.mdx.txt");
+
+        static void configure(MdxWriterOptions options)
+            => options.KeyEncoding = MDictKeyEncodingType.Utf16;
+
+        try
+        {
+            // Create dict1.txt
+            File.WriteAllText(originalDictPath, TestContent, encoding: Encoding.Unicode);
+
+            // Pack it into out.mdx
+            using var creator = new MdxCreator(encoding: Encoding.Unicode);
+            await creator.AddEntryAsync("apple", "A fruit that grows on trees.");
+            await creator.AddEntryAsync("banana", "A long yellow fruit.");
+            await creator.AddEntryAsync("@cc-100", "xxx");
+
+            var header = new MdxHeader() { Encoding = "UTF-16" };
+            await creator.WriteAsync(header, outMdxPath, configure);
+
+            // Unpack out1.mdx to tempDir and compare normalized
+            MDictPacker.Unpack(tempDir, outMdxPath, isMdd: false, encoding: Encoding.Unicode);
+            Assert.True(File.Exists(extractedDictPath), "Extracted file should exist");
+            string extractedContent = File.ReadAllText(extractedDictPath, encoding: Encoding.Unicode);
+            AssertContentEqual(TestContent, extractedContent);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+                Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
     private static ReadOnlyMemory<byte> TestBytes
         => Encoding.UTF8.GetBytes(TestContent);
 
