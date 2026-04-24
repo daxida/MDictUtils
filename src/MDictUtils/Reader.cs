@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 
 namespace MDictUtils;
 
-public partial class MDict
+public abstract partial class MDict
 {
     private static readonly ArrayPool<byte> _arrayPool = ArrayPool<byte>.Shared;
     protected string _fname;
@@ -24,10 +24,10 @@ public partial class MDict
     protected readonly Dictionary<string, string> _header;
 
     // Ignore passcode for now
-    public MDict(string fname, Encoding encoding)
+    protected MDict(string fname, Encoding? encoding)
     {
         _fname = fname;
-        _encoding = encoding;
+        _encoding = encoding ?? Encoding.UTF8;
         _header = ReadHeader();
         _version = 2.0F; // hardcode it, useless anyway
         _keyList = ReadKeys();
@@ -35,11 +35,8 @@ public partial class MDict
 
     public int Count => _numEntries;
     public Dictionary<string, string> Header => _header;
-
     public IEnumerable<(string, byte[])> Items() => ReadRecords();
-
-    // overwriten for MDX
-    public virtual byte[] TreatRecordData(ReadOnlySpan<byte> data) => data.ToArray();
+    public abstract byte[] TreatRecordData(ReadOnlySpan<byte> data);
 
     // _read_records_v1v2
     // https://github.com/liuyug/mdict-utils/blob/64e15b99aca786dbf65e5a2274f85547f8029f2e/mdict_utils/base/readmdict.py#L563
@@ -175,7 +172,7 @@ public partial class MDict
         using var br = new BinaryReader(fs);
 
         int headerBytesSize = Common.ReadBigEndian<int>(br.ReadBytes(4), false);
-        byte[] headerBytes = br.ReadBytes(headerBytesSize);
+        ReadOnlySpan<byte> headerBytes = br.ReadBytes(headerBytesSize);
 
         // Adler32 checksum of header
         uint adler32 = Common.ReadLittleEndian<uint>(br.ReadBytes(4), true);
@@ -185,16 +182,12 @@ public partial class MDict
 
         _keyBlockOffset = fs.Position;
 
-        // decode header text
-        string headerText;
-        if (headerBytes.Length >= 2 && headerBytes[^2] == 0 && headerBytes[^1] == 0)
-        {
-            headerText = Encoding.Unicode.GetString(headerBytes, 0, headerBytes.Length - 2);
-        }
-        else
-        {
-            headerText = Encoding.UTF8.GetString(headerBytes, 0, headerBytes.Length - 1);
-        }
+        // decode header text (Always encoded in UTF-16LE by the specification)
+        var nullBytes = Encoding.Unicode.GetBytes("\0");
+        if (headerBytes.EndsWith(nullBytes))
+            headerBytes = headerBytes[..^nullBytes.Length];
+
+        var headerText = Encoding.Unicode.GetString(headerBytes);
 
         // parse XML-like tags into dictionary
         var headerTag = ParseHeader(headerText);
@@ -257,7 +250,7 @@ public partial class MDict
         using FileStream f = new(_fname, FileMode.Open, FileAccess.Read);
         f.Seek(_keyBlockOffset, SeekOrigin.Begin);
 
-        int numBytes = (_version >= 2.0) ? 8 * 5 : 4 * 4;
+        const int numBytes = 8 * 5;
         Span<byte> block = stackalloc byte[numBytes];
         f.ReadExactly(block);
 
@@ -270,17 +263,14 @@ public partial class MDict
 
         long numKeyBlocks = ReadNumber(r.Read());
         _numEntries = (int)ReadNumber(r.Read());
-        long keyBlockInfoDecompSize = (_version >= 2.0) ? ReadNumber(r.Read()) : 0;
+        long keyBlockInfoDecompSize = ReadNumber(r.Read());
         int keyBlockInfoSize = (int)ReadNumber(r.Read());
         int keyBlockSize = (int)ReadNumber(r.Read());
 
-        if (_version >= 2.0)
-        {
-            Span<byte> adlerBytes = stackalloc byte[4];
-            f.ReadExactly(adlerBytes);
-            uint adler32 = Common.ReadBigEndian<uint>(adlerBytes, true);
-            Debug.Assert(adler32 == Common.Adler32(block));
-        }
+        Span<byte> adlerBytes = stackalloc byte[4];
+        f.ReadExactly(adlerBytes);
+        uint adler32 = Common.ReadBigEndian<uint>(adlerBytes, true);
+        Debug.Assert(adler32 == Common.Adler32(block));
 
         // Read key block info
         byte[] buffer = _arrayPool.Rent(keyBlockInfoSize);
@@ -304,90 +294,81 @@ public partial class MDict
 
     protected List<(long, long)> DecodeKeyBlockInfo(ReadOnlySpan<byte> keyBlockInfoCompressed, long decompSize)
     {
-        ReadOnlySpan<byte> keyBlockInfo;
-
-        if (_version >= 2.0)
+        // SAFETY: check header bytes
+        if (keyBlockInfoCompressed.Length < 4)
         {
-            // SAFETY: check header bytes
-            if (keyBlockInfoCompressed.Length < 4)
-            {
-                throw new InvalidDataException($"""
-                    Key block info is too short.
-                    Expected at least 4 bytes.
-                    Got {keyBlockInfoCompressed.Length} bytes.
-                    """);
-            }
+            throw new InvalidDataException($"""
+                Key block info is too short.
+                Expected at least 4 bytes.
+                Got {keyBlockInfoCompressed.Length} bytes.
+                """);
+        }
 
-            // Expect compression type = 2 (ZLib) in little-endian bytes.
-            if (keyBlockInfoCompressed is not [0x02, 0x00, 0x00, 0x00, ..])
-            {
-                var actual = string.Join(
-                    separator: ", ",
-                    values: keyBlockInfoCompressed[..4]
-                        .ToArray()
-                        .Select(static b => $"{b:X2}"));
+        // Expect compression type = 2 (ZLib) in little-endian bytes.
+        if (keyBlockInfoCompressed is not [0x02, 0x00, 0x00, 0x00, ..])
+        {
+            var actual = string.Join(
+                separator: ", ",
+                values: keyBlockInfoCompressed[..4]
+                    .ToArray()
+                    .Select(static b => $"{b:X2}"));
 
-                throw new InvalidDataException($"""
-                    Key block info header mismatch.
-                    Expected: [0x02, 0x00, 0x00, 0x00, ..]
-                    Actual:   [{actual}, ..]"
-                    """);
-            }
+            throw new InvalidDataException($"""
+                Key block info header mismatch.
+                Expected: [0x02, 0x00, 0x00, 0x00, ..]
+                Actual:   [{actual}, ..]"
+                """);
+        }
 
-            ReadOnlySpan<byte> compressed;
-            if ((_encrypt & 0x02) != 0)
-            {
-                // decrypt if needed
-                // https://github.com/liuyug/mdict-utils/blob/master/mdict_utils/base/readmdict.py#L199
-                //
-                // key = ripemd128(key_block_info_compressed[4:8] + pack(b'<L', 0x3695))
-                // key_block_info_compressed = key_block_info_compressed[:8] + _fast_decrypt(key_block_info_compressed[8:], key)
-                Span<byte> message = stackalloc byte[8];
-                Span<byte> hash = stackalloc byte[16]; // RIPEMD-128 is 16 bytes
-                keyBlockInfoCompressed[4..8].CopyTo(message[..4]);
-                Common.ToLittleEndian(0x3695u, message[4..8]);
+        ReadOnlySpan<byte> compressed;
+        if ((_encrypt & 0x02) != 0)
+        {
+            // decrypt if needed
+            // https://github.com/liuyug/mdict-utils/blob/master/mdict_utils/base/readmdict.py#L199
+            //
+            // key = ripemd128(key_block_info_compressed[4:8] + pack(b'<L', 0x3695))
+            // key_block_info_compressed = key_block_info_compressed[:8] + _fast_decrypt(key_block_info_compressed[8:], key)
+            Span<byte> message = stackalloc byte[8];
+            Span<byte> hash = stackalloc byte[16]; // RIPEMD-128 is 16 bytes
+            keyBlockInfoCompressed[4..8].CopyTo(message[..4]);
+            Common.ToLittleEndian(0x3695u, message[4..8]);
 
-                var hashSize = Ripemd128.ComputeHash(message, hash);
-                var key = hash[..hashSize];
+            var hashSize = Ripemd128.ComputeHash(message, hash);
+            var key = hash[..hashSize];
 
-                var decryptedSize = keyBlockInfoCompressed.Length - 8;
-                byte[] decrypted = _arrayPool.Rent(decryptedSize);
-                var result = decrypted.AsSpan(..decryptedSize);
+            var decryptedSize = keyBlockInfoCompressed.Length - 8;
+            byte[] decrypted = _arrayPool.Rent(decryptedSize);
+            var result = decrypted.AsSpan(..decryptedSize);
 
-                Ripemd128.FastDecrypt(keyBlockInfoCompressed[8..], key, result);
-                byte[] bytes = [.. keyBlockInfoCompressed[..8], .. result];
-                compressed = bytes;
-                _arrayPool.Return(decrypted);
-            }
-            else
-            {
-                compressed = keyBlockInfoCompressed;
-            }
-
-            // decompress zlib
-            var data = compressed[8..];
-            var buffer = new byte[(int)decompSize];
-            ZLibCompression.Decompress(data, buffer);
-            keyBlockInfo = buffer;
-
-            Span<byte> checksumBuffer = stackalloc byte[4];
-            compressed[4..8].CopyTo(checksumBuffer);
-
-            uint adler32 = Common.ReadBigEndian<uint>(checksumBuffer, true);
-            if (adler32 != Common.Adler32(keyBlockInfo))
-                throw new InvalidDataException("Key block info Adler32 mismatch.");
+            Ripemd128.FastDecrypt(keyBlockInfoCompressed[8..], key, result);
+            byte[] bytes = [.. keyBlockInfoCompressed[..8], .. result];
+            compressed = bytes;
+            _arrayPool.Return(decrypted);
         }
         else
         {
-            keyBlockInfo = keyBlockInfoCompressed;
+            compressed = keyBlockInfoCompressed;
         }
+
+        // decompress zlib
+        var data = compressed[8..];
+        var buffer = new byte[(int)decompSize];
+        ZLibCompression.Decompress(data, buffer);
+        ReadOnlySpan<byte> keyBlockInfo = buffer;
+
+        Span<byte> checksumBuffer = stackalloc byte[4];
+        compressed[4..8].CopyTo(checksumBuffer);
+
+        uint adler32 = Common.ReadBigEndian<uint>(checksumBuffer, true);
+        if (adler32 != Common.Adler32(keyBlockInfo))
+            throw new InvalidDataException("Key block info Adler32 mismatch.");
 
         // decode key block info
         List<(long, long)> keyBlockInfoList = [];
         int numEntries = 0;
         int i = 0;
-        int byteWidth = (_version >= 2.0) ? 2 : 1;
-        int textTerm = (_version >= 2.0) ? 1 : 0;
+        const int byteWidth = 2;
+        const int textTerm = 1;
 
         while (i < keyBlockInfo.Length)
         {
@@ -395,9 +376,7 @@ public partial class MDict
             numEntries += (int)ReadNumber(keyBlockInfo.Slice(i, _numberWidth));
             i += _numberWidth;
 
-            int textHeadSize = (byteWidth == 2)
-                ? Common.ReadBigEndian<ushort>(keyBlockInfo.Slice(i, 2), true)
-                : keyBlockInfo[i];
+            int textHeadSize = Common.ReadBigEndian<ushort>(keyBlockInfo.Slice(i, 2), true);
             i += byteWidth;
 
             if (_encoding != Encoding.Unicode)
@@ -405,9 +384,7 @@ public partial class MDict
             else
                 i += (textHeadSize + textTerm) * 2;
 
-            int textTailSize = (byteWidth == 2)
-                ? Common.ReadBigEndian<ushort>(keyBlockInfo.Slice(i, 2), true)
-                : keyBlockInfo[i];
+            int textTailSize = Common.ReadBigEndian<ushort>(keyBlockInfo.Slice(i, 2), true);
             i += byteWidth;
 
             if (_encoding != Encoding.Unicode)
@@ -540,20 +517,23 @@ public partial class MDict
 
 public sealed class MDD(string fname) : MDict(fname, Encoding.Unicode)
 {
+    public override byte[] TreatRecordData(ReadOnlySpan<byte> data)
+        => data.ToArray();
 }
 
-public sealed class MDX(string fname) : MDict(fname, Encoding.UTF8)
+public sealed class MDX(string fname, Encoding? encoding = null) : MDict(fname, encoding)
 {
     public override byte[] TreatRecordData(ReadOnlySpan<byte> data)
     {
-        if (_encoding != Encoding.UTF8)
-        {
-            // For Encoding.Unicode, trimming the \0 bytes
-            // might(?) accidentally cut a character in half
-            // (since UTF-16 uses two bytes per character).
-            throw new InvalidOperationException();
-        }
+        var nullBytes = _encoding.GetBytes("\0");
 
-        return data.Trim((byte)'\0').ToArray();
+        Debug.Assert(data.EndsWith(nullBytes));
+
+        // Remove the null-termination byte that
+        // was added when compiling the MDX file.
+        if (data.EndsWith(nullBytes))
+            data = data[..^nullBytes.Length];
+
+        return data.ToArray();
     }
 }

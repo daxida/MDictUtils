@@ -12,7 +12,7 @@ public static class MDictPacker
     private static readonly UTF8Encoding UTF8NoBOM = new(false);
     private const long MaxRecordSize = 2_000_000_000;
 
-    public static void Unpack(string target, string source, bool isMdd)
+    public static void Unpack(string target, string source, bool isMdd, Encoding? encoding = null)
     {
         // This creates intermediate folders, in case target = d1/d2/folder
         if (!Directory.Exists(target))
@@ -26,14 +26,15 @@ public static class MDictPacker
         }
         else
         {
-            UnpackMdx(target, source);
+            UnpackMdx(target, source, encoding);
         }
     }
 
 
-    public static void UnpackMdx(string target, string source)
+    public static void UnpackMdx(string target, string source, Encoding? encoding = null)
     {
-        MDX mdx = new(source);
+        encoding ??= Encoding.UTF8;
+        MDX mdx = new(source, encoding);
         string basename = Path.GetFileName(source);
 
         Dictionary<string, string> header = mdx.Header;
@@ -62,32 +63,37 @@ public static class MDictPacker
         // Since split is None, we just write everything to a single file
         string outPath = Path.Combine(target, $"{basename}.txt");
 
-        using FileStream tf = new(outPath, FileMode.Create, FileAccess.Write);
-        using BinaryWriter writer = new(tf);
+        using FileStream outfile = new(outPath, FileMode.Create, FileAccess.Write);
+
+        ReadOnlySpan<byte> whitespaceBytes = encoding.GetBytes(" ");
+        ReadOnlySpan<byte> newlineBytes = encoding.GetBytes("\n");
+        ReadOnlySpan<byte> carriageNewlineBytes = encoding.GetBytes("\r\n");
+        ReadOnlySpan<byte> endOfEntryBytes = encoding.GetBytes("</>");
 
         int itemCount = 0;
 
         foreach (var (key, bytes) in mdx.Items())
         {
             // if not value.strip(): continue
-            if (bytes.Length == 0 || bytes.All(static b => char.IsWhiteSpace((char)b)))
+            if (bytes.Length == 0 || bytes.Trim(whitespaceBytes).Length == 0)
             {
                 continue;
             }
 
             itemCount++;
 
-            byte[] keyBytes = Encoding.UTF8.GetBytes(key);
-            writer.Write(keyBytes);
-            writer.Write("\r\n"u8);
+            byte[] keyBytes = encoding.GetBytes(key);
+            outfile.Write(keyBytes);
+            outfile.Write(carriageNewlineBytes);
 
-            writer.Write(bytes);
-            if (bytes.Length == 0 || bytes[^1] != (byte)'\n')
+            outfile.Write(bytes);
+            if (bytes.Length == 0 || !bytes.EndsWith(newlineBytes))
             {
-                writer.Write("\r\n"u8);
+                outfile.Write(carriageNewlineBytes);
             }
 
-            writer.Write("</>\r\n"u8);
+            outfile.Write(endOfEntryBytes);
+            outfile.Write(carriageNewlineBytes);
         }
     }
 
@@ -163,8 +169,12 @@ public static class MDictPacker
     public static List<MDictEntry> PackMdx(string source, Encoding? encoding = null)
     {
         encoding ??= Encoding.UTF8;
+
         List<MDictEntry> entries = [];
         List<string> sources = [];
+
+        ReadOnlySpan<byte> lfBytes = encoding.GetBytes("\n");
+        ReadOnlySpan<byte> crlfBytes = encoding.GetBytes("\r\n");
         int nullLength = encoding.GetByteCount("\0");
 
         if (File.Exists(source))
@@ -174,25 +184,43 @@ public static class MDictPacker
 
         foreach (var path in sources)
         {
-            byte[] fileBytes = File.ReadAllBytes(path);
-            long pos = 0, offset = 0;
+            var info = new FileInfo(path);
+            if (info.Length > int.MaxValue)
+                throw new InvalidDataException($"File '{info.FullName}' is too large (over {int.MaxValue} bytes)");
+
+            // TODO: Support larger file sizes.
+            ReadOnlySpan<byte> fileBytes = File.ReadAllBytes(path);
+
+            int pos = 0, offset = 0;
             string? key = null;
             int lineNum = 0;
+            int i = 0;
 
-            long i = 0;
+            var bomBytes = encoding.GetPreamble();
+            if (fileBytes.StartsWith(bomBytes))
+                i += bomBytes.Length;
+
             while (i < fileBytes.Length)
             {
-                // Read a line (detect LF or CRLF)
-                long lineStart = i;
-                while (i < fileBytes.Length && fileBytes[i] != 10 && fileBytes[i] != 13) i++;
-                long lineEnd = i;
+                int lineStart = i;
+                while (i < fileBytes.Length)
+                {
+                    i++;
+                    var currentLine = fileBytes[lineStart..i];
+                    if (currentLine.EndsWith(lfBytes))
+                        break;
+                }
 
-                // Detect newline length
-                if (i < fileBytes.Length && fileBytes[i] == 13) i++;
-                if (i < fileBytes.Length && fileBytes[i] == 10) i++;
+                var fullLine = fileBytes[lineStart..i];
+                int lineEnd
+                    = fullLine.EndsWith(crlfBytes)
+                        ? i - crlfBytes.Length
+                    : fullLine.EndsWith(lfBytes)
+                        ? i - lfBytes.Length
+                    : i;
 
-                int lineLength = (int)(lineEnd - lineStart);
-                string line = encoding.GetString(fileBytes, (int)lineStart, lineLength).Trim();
+                int lineLength = lineEnd - lineStart;
+                string line = encoding.GetString(fileBytes.Slice(lineStart, lineLength)).Trim();
                 lineNum++;
 
                 if (line.Length == 0)
@@ -207,11 +235,7 @@ public static class MDictPacker
                     if (key == null || offset == pos)
                         throw new Exception($"Error at line {lineNum}: {path}");
 
-                    long longSize = offset - pos + nullLength;
-                    int size = longSize < MaxRecordSize
-                        ? Convert.ToInt32(longSize)
-                        : throw new InvalidDataException($"File '{path}' contains a record that is too large (over {MaxRecordSize:N0} bytes)");
-
+                    int size = offset - pos + nullLength;
                     entries.Add(new MDictEntry(key, path, pos, size));
                     key = null;
                 }

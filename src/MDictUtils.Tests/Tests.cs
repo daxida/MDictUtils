@@ -246,6 +246,47 @@ public class DoUndoTests
 
     [Theory]
     [MemberData(nameof(TestContents))]
+    public async Task DoUndo_PackAndUnpackMdx_ProducesIdenticalFile_Utf16(string testContent)
+    {
+        string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(tempDir);
+        string originalDictPath = Path.Combine(tempDir, "dict1.txt");
+        string outMdxPath = Path.Combine(tempDir, "out.mdx");
+        string extractedDictPath = Path.Combine(tempDir, "out.mdx.txt");
+
+        try
+        {
+            // Create dict1.txt
+            File.WriteAllText(originalDictPath, testContent, Encoding.Unicode);
+
+            // Pack it into out.mdx
+            var header = new MdxHeader() { Encoding = "UTF-16" };
+            var packedEntries = MDictPacker.PackMdx(originalDictPath, Encoding.Unicode);
+            var writer = new ServiceCollection()
+                .AddMdxWriter(options => options.KeyEncoding = MDictKeyEncodingType.Utf16)
+                .AddTestLogging()
+                .BuildServiceProvider()
+                .GetRequiredService<IMdxWriter>();
+
+            await writer.WriteAsync(header, packedEntries, outMdxPath);
+
+            // Unpack out1.mdx to tempDir and compare normalized
+            MDictPacker.Unpack(tempDir, outMdxPath, isMdd: false, Encoding.Unicode);
+            Assert.True(File.Exists(extractedDictPath), "Extracted file should exist");
+            string extractedContent = File.ReadAllText(extractedDictPath, Encoding.Unicode);
+            // Console.Error.WriteLine(testContent);
+            // Console.Error.WriteLine(extractedContent);
+            AssertContentEqual(testContent, extractedContent);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+                Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(TestContents))]
     public async Task DoUndo_PackAndUnpackMdd_ProducesIdenticalFile(string testContent)
     {
         string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());

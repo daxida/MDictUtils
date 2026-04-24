@@ -25,6 +25,12 @@ public abstract record MDictHeader
 
 public sealed record MdxHeader : MDictHeader
 {
+    /// <summary>
+    /// The encoding used for text in the document. Possible values are
+    /// “UTF-8”, “UTF-16” (uses little-endian encoding), “GBK”, and “Big5”.
+    /// </summary>
+    public string Encoding { get; init; } = "UTF-8";
+
     public override string ToString()
     {
         var sb = new StringBuilder();
@@ -39,7 +45,7 @@ public sealed record MdxHeader : MDictHeader
         append($"""  GeneratedByEngineVersion="{Version}"     """);
         append($"""  RequiredEngineVersion="{Version}"        """);
         append($"""  Encrypted="No"                           """);
-        append($"""  Encoding="UTF-8"                         """);
+        append($"""  Encoding="{Encoding}"                    """);
         append($"""  Format="Html"                            """);
         append($"""  Stripkey="Yes"                           """);
         append($"""  CreationDate="{DateString}"              """);

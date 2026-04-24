@@ -9,11 +9,11 @@ internal sealed class KeyBlock : MDictBlock
     private readonly OffsetEntryKey _firstKey;
     private readonly OffsetEntryKey _lastKey;
 
-    public KeyBlock(int id, CompressedBlock block, ReadOnlySpan<OffsetTableEntry> offsetTable) : base(id, block)
+    public KeyBlock(int id, CompressedBlock block, ReadOnlySpan<OffsetTableEntry> entries) : base(id, block)
     {
-        _numEntries = offsetTable.Length;
-        _firstKey = new(offsetTable[0]);
-        _lastKey = new(offsetTable[^1]);
+        _numEntries = entries.Length;
+        _firstKey = new(entries[0]);
+        _lastKey = new(entries[^1]);
     }
 
     public override int IndexEntryLength

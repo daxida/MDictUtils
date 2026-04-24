@@ -9,10 +9,10 @@ internal static class ZLibCompression
     // https://learn.microsoft.com/en-us/dotnet/api/system.io.compression.compressionlevel?view=net-10.0
     //
     // There is no reliable way to get the same exact bytes, so live with that
-    public static async Task<int> CompressAsync(ReadOnlyMemory<byte> input, byte[] output)
+    public static async Task<int> CompressAsync(ReadOnlyMemory<byte> input, byte[] output, CompressionLevel compressionLevel)
     {
         await using var ms = new MemoryStream(output);
-        await using (var z = new ZLibStream(ms, CompressionLevel.Optimal, leaveOpen: true))
+        await using (var z = new ZLibStream(ms, compressionLevel, leaveOpen: true))
         {
             await z.WriteAsync(input);
         }

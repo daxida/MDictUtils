@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.IO.Compression;
 using System.Text;
 using MDictUtils.Extensions;
 
@@ -6,6 +7,7 @@ namespace MDictUtils.BuildModels;
 
 internal sealed record BuildOptions
 {
+    public required CompressionLevel CompressionLevel { get; init; }
     public required int DesiredKeyBlockSize { get; init; }
     public required int DesiredRecordBlockSize { get; init; }
     public required Encoding KeyEncoding { get; init; }
