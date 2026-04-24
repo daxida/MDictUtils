@@ -174,7 +174,7 @@ public static class MDictPacker
         List<string> sources = [];
 
         ReadOnlySpan<byte> lfBytes = encoding.GetBytes("\n");
-        ReadOnlySpan<byte> lfcrBytes = encoding.GetBytes("\r\n");
+        ReadOnlySpan<byte> crlfBytes = encoding.GetBytes("\r\n");
         int nullLength = encoding.GetByteCount("\0");
 
         if (File.Exists(source))
@@ -213,8 +213,8 @@ public static class MDictPacker
 
                 var fullLine = fileBytes[lineStart..i];
                 int lineEnd
-                    = fullLine.EndsWith(lfcrBytes)
-                        ? i - lfcrBytes.Length
+                    = fullLine.EndsWith(crlfBytes)
+                        ? i - crlfBytes.Length
                     : fullLine.EndsWith(lfBytes)
                         ? i - lfBytes.Length
                     : i;
