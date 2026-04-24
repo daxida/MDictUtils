@@ -29,7 +29,7 @@ public sealed record MdxHeader : MDictHeader
     /// The encoding used for text in the document. Possible values are
     /// “UTF-8”, “UTF-16” (uses little-endian encoding), “GBK”, and “Big5”.
     /// </summary>
-    public string Encoding { get; init; } = "UTF-8";
+    public string? Encoding { get; init; }
 
     public override string ToString()
     {
