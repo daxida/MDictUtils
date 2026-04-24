@@ -184,7 +184,13 @@ public static class MDictPacker
 
         foreach (var path in sources)
         {
-            byte[] fileBytes = File.ReadAllBytes(path); // TODO: This will crash if the file is too big.
+            var info = new FileInfo(path);
+            if (info.Length > int.MaxValue)
+                throw new InvalidDataException($"File '{info.FullName}' is too large (over {int.MaxValue} bytes)");
+
+            // TODO: Support larger file sizes.
+            ReadOnlySpan<byte> fileBytes = File.ReadAllBytes(path);
+
             int pos = 0, offset = 0;
             string? key = null;
             int lineNum = 0;
@@ -200,12 +206,12 @@ public static class MDictPacker
                 while (i < fileBytes.Length)
                 {
                     i++;
-                    var currentLine = fileBytes.AsSpan(lineStart..i);
+                    var currentLine = fileBytes[lineStart..i];
                     if (currentLine.EndsWith(lfBytes))
                         break;
                 }
 
-                var fullLine = fileBytes.AsSpan(lineStart..i);
+                var fullLine = fileBytes[lineStart..i];
                 int lineEnd
                     = fullLine.EndsWith(lfcrBytes)
                         ? i - lfcrBytes.Length
@@ -214,7 +220,7 @@ public static class MDictPacker
                     : i;
 
                 int lineLength = lineEnd - lineStart;
-                string line = encoding.GetString(fileBytes, lineStart, lineLength).Trim();
+                string line = encoding.GetString(fileBytes.Slice(lineStart, lineLength)).Trim();
                 lineNum++;
 
                 if (line.Length == 0)
