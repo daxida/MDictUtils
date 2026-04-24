@@ -1,14 +1,17 @@
 using System.Buffers;
 using System.Text;
+using MDictUtils.BuildModels;
 
 namespace MDictUtils.Write;
 
-internal sealed class HeaderWriter
+internal sealed class HeaderWriter(BuildOptions options)
 {
     private static readonly MemoryPool<byte> _memoryPool = MemoryPool<byte>.Shared;
 
     public async Task WriteAsync(Stream stream, MDictHeader header)
     {
+        header = FixHeaderEncoding(header);
+
         var xmlString = header.ToString();
         var xmlSize = Encoding.Unicode.GetByteCount(xmlString);
         var headerSize = xmlSize + 8;
@@ -33,5 +36,25 @@ internal sealed class HeaderWriter
 
         // Output
         await stream.WriteAsync(headerBytes);
+    }
+
+    /// <summary>
+    /// Sets the header encoding to the key encoding if the user did not set it manually.
+    /// </summary>
+    private MDictHeader FixHeaderEncoding(MDictHeader header)
+    {
+        if (header is MdxHeader mdxHeader && mdxHeader.Encoding is null)
+        {
+            header = mdxHeader with
+            {
+                Encoding = options.KeyEncoding switch
+                {
+                    UTF8Encoding => "UTF-8",
+                    UnicodeEncoding => "UTF-16",
+                    _ => null
+                }
+            };
+        }
+        return header;
     }
 }
