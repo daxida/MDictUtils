@@ -184,30 +184,49 @@ public class DoUndoTests
         Assert.Equal(normalizedExpected, normalizedActual);
     }
 
-    public static TheoryData<string> TestContents => new()
-        {
-            """
-            single
-            Just one entry.
-            </>
-            """,
+    private static readonly string[] TestContents =
+    [
+        """
+        single
+        Just one entry.
+        </>
+        """,
 
-            """
-            apple
-            A fruit that grows on trees.
-            </>
-            banana
-            A long yellow fruit.
-            </>
-            @cc-100
-            xxx
-            </>
-            """,
-        };
+        """
+        apple
+        A fruit that grows on trees.
+        </>
+        banana
+        A long yellow fruit.
+        </>
+        @cc-100
+        xxx
+        </>
+        """,
+    ];
+
+    private static readonly MDictCompressionType[] TestCompressionTypes =
+    [
+        MDictCompressionType.None,
+        MDictCompressionType.ZLib,
+    ];
+
+    public static TheoryData<string> TheoryContents => new(TestContents);
+    public static TheoryData<string, MDictCompressionType> TheoryContentAndCompressionTypes
+    {
+        get
+        {
+            TheoryData<string, MDictCompressionType> items = [];
+            foreach (var testContent in TestContents)
+                foreach (var compressionType in TestCompressionTypes)
+                    items.Add(testContent, compressionType);
+            return items;
+        }
+    }
 
     [Theory]
-    [MemberData(nameof(TestContents))]
-    public async Task DoUndo_PackAndUnpackMdx_ProducesIdenticalFile(string testContent)
+    [MemberData(nameof(TheoryContentAndCompressionTypes))]
+    public async Task DoUndo_PackAndUnpackMdx_ProducesIdenticalFile(string testContent, MDictCompressionType compType)
     {
         string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         Directory.CreateDirectory(tempDir);
@@ -224,7 +243,7 @@ public class DoUndoTests
             var header = new MdxHeader();
             var packedEntries = MDictPacker.PackMdx(originalDictPath);
             var writer = new ServiceCollection()
-                .AddMdxWriter()
+                .AddMdxWriter(options => options.CompressionType = compType)
                 .AddTestLogging()
                 .BuildServiceProvider()
                 .GetRequiredService<IMdxWriter>();
@@ -245,7 +264,7 @@ public class DoUndoTests
     }
 
     [Theory]
-    [MemberData(nameof(TestContents))]
+    [MemberData(nameof(TheoryContents))]
     public async Task DoUndo_PackAndUnpackMdx_ProducesIdenticalFile_Utf16(string testContent)
     {
         string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
@@ -286,7 +305,7 @@ public class DoUndoTests
     }
 
     [Theory]
-    [MemberData(nameof(TestContents))]
+    [MemberData(nameof(TheoryContents))]
     public async Task DoUndo_PackAndUnpackMdd_ProducesIdenticalFile(string testContent)
     {
         string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
