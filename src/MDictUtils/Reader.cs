@@ -450,7 +450,7 @@ public abstract partial class MDict
         Debug.Assert(input.Length >= 8, "Block too small");
 
         uint info = Common.ReadLittleEndian<uint>(input[..4], true);
-        int compressionMethod = (int)(info & 0xF);
+        var compressionMethod = (MDictCompressionType)info;
         // int encryptionMethod = (int)((info >> 4) & 0xF);
         int encryptionSize = (int)((info >> 8) & 0xFF);
 
@@ -464,8 +464,12 @@ public abstract partial class MDict
         Debug.Assert(encryptionSize <= data.Length, "Invalid encryption size");
 
         // ---- decrypt ---- (assume no encryption)
-        Debug.Assert(compressionMethod == 2);
-        ZLibCompression.Decompress(data, output);
+        if (compressionMethod == MDictCompressionType.None)
+            data.CopyTo(output);
+        else if (compressionMethod == MDictCompressionType.ZLib)
+            ZLibCompression.Decompress(data, output);
+        else
+            throw new NotSupportedException($"Unsupported compression type {compressionMethod}");
 
         Debug.Assert(adler32 == Common.Adler32(output), "Adler32 mismatch after decompression");
     }
